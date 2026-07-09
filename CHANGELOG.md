@@ -5,9 +5,7 @@
 ## [Unreleased]
 
 ### Added
-- MyTime SVG Logo 源文件（`assets/logo/`），包含主 Logo、深色版、图标标记与 Android 自适应图标分层
-- 新增 Splash/About 页面 `lib/ui/pages/splash/`，展示 MyTime Logo
-- 新增 Splash 页面 Widget 测试，覆盖浅色/深色模式 Logo 渲染
+- 新增 MyTime 品牌 Logo：SVG 源文件、Android/iOS 启动图标、应用内 Splash 页面及 Widget 测试
 - 项目初始化（git 仓库 + GitHub 私有远端）
 - 设计规格文档 `docs/superpowers/specs/2026-07-09-mytime-design.md`
 - 高保真 HTML 原型 `design-demos/mytime-prototype.html`，覆盖四个主页面交互流程：
