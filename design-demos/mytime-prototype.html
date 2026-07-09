@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyTime - App Prototype</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #E8E8ED; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; }
+.page-header { text-align: center; padding: 32px 0 8px; }
+.page-header h1 { font-size: 28px; font-weight: 700; color: #1a1a2e; letter-spacing: -0.5px; }
+.page-header p { font-size: 14px; color: #666; margin-top: 4px; }
+.grid { display: flex; gap: 28px; flex-wrap: wrap; padding: 32px 48px; justify-content: center; align-items: flex-start; }
+.phone-slot { text-align: center; }
+.phone-label { font-size: 13px; color: #888; margin-bottom: 10px; font-style: italic; letter-spacing: 0.3px; }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4); } 70% { box-shadow: 0 0 0 16px rgba(79, 70, 229, 0); } 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>MyTime</h1>
+  <p>时间记录 · 高保真原型</p>
+</div>
+
+<div id="root"></div>
+
+<script type="text/babel">
+// ===== Android Frame =====
+const androidFrameStyles = {
+  wrapper: {
+    display: 'inline-block',
+    padding: 10,
+    background: '#1a1a1a',
+    borderRadius: 44,
+    boxShadow: '0 0 0 2px #2a2a2a, 0 20px 60px rgba(0,0,0,0.3)',
+    position: 'relative',
+  },
+  screen: {
+    position: 'relative',
+    borderRadius: 36,
+    overflow: 'hidden',
+    background: '#fff',
+  },
+  statusBar: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 32,
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '0 24px', fontSize: 14, fontWeight: 500,
+    fontFamily: 'Roboto, sans-serif', zIndex: 20, pointerEvents: 'none',
+  },
+  punchHole: {
+    position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
+    width: 14, height: 14, background: '#000', borderRadius: '50%', zIndex: 30,
+  },
+  statusIcons: { display: 'flex', alignItems: 'center', gap: 6 },
+  batteryText: { fontSize: 11, fontWeight: 600, marginLeft: 2 },
+  content: { position: 'absolute', top: 32, left: 0, right: 0, bottom: 24, overflow: 'hidden' },
+  navBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 24,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10,
+  },
+  navButton: { width: 100, height: 4, background: 'rgba(0,0,0,0.4)', borderRadius: 999 },
+};
+
+function AndroidFrame({ children, width = 412, height = 892, time = '9:41', battery = 100, bg }) {
+  return (
+    <div style={androidFrameStyles.wrapper}>
+      <div style={{ ...androidFrameStyles.screen, width, height, background: bg || '#fff' }}>
+        <div style={{ ...androidFrameStyles.statusBar, color: '#1a1a1a' }}>
+          <span>{time}</span>
+          <div style={androidFrameStyles.statusIcons}>
+            <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor">
+              <rect x="0" y="6" width="2" height="4" rx="0.5" />
+              <rect x="4" y="4" width="2" height="6" rx="0.5" />
+              <rect x="8" y="2" width="2" height="8" rx="0.5" />
+              <rect x="12" y="0" width="2" height="10" rx="0.5" />
+            </svg>
+            <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+              <path d="M7 9a1 1 0 100-2 1 1 0 000 2z" fill="currentColor" />
+              <path d="M3 6a5 5 0 018 0" stroke="currentColor" strokeWidth="1.2" />
+              <path d="M0.5 3.5a11 11 0 0113 0" stroke="currentColor" strokeWidth="1.2" opacity="0.6" />
+            </svg>
+            <div style={{ width: 22, height: 10, border: '1.5px solid currentColor', borderRadius: 2, padding: 1, position: 'relative' }}>
+              <div style={{ width: `${battery}%`, height: '100%', background: 'currentColor', borderRadius: 1 }} />
+            </div>
+            <span style={androidFrameStyles.batteryText}>{battery}%</span>
+          </div>
+        </div>
+        <div style={androidFrameStyles.punchHole} />
+        <div style={androidFrameStyles.content}>{children}</div>
+        <div style={androidFrameStyles.navBar}>
+          <div style={androidFrameStyles.navButton} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== SVG Icons =====
+const Icons = {
+  Home: (props) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
+    </svg>
+  ),
+  Timeline: (props) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v4m0 12v4m-10-10h4m12 0h4" />
+    </svg>
+  ),
+  Stats: (props) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M3 3v18h18" />
+      <path d="M7 16l4-8 4 4 4-6" />
+    </svg>
+  ),
+  Profile: (props) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21v-2a6 6 0 0112 0v2" />
+    </svg>
+  ),
+  ChevronRight: (props) => (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M7 4l6 6-6 6" />
+    </svg>
+  ),
+  Play: (props) => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" {...props}>
+      <polygon points="6 4 20 12 6 20 6 4" fill="currentColor" />
+    </svg>
+  ),
+  Stop: (props) => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" {...props}>
+      <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" />
+    </svg>
+  ),
+  Check: (props) => (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M4 10l4 4 8-8" />
+    </svg>
+  ),
+  Sparkle: (props) => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 2l1.5 5L18 8.5 13.5 10 12 15l-1.5-5L6 8.5 10.5 7z" fill="currentColor" />
+      <path d="M19 14l.5 1.5L21 16l-1.5.5L19 18l-.5-1.5L17 16l1.5-.5z" fill="currentColor" />
+    </svg>
+  ),
+};
+
+// ===== Categories =====
+const CATEGORIES = [
+  { id: 'work', name: '工作', color: '#6366F1' },
+  { id: 'read', name: '阅读', color: '#8B5CF6' },
+  { id: 'sport', name: '运动', color: '#10B981' },
+  { id: 'study', name: '学习', color: '#F59E0B' },
+  { id: 'social', name: '社交', color: '#EC4899' },
+  { id: 'rest', name: '休息', color: '#6B7280' },
+  { id: 'create', name: '创作', color: '#3B82F6' },
+  { id: 'other', name: '其他', color: '#9CA3AF' },
+];
+
+// ===== Tab Bar (reusable) =====
+function TabBar({ activeTab, onTabChange }) {
+  const tabs = [
+    { key: 'home', icon: Icons.Home, label: '首页' },
+    { key: 'timeline', icon: Icons.Timeline, label: '时间线' },
+    { key: 'stats', icon: Icons.Stats, label: '统计' },
+    { key: 'profile', icon: Icons.Profile, label: '我的' },
+  ];
+  return (
+    <div style={{
+      position: 'absolute', bottom: 24, left: 0, right: 0,
+      height: 56, display: 'flex', alignItems: 'center',
+      justifyContent: 'space-around',
+      background: 'rgba(255,255,255,0.92)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      borderTop: '1px solid rgba(0,0,0,0.05)',
+      zIndex: 50,
+    }}>
+      {tabs.map(tab => {
+        const isActive = activeTab === tab.key;
+        const Icon = tab.icon;
+        return (
+          <button
+            key={tab.key}
+            onClick={() => onTabChange(tab.key)}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              gap: 2, background: 'none', border: 'none', cursor: 'pointer',
+              padding: '4px 16px',
+              opacity: isActive ? 1 : 0.4,
+              transition: 'opacity 0.2s ease',
+            }}
+          >
+            <Icon style={{
+              width: 22, height: 22,
+              color: isActive ? '#1a1a2e' : '#86868B',
+            }} />
+            <span style={{
+              fontSize: 10, fontWeight: 600,
+              color: isActive ? '#1a1a2e' : '#86868B',
+            }}>
+              {tab.label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ===== Home Screen (Timer) =====
+function HomeScreen() {
+  const [state, setState] = React.useState('idle');
+  const [elapsed, setElapsed] = React.useState(0);
+  const [startTime, setStartTime] = React.useState(null);
+  const [animPhase, setAnimPhase] = React.useState(0);
+  const [selectedCategory, setSelectedCategory] = React.useState(CATEGORIES[0]);
+  const [note, setNote] = React.useState('');
+
+  React.useEffect(() => {
+    let interval;
+    if (state === 'running') {
+      interval = setInterval(() => {
+        setElapsed(Date.now() - startTime);
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [state, startTime]);
+
+  const handleStart = () => {
+    setStartTime(Date.now());
+    setElapsed(0);
+    setAnimPhase(1);
+    setTimeout(() => {
+      setAnimPhase(2);
+      setState('running');
+    }, 400);
+  };
+
+  const handleStop = () => {
+    setState('confirm');
+  };
+
+  const handleConfirm = () => {
+    setState('idle');
+    setAnimPhase(0);
+    setElapsed(0);
+    setNote('');
+  };
+
+  const formatTimeShort = (ms) => {
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const formatTime = (ms) => {
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  };
+
+  const now = new Date();
+  const dateStr = `${now.getMonth() + 1}月${now.getDate()}日`;
+
+  const circumference = 2 * Math.PI * 90;
+  const progress = state === 'running' ? Math.min(elapsed / 3600000, 1) : 0;
+  const dashOffset = circumference * (1 - progress);
+
+  return (
+    <div style={{
+      height: '100%', background: '#F8F9FA',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      paddingTop: 32, position: 'relative',
+    }}>
+      <div style={{
+        fontSize: 14, color: '#86868B', fontWeight: 500,
+        marginBottom: 8,
+        opacity: state === 'running' ? 0 : 1,
+        transition: 'opacity 0.4s ease',
+      }}>
+        {dateStr}
+      </div>
+
+      <div style={{
+        flex: 1, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        width: '100%', position: 'relative',
+      }}>
+        {state === 'idle' && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            animation: 'fadeIn 0.4s ease',
+          }}>
+            <div style={{
+              fontSize: 72, fontWeight: 700, color: '#1D1D1F',
+              letterSpacing: '-2px', lineHeight: 1,
+            }}>
+              00:00
+            </div>
+            <div style={{
+              marginTop: 8, fontSize: 14, color: '#86868B', fontWeight: 400,
+            }}>
+              点击开始按钮开始计时
+            </div>
+          </div>
+        )}
+
+        {(state === 'running' || animPhase >= 1) && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+          }}>
+            <div style={{
+              position: 'relative', width: 220, height: 220,
+              marginBottom: 32,
+              transform: animPhase === 1 ? 'scale(0.3)' : 'scale(1)',
+              opacity: animPhase === 1 ? 0 : 1,
+              transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            }}>
+              <svg width="220" height="220" viewBox="0 0 220 220">
+                <circle cx="110" cy="110" r="90" fill="none" stroke="#E8E8ED" strokeWidth="6" />
+                <circle
+                  cx="110" cy="110" r="90"
+                  fill="none" stroke="url(#timerGrad)"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={dashOffset}
+                  transform="rotate(-90 110 110)"
+                  style={{ transition: 'stroke-dashoffset 0.3s ease' }}
+                />
+                <defs>
+                  <linearGradient id="timerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#6366F1" />
+                    <stop offset="100%" stopColor="#8B5CF6" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div style={{
+                position: 'absolute', top: '50%', left: '50%',
+                transform: 'translate(-50%, -50%)',
+                textAlign: 'center',
+              }}>
+                <div style={{
+                  fontSize: 40, fontWeight: 700, color: '#1D1D1F',
+                  letterSpacing: '-1.5px', fontVariantNumeric: 'tabular-nums',
+                }}>
+                  {formatTimeShort(elapsed)}
+                </div>
+                <div style={{ fontSize: 12, color: '#86868B', marginTop: 4 }}>
+                  正在计时
+                </div>
+              </div>
+            </div>
+
+            {state === 'running' && (
+              <button
+                onClick={handleStop}
+                style={{
+                  width: 64, height: 64, borderRadius: '50%',
+                  border: 'none', background: '#EF4444',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 4px 20px rgba(239, 68, 68, 0.3)',
+                  animation: 'pulse-ring 2s infinite',
+                }}
+              >
+                <Icons.Stop style={{ color: '#fff' }} />
+              </button>
+            )}
+          </div>
+        )}
+
+        {state === 'idle' && (
+          <button
+            onClick={handleStart}
+            style={{
+              width: 72, height: 72, borderRadius: '50%',
+              border: 'none', background: '#1a1a2e',
+              cursor: 'pointer', display: 'flex', alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 32px rgba(26, 26, 46, 0.25)',
+              marginTop: 40,
+            }}
+          >
+            <Icons.Play style={{ color: '#fff', width: 28, height: 28, marginLeft: 4 }} />
+          </button>
+        )}
+      </div>
+
+      {state === 'idle' && (
+        <div style={{ width: '100%', padding: '0 24px 80px' }}>
+          <div style={{ fontSize: 11, color: '#86868B', fontWeight: 600, letterSpacing: '0.5px', marginBottom: 8 }}>
+            最近记录
+          </div>
+          {[
+            { cat: CATEGORIES[0], time: '1h 20m', note: 'App 设计' },
+            { cat: CATEGORIES[3], time: '45m', note: 'Flutter 教程' },
+            { cat: CATEGORIES[2], time: '30m', note: '晨跑' },
+          ].map((item, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', padding: '10px 0',
+              borderBottom: i < 2 ? '1px solid #F0F0F0' : 'none',
+            }}>
+              <div style={{
+                width: 4, height: 28, borderRadius: 2,
+                background: item.cat.color, marginRight: 12,
+              }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#1D1D1F' }}>{item.cat.name}</div>
+                <div style={{ fontSize: 12, color: '#86868B', marginTop: 2 }}>{item.note}</div>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: '#86868B' }}>{item.time}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {state === 'confirm' && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.3)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          display: 'flex', flexDirection: 'column',
+          justifyContent: 'flex-end',
+          zIndex: 100,
+          animation: 'fadeIn 0.2s ease',
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '24px 24px 0 0',
+            padding: '20px 24px 32px',
+            animation: 'slideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          }}>
+            <div style={{
+              width: 36, height: 4, background: '#E0E0E0',
+              borderRadius: 2, margin: '0 auto 16px',
+            }} />
+            <div style={{ fontSize: 17, fontWeight: 600, color: '#1D1D1F', marginBottom: 16 }}>
+              记录详情
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: '#86868B', fontWeight: 600, marginBottom: 6 }}>时间范围</div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: '#F5F5F7', borderRadius: 10, padding: '10px 12px',
+              }}>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, color: '#86868B', marginBottom: 2 }}>开始</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1D1D1F' }}>{formatTime(0)}</div>
+                </div>
+                <div style={{ color: '#C7C7CC', fontSize: 14 }}>→</div>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, color: '#86868B', marginBottom: 2 }}>结束</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1D1D1F' }}>{formatTime(elapsed)}</div>
+                </div>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, color: '#86868B', marginBottom: 2 }}>时长</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#6366F1' }}>{formatTimeShort(elapsed)}</div>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: '#86868B', fontWeight: 600, marginBottom: 8 }}>分类</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {CATEGORIES.map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat)}
+                    style={{
+                      padding: '6px 12px', borderRadius: 16, border: '1.5px solid',
+                      borderColor: selectedCategory.id === cat.id ? cat.color : '#E8E8ED',
+                      background: selectedCategory.id === cat.id ? `${cat.color}10` : 'transparent',
+                      color: selectedCategory.id === cat.id ? cat.color : '#86868B',
+                      fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                    }}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: '#86868B', fontWeight: 600, marginBottom: 6 }}>备注（可选）</div>
+              <input
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder="比如写了多少页..."
+                style={{
+                  width: '100%', padding: '10px 12px', borderRadius: 10,
+                  border: '1.5px solid #E8E8ED', fontSize: 14, color: '#1D1D1F',
+                  outline: 'none', background: '#F5F5F7', fontFamily: 'inherit',
+                }}
+              />
+            </div>
+            <button
+              onClick={handleConfirm}
+              style={{
+                width: '100%', padding: '13px 0', borderRadius: 12,
+                border: 'none', background: '#1a1a2e',
+                color: '#fff', fontSize: 15, fontWeight: 600,
+                cursor: 'pointer', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', gap: 6,
+              }}
+            >
+              <Icons.Check />
+              确认保存
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== Timeline Screen =====
+function TimelineScreen() {
+  const [view, setView] = React.useState('day');
+
+  const records = [
+    { cat: CATEGORIES[0], start: 8*60+30, end: 9*60+50, note: 'App 设计' },
+    { cat: CATEGORIES[3], start: 10*60,   end: 10*60+45, note: 'Flutter 教程' },
+    { cat: CATEGORIES[2], start: 11*60,   end: 11*60+30, note: '晨跑' },
+    { cat: CATEGORIES[1], start: 14*60,   end: 15*60+15, note: '原子习惯' },
+    { cat: CATEGORIES[5], start: 15*60+30,end: 16*60,    note: '' },
+    { cat: CATEGORIES[4], start: 19*60,   end: 20*60+30, note: '聚餐' },
+  ];
+
+  const rangeStart = 8 * 60;
+  const rangeEnd = 22 * 60;
+  const totalMinutes = rangeEnd - rangeStart;
+  const hourHeight = 60;
+
+  const toTime = (min) => `${Math.floor(min/60).toString().padStart(2,'0')}:${(min%60).toString().padStart(2,'0')}`;
+
+  const now = new Date();
+  const dateStr = `${now.getMonth() + 1}月${now.getDate()}日`;
+
+  return (
+    <div style={{
+      height: '100%', background: '#fff',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{
+        padding: '12px 20px 8px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <button style={{ background: 'none', border: 'none', fontSize: 18, color: '#1D1D1F', cursor: 'pointer', padding: 4, fontWeight: 300 }}>‹</button>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#1D1D1F' }}>{dateStr}</div>
+          <div style={{ fontSize: 12, color: '#86868B', marginTop: 1 }}>星期四</div>
+        </div>
+        <button style={{ background: 'none', border: 'none', fontSize: 18, color: '#1D1D1F', cursor: 'pointer', padding: 4, fontWeight: 300 }}>›</button>
+      </div>
+
+      <div style={{ display: 'flex', padding: '0 20px', gap: 4, marginBottom: 8 }}>
+        {[
+          { key: 'day', label: '日' },
+          { key: 'week', label: '周' },
+        ].map(v => (
+          <button
+            key={v.key}
+            onClick={() => setView(v.key)}
+            style={{
+              padding: '4px 14px', borderRadius: 6,
+              border: 'none', fontSize: 12, fontWeight: 500,
+              cursor: 'pointer',
+              background: view === v.key ? '#1a1a2e' : '#F5F5F7',
+              color: view === v.key ? '#fff' : '#86868B',
+            }}
+          >
+            {v.label}视图
+          </button>
+        ))}
+      </div>
+
+      <div style={{ flex: 1, overflow: 'auto', padding: '8px 20px 80px' }}>
+        <div style={{ position: 'relative', height: totalMinutes / 60 * hourHeight }}>
+          {Array.from({ length: (totalMinutes / 60) + 1 }, (_, i) => {
+            const hour = rangeStart / 60 + i;
+            return (
+              <div key={i} style={{
+                position: 'absolute', top: i * hourHeight, left: 0, right: 0,
+                height: 0, borderTop: '1px solid #F0F0F0',
+              }}>
+                <span style={{
+                  position: 'absolute', left: 0, top: -8,
+                  fontSize: 11, color: '#C7C7CC', fontWeight: 500,
+                  width: 32,
+                }}>{hour.toString().padStart(2,'0')}:00</span>
+              </div>
+            );
+          })}
+
+          {records.map((r, i) => {
+            const top = (r.start - rangeStart) / 60 * hourHeight;
+            const height = (r.end - r.start) / 60 * hourHeight;
+            return (
+              <div
+                key={i}
+                style={{
+                  position: 'absolute',
+                  top: top,
+                  height: Math.max(height, 24),
+                  left: 40, right: 0,
+                  background: `${r.cat.color}12`,
+                  borderRadius: 8,
+                  borderLeft: `3px solid ${r.cat.color}`,
+                  padding: '4px 8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 600, color: r.cat.color, lineHeight: 1.3 }}>
+                  {r.cat.name}
+                </div>
+                <div style={{ fontSize: 10, color: '#86868B', marginTop: 1 }}>
+                  {toTime(r.start)} - {toTime(r.end)} · {Math.floor((r.end-r.start)/60)}h{(r.end-r.start)%60}m
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== Stats Screen =====
+function StatsScreen() {
+  const [tab, setTab] = React.useState('pie');
+  const [range, setRange] = React.useState('week');
+
+  const pieData = [
+    { name: '工作', value: 35, color: '#6366F1', hours: '8h 45m' },
+    { name: '阅读', value: 20, color: '#8B5CF6', hours: '5h 00m' },
+    { name: '运动', value: 15, color: '#10B981', hours: '3h 45m' },
+    { name: '学习', value: 12, color: '#F59E0B', hours: '3h 00m' },
+    { name: '社交', value: 10, color: '#EC4899', hours: '2h 30m' },
+    { name: '其他', value: 8, color: '#9CA3AF', hours: '2h 00m' },
+  ];
+
+  const total = pieData.reduce((s, d) => s + d.value, 0);
+  let cum = 0;
+  const pieSegments = pieData.map(d => {
+    const startAngle = (cum / total) * 360;
+    cum += d.value;
+    const endAngle = (cum / total) * 360;
+    return { ...d, startAngle, endAngle };
+  });
+
+  const toRad = (deg) => (deg - 90) * Math.PI / 180;
+  const describeArc = (cx, cy, r, startDeg, endDeg) => {
+    const s = toRad(startDeg);
+    const e = toRad(endDeg);
+    const x1 = cx + r * Math.cos(s);
+    const y1 = cy + r * Math.sin(s);
+    const x2 = cx + r * Math.cos(e);
+    const y2 = cy + r * Math.sin(e);
+    const large = (endDeg - startDeg) > 180 ? 1 : 0;
+    return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`;
+  };
+
+  const barData = [
+    { day: '一', hours: 4.5 },
+    { day: '二', hours: 6.2 },
+    { day: '三', hours: 5.0 },
+    { day: '四', hours: 7.8 },
+    { day: '五', hours: 3.5 },
+    { day: '六', hours: 2.0 },
+    { day: '日', hours: 1.5 },
+  ];
+  const maxHours = Math.max(...barData.map(d => d.hours));
+
+  return (
+    <div style={{
+      height: '100%', background: '#F8F9FA',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{ display: 'flex', padding: '12px 20px 8px', gap: 4 }}>
+        {[
+          { key: 'day', label: '日' },
+          { key: 'week', label: '周' },
+          { key: 'month', label: '月' },
+        ].map(r => (
+          <button
+            key={r.key}
+            onClick={() => setRange(r.key)}
+            style={{
+              padding: '5px 12px', borderRadius: 6,
+              border: 'none', fontSize: 12, fontWeight: 500,
+              cursor: 'pointer',
+              background: range === r.key ? '#1a1a2e' : '#F0F0F0',
+              color: range === r.key ? '#fff' : '#86868B',
+            }}
+          >
+            本{r.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 6, padding: '0 20px', marginBottom: 12 }}>
+        {[
+          { label: '今日', value: '4h 20m', up: true, change: '+12%' },
+          { label: '本周', value: '30h 30m', up: true, change: '+5%' },
+          { label: '日均', value: '4h 21m', up: false, change: '-2%' },
+        ].map((s, i) => (
+          <div key={i} style={{
+            flex: 1, background: '#fff', borderRadius: 10,
+            padding: '8px 10px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          }}>
+            <div style={{ fontSize: 10, color: '#86868B', fontWeight: 500 }}>{s.label}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#1D1D1F', marginTop: 2 }}>{s.value}</div>
+            <div style={{
+              fontSize: 9, fontWeight: 600, marginTop: 2,
+              color: s.up ? '#10B981' : '#EF4444',
+            }}>
+              {s.change}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', padding: '0 20px', gap: 0, borderBottom: '1px solid #F0F0F0' }}>
+        {[
+          { key: 'pie', label: '占比' },
+          { key: 'bar', label: '趋势' },
+          { key: 'ai', label: 'AI 建议' },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            style={{
+              padding: '8px 12px', border: 'none', fontSize: 13, fontWeight: 500,
+              cursor: 'pointer',
+              background: 'transparent',
+              color: tab === t.key ? '#1a1a2e' : '#C7C7CC',
+              borderBottom: tab === t.key ? '2px solid #1a1a2e' : '2px solid transparent',
+              marginBottom: -1,
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ flex: 1, overflow: 'auto', padding: '12px 20px 80px' }}>
+        {tab === 'pie' && (
+          <div style={{ animation: 'fadeIn 0.3s ease' }}>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+              <svg width="100%" height="180" viewBox="0 0 200 180" style={{ display: 'block' }}>
+                {pieSegments.map((seg, i) => (
+                  <path
+                    key={i}
+                    d={describeArc(100, 90, 70, seg.startAngle, seg.endAngle)}
+                    fill={seg.color}
+                    opacity="0.9"
+                  />
+                ))}
+                <circle cx="100" cy="90" r="38" fill="#fff" />
+                <text x="100" y="86" textAnchor="middle" fontSize="20" fontWeight="700" fill="#1D1D1F">25h</text>
+                <text x="100" y="100" textAnchor="middle" fontSize="9" fill="#86868B">总计</text>
+              </svg>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 12 }}>
+                {pieData.map((d, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', padding: '5px 0',
+                    borderBottom: i < pieData.length - 1 ? '1px solid #F5F5F7' : 'none',
+                  }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 2, background: d.color, marginRight: 8 }} />
+                    <div style={{ flex: 1, fontSize: 13, color: '#1D1D1F' }}>{d.name}</div>
+                    <div style={{ fontSize: 11, color: '#86868B', marginRight: 8 }}>{d.hours}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#1D1D1F', minWidth: 32, textAlign: 'right' }}>
+                      {Math.round(d.value / total * 100)}%
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'bar' && (
+          <div style={{ animation: 'fadeIn 0.3s ease' }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+              {CATEGORIES.slice(0, 5).map(cat => (
+                <span key={cat.id} style={{
+                  padding: '3px 9px', borderRadius: 12, fontSize: 11, fontWeight: 500,
+                  background: `${cat.color}15`, color: cat.color,
+                  border: `1px solid ${cat.color}30`,
+                }}>
+                  {cat.name}
+                </span>
+              ))}
+            </div>
+            <div style={{
+              background: '#fff', borderRadius: 12, padding: '16px 12px 8px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 140 }}>
+                {barData.map((d, i) => (
+                  <div key={i} style={{
+                    flex: 1, display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', height: '100%', justifyContent: 'flex-end',
+                  }}>
+                    <div style={{
+                      width: '100%', maxWidth: 28,
+                      height: `${(d.hours / maxHours) * 100}%`,
+                      background: 'linear-gradient(180deg, #6366F1, #8B5CF6)',
+                      borderRadius: '4px 4px 0 0', opacity: 0.85,
+                      minHeight: 4,
+                    }} />
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                {barData.map((d, i) => (
+                  <div key={i} style={{ flex: 1, textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: '#86868B', fontWeight: 500 }}>{d.day}</div>
+                    <div style={{ fontSize: 9, color: '#C7C7CC', marginTop: 1 }}>{d.hours}h</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'ai' && (
+          <div style={{ animation: 'fadeIn 0.3s ease' }}>
+            <div style={{
+              background: 'linear-gradient(135deg, #1a1a2e, #2D2D44)',
+              borderRadius: 14, padding: 18, color: '#fff', marginBottom: 12,
+            }}>
+              <Icons.Sparkle style={{ color: '#A5B4FC' }} />
+              <div style={{ fontSize: 15, fontWeight: 600, marginTop: 8, marginBottom: 6 }}>
+                本周总结
+              </div>
+              <div style={{ fontSize: 12, color: '#A5B4FC', lineHeight: 1.6 }}>
+                本周你共记录 30.5 小时的活动。专注时间（工作 + 学习）占 47%，比上周提升 5%。建议适当增加休息间隔——你最长的工作块持续了 3.5 小时未中断。
+              </div>
+              <div style={{
+                marginTop: 10, padding: '8px 10px', background: 'rgba(255,255,255,0.08)',
+                borderRadius: 8, fontSize: 11, color: '#A5B4FC', lineHeight: 1.5,
+              }}>
+                建议：尝试番茄工作法，25 分钟专注 + 5 分钟休息，预计可将深度工作时间提升 20%。
+              </div>
+            </div>
+            <button style={{
+              width: '100%', padding: '10px 0', borderRadius: 10,
+              border: '1.5px solid #E8E8ED', background: '#fff',
+              fontSize: 13, fontWeight: 500, color: '#86868B', cursor: 'pointer',
+            }}>
+              重新生成建议
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===== Profile Screen =====
+function ProfileScreen() {
+  const [darkMode, setDarkMode] = React.useState(false);
+
+  const menuItems = [
+    {
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#6366F1" strokeWidth="1.5">
+          <rect x="3" y="3" width="14" height="14" rx="2" />
+          <path d="M7 7h6M7 10h6M7 13h4" />
+        </svg>
+      ),
+      label: '分类管理',
+    },
+    {
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#10B981" strokeWidth="1.5">
+          <circle cx="10" cy="10" r="7" />
+          <circle cx="10" cy="10" r="3" />
+        </svg>
+      ),
+      label: '默认主题色',
+    },
+    {
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#8B5CF6" strokeWidth="1.5">
+          <path d="M10 2a8 8 0 100 16 8 8 0 000-16z" />
+          <path d="M10 6v4l3 3" />
+        </svg>
+      ),
+      label: 'AI 模型配置',
+    },
+    {
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#F59E0B" strokeWidth="1.5">
+          <path d="M4 16v-3a3 3 0 013-3h6a3 3 0 013 3v3" />
+          <path d="M3 16h14" />
+          <path d="M10 10V4" />
+        </svg>
+      ),
+      label: '数据导入导出',
+    },
+    {
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#6B7280" strokeWidth="1.5">
+          <circle cx="10" cy="10" r="7" />
+          <path d="M10 7v3M10 13.5v.5" />
+        </svg>
+      ),
+      label: '关于 MyTime',
+    },
+  ];
+
+  return (
+    <div style={{
+      height: '100%', background: '#F8F9FA',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        padding: '24px 20px 16px',
+      }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: '50%',
+          background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontSize: 28, fontWeight: 600,
+          marginBottom: 10,
+        }}>
+          M
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: '#1D1D1F' }}>MyTime</div>
+        <div style={{ fontSize: 12, color: '#86868B', marginTop: 2 }}>本地账户</div>
+      </div>
+
+      <div style={{
+        margin: '0 20px 12px',
+        background: '#fff', borderRadius: 12, padding: '12px 16px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#1a1a2e" strokeWidth="1.5">
+            <path d="M17.5 11.5A8 8 0 018.5 2.5a8 8 0 109 9z" />
+          </svg>
+          <span style={{ fontSize: 14, fontWeight: 500, color: '#1D1D1F' }}>深色模式</span>
+        </div>
+        <button
+          onClick={() => setDarkMode(!darkMode)}
+          style={{
+            width: 44, height: 24, borderRadius: 12,
+            border: 'none', cursor: 'pointer', position: 'relative',
+            background: darkMode ? '#1a1a2e' : '#E0E0E0',
+          }}
+        >
+          <div style={{
+            width: 20, height: 20, borderRadius: '50%',
+            background: '#fff', position: 'absolute', top: 2,
+            left: darkMode ? 22 : 2,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+          }} />
+        </button>
+      </div>
+
+      <div style={{
+        margin: '0 20px',
+        background: '#fff', borderRadius: 12, overflow: 'hidden',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+      }}>
+        {menuItems.map((item, i) => (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '13px 16px',
+            borderBottom: i < menuItems.length - 1 ? '1px solid #F0F0F0' : 'none',
+            cursor: 'pointer',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {item.icon}
+              <span style={{ fontSize: 14, fontWeight: 500, color: '#1D1D1F' }}>{item.label}</span>
+            </div>
+            <Icons.ChevronRight style={{ color: '#C7C7CC' }} />
+          </div>
+        ))}
+      </div>
+
+      <div style={{ flex: 1 }} />
+    </div>
+  );
+}
+
+// ===== App Phone =====
+function AppPhone({ initialScreen, phoneTime }) {
+  const [screen, setScreen] = React.useState(initialScreen || 'home');
+
+  const renderScreen = () => {
+    switch (screen) {
+      case 'home': return <HomeScreen />;
+      case 'timeline': return <TimelineScreen />;
+      case 'stats': return <StatsScreen />;
+      case 'profile': return <ProfileScreen />;
+      default: return <HomeScreen />;
+    }
+  };
+
+  return (
+    <AndroidFrame time={phoneTime} battery={85}>
+      <div style={{ height: '100%', position: 'relative' }}>
+        {renderScreen()}
+        <TabBar activeTab={screen} onTabChange={setScreen} />
+      </div>
+    </AndroidFrame>
+  );
+}
+
+// ===== Main App =====
+function App() {
+  const mainScreens = [
+    { id: 'home', label: '首页 - 计时器' },
+    { id: 'timeline', label: '时间线 - 日视图' },
+    { id: 'stats', label: '统计与分析' },
+    { id: 'profile', label: '我的与设置' },
+  ];
+
+  return (
+    <div className="grid">
+      {mainScreens.map((s, i) => (
+        <div key={s.id} className="phone-slot">
+          <div className="phone-label">{s.label}</div>
+          <AppPhone
+            initialScreen={s.id}
+            phoneTime={`${9 + i}:41`}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

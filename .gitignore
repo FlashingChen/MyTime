@@ -1,0 +1,20 @@
+# 默认忽略
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+.packages
+.pub-cache/
+.pub/
+*.iml
+.idea/
+
+# IDE
+.vscode/
+.DS_Store
+
+# Flutter
+flutter_*.png
+
+# 临时输出
+**/mytime-preview.png
