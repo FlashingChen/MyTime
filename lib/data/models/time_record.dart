@@ -1,12 +1,22 @@
 import 'package:equatable/equatable.dart';
+import 'package:hive_ce/hive.dart';
+
+part 'time_record.g.dart';
 
 /// A single time tracking record representing one start-to-stop session.
-class TimeRecord extends Equatable {
+@HiveType(typeId: 0)
+class TimeRecord extends HiveObject with EquatableMixin {
+  @HiveField(0)
   final String id;
+  @HiveField(1)
   final String categoryId;
+  @HiveField(2)
   final DateTime startTime;
+  @HiveField(3)
   final DateTime endTime;
+  @HiveField(4)
   final String? note;
+  @HiveField(5)
   final DateTime createdAt;
 
   TimeRecord({
@@ -18,7 +28,6 @@ class TimeRecord extends Equatable {
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
-  /// Duration of this record.
   Duration get duration => endTime.difference(startTime);
 
   TimeRecord copyWith({
