@@ -4,7 +4,7 @@ import 'package:mytime/data/models/category.dart';
 class DefaultCategories {
   DefaultCategories._();
 
-  static const List<Category> all = [
+  static List<Category> get all => [
     Category(id: 'work', name: '工作', color: '#6366F1', isSystem: true),
     Category(id: 'read', name: '阅读', color: '#8B5CF6', isSystem: true),
     Category(id: 'sport', name: '运动', color: '#10B981', isSystem: true),
