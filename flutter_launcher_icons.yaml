@@ -1,3 +1,6 @@
+# PNG intermediates used because flutter_launcher_icons does not accept SVG input directly.
+# These PNGs are generated from the SVG sources in assets/logo/ and must be regenerated
+# if the SVGs change.
 flutter_launcher_icons:
   android: true
   ios: true
