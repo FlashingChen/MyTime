@@ -5,7 +5,7 @@ part 'time_record.g.dart';
 
 /// A single time tracking record representing one start-to-stop session.
 @HiveType(typeId: 0)
-class TimeRecord extends HiveObject with EquatableMixin {
+class TimeRecord extends HiveObject with Equatable {
   @HiveField(0)
   final String id;
   @HiveField(1)

@@ -4,7 +4,7 @@ import 'package:hive_ce/hive.dart';
 part 'category.g.dart';
 
 @HiveType(typeId: 1)
-class Category extends HiveObject with EquatableMixin {
+class Category extends HiveObject with Equatable {
   @HiveField(0)
   final String id;
   @HiveField(1)
