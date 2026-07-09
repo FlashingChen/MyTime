@@ -63,6 +63,7 @@ class HomePage extends StatelessWidget {
   Widget _buildTimerArea(BuildContext context, TimerState state) {
     if (state is TimerInitial) {
       return Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Text(
@@ -83,6 +84,7 @@ class HomePage extends StatelessWidget {
     if (state is TimerRunInProgress) {
       final progress = state.duration.inSeconds / 3600;
       return Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           TweenAnimationBuilder<double>(
@@ -127,6 +129,7 @@ class HomePage extends StatelessWidget {
 
   Widget _buildStartButton(BuildContext context) {
     return GestureDetector(
+      key: const ValueKey('start_timer_button'),
       onTap: () => context.read<TimerBloc>().add(TimerStarted()),
       child: Container(
         width: 72, height: 72,
@@ -142,6 +145,7 @@ class HomePage extends StatelessWidget {
 
   Widget _buildStopButton(BuildContext context) {
     return GestureDetector(
+      key: const ValueKey('stop_timer_button'),
       onTap: () => context.read<TimerBloc>().add(TimerStopped()),
       child: Container(
         width: 64, height: 64,

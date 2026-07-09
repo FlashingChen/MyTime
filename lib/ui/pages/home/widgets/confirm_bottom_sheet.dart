@@ -53,7 +53,8 @@ class _ConfirmBottomSheetState extends State<ConfirmBottomSheet> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -168,6 +169,7 @@ class _ConfirmBottomSheetState extends State<ConfirmBottomSheet> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

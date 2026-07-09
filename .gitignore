@@ -18,3 +18,6 @@ flutter_*.png
 
 # 临时输出
 **/mytime-preview.png
+
+# 测试 Hive 数据库
+test_hive_*/
