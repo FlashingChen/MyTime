@@ -1,0 +1,31 @@
+import 'package:equatable/equatable.dart';
+import 'package:mytime/data/models/time_record.dart';
+
+abstract class RecordsEvent extends Equatable {
+  const RecordsEvent();
+  @override
+  List<Object?> get props => [];
+}
+
+class RecordsLoaded extends RecordsEvent {}
+
+class RecordAdded extends RecordsEvent {
+  final TimeRecord record;
+  const RecordAdded(this.record);
+  @override
+  List<Object?> get props => [record];
+}
+
+class RecordDeleted extends RecordsEvent {
+  final String id;
+  const RecordDeleted(this.id);
+  @override
+  List<Object?> get props => [id];
+}
+
+class RecordsLoadedByDate extends RecordsEvent {
+  final DateTime date;
+  const RecordsLoadedByDate(this.date);
+  @override
+  List<Object?> get props => [date];
+}
