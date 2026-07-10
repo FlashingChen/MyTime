@@ -7,6 +7,7 @@ import 'package:mytime/blocs/timer/timer_bloc.dart';
 import 'package:mytime/blocs/timer/timer_event.dart';
 import 'package:mytime/blocs/timer/timer_state.dart';
 import 'package:mytime/core/constants/app_colors.dart';
+import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/ui/pages/home/widgets/confirm_bottom_sheet.dart';
 import 'package:mytime/ui/pages/home/widgets/recent_records_list.dart';
 import 'package:mytime/ui/pages/home/widgets/timer_circle.dart';
@@ -31,14 +32,16 @@ class HomePage extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 32),
                     child: Text(
                       _formatDate(DateTime.now()),
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: context.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
                 Expanded(
-                  child: Center(
-                    child: _buildTimerArea(context, timerState),
-                  ),
+                  child: Center(child: _buildTimerArea(context, timerState)),
                 ),
                 if (timerState is TimerInitial)
                   Padding(
@@ -46,7 +49,9 @@ class HomePage extends StatelessWidget {
                     child: BlocBuilder<RecordsBloc, RecordsState>(
                       builder: (context, recordsState) {
                         if (recordsState is RecordsLoaded) {
-                          return RecentRecordsList(records: recordsState.records);
+                          return RecentRecordsList(
+                            records: recordsState.records,
+                          );
                         }
                         return const SizedBox.shrink();
                       },
@@ -66,15 +71,23 @@ class HomePage extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text(
+          Text(
             '00:00',
             style: TextStyle(
-              fontSize: 72, fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary, letterSpacing: -2,
+              fontSize: 72,
+              fontWeight: FontWeight.w700,
+              color: context.colorScheme.onSurface,
+              letterSpacing: -2,
             ),
           ),
           const SizedBox(height: 8),
-          const Text('点击开始按钮开始计时', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+          Text(
+            '点击开始按钮开始计时',
+            style: TextStyle(
+              fontSize: 14,
+              color: context.colorScheme.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(height: 40),
           _buildStartButton(context),
         ],
@@ -132,11 +145,18 @@ class HomePage extends StatelessWidget {
       key: const ValueKey('start_timer_button'),
       onTap: () => context.read<TimerBloc>().add(TimerStarted()),
       child: Container(
-        width: 72, height: 72,
+        width: 72,
+        height: 72,
         decoration: BoxDecoration(
-          color: AppColors.primaryDark,
+          color: context.colorScheme.primary,
           shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: AppColors.primaryDark.withValues(alpha: 0.25), blurRadius: 32, offset: const Offset(0, 8))],
+          boxShadow: [
+            BoxShadow(
+              color: context.colorScheme.primary.withValues(alpha: 0.25),
+              blurRadius: 32,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Center(child: SvgIcons.play(size: 28)),
       ),
@@ -148,11 +168,18 @@ class HomePage extends StatelessWidget {
       key: const ValueKey('stop_timer_button'),
       onTap: () => context.read<TimerBloc>().add(TimerStopped()),
       child: Container(
-        width: 64, height: 64,
+        width: 64,
+        height: 64,
         decoration: BoxDecoration(
           color: AppColors.danger,
           shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: AppColors.danger.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.danger.withValues(alpha: 0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Center(child: SvgIcons.stop()),
       ),
@@ -160,7 +187,20 @@ class HomePage extends StatelessWidget {
   }
 
   String _formatDate(DateTime date) {
-    const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+    const months = [
+      '1月',
+      '2月',
+      '3月',
+      '4月',
+      '5月',
+      '6月',
+      '7月',
+      '8月',
+      '9月',
+      '10月',
+      '11月',
+      '12月',
+    ];
     return '${months[date.month - 1]}${date.day}日';
   }
 }

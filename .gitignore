@@ -24,3 +24,6 @@ test_hive_*/
 
 # 隔离工作区
 .worktrees/
+
+# Superpowers SDD scratch
+.superpowers/

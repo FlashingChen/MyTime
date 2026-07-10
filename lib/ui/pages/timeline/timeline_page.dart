@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mytime/blocs/records/records_bloc.dart';
 import 'package:mytime/blocs/records/records_event.dart';
 import 'package:mytime/blocs/records/records_state.dart';
-import 'package:mytime/core/constants/app_colors.dart';
+import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/ui/pages/timeline/timeline_layout.dart';
 import 'package:mytime/ui/pages/timeline/widgets/date_navigator.dart';
@@ -155,10 +155,12 @@ class _TimelinePageState extends State<TimelinePage> {
                       state.records.where(_isSelectedDate).toList(),
                     );
                   }
-                  return const Center(
+                  return Center(
                     child: Text(
                       '暂无记录',
-                      style: TextStyle(color: AppColors.textSecondary),
+                      style: TextStyle(
+                        color: context.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   );
                 },
@@ -220,7 +222,9 @@ class _TimelinePageState extends State<TimelinePage> {
                   liveRegion: true,
                   child: Text(
                     '100%',
-                    style: TextStyle(color: AppColors.textSecondary),
+                    style: TextStyle(
+                      color: context.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),
@@ -241,14 +245,16 @@ class _TimelinePageState extends State<TimelinePage> {
             width: _labelWidth,
             child: Text(
               '${hour.toString().padLeft(2, '0')}:00',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: AppColors.textHint,
+                color: context.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
               ),
             ),
           ),
-          const Expanded(child: Divider(height: 0, color: AppColors.divider)),
+          Expanded(
+            child: Divider(height: 0, color: context.colorScheme.outline),
+          ),
         ],
       ),
     );

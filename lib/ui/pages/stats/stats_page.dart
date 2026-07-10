@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mytime/blocs/records/records_bloc.dart';
 import 'package:mytime/blocs/records/records_event.dart';
 import 'package:mytime/blocs/records/records_state.dart';
-import 'package:mytime/core/constants/app_colors.dart';
+import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/ui/pages/stats/widgets/ai_insight_view.dart';
 import 'package:mytime/ui/pages/stats/widgets/bar_chart_view.dart';
@@ -78,8 +78,10 @@ class _StatsPageState extends State<StatsPage> {
             const SizedBox(height: 12),
             // Tab bar
             Container(
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppColors.divider)),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: context.colorScheme.outline),
+                ),
               ),
               child: Row(
                 children: [
@@ -198,7 +200,9 @@ class _RangeChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
-          color: active ? AppColors.primaryDark : const Color(0xFFF0F0F0),
+          color: active
+              ? context.colorScheme.primary
+              : context.colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
@@ -206,7 +210,9 @@ class _RangeChip extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: active ? Colors.white : AppColors.textSecondary,
+            color: active
+                ? context.colorScheme.onPrimary
+                : context.colorScheme.onSurfaceVariant,
           ),
         ),
       ),
@@ -235,7 +241,9 @@ class _TabButton extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: active ? AppColors.primaryDark : Colors.transparent,
+                color: active
+                    ? context.colorScheme.primary
+                    : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -246,7 +254,9 @@ class _TabButton extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: active ? AppColors.primaryDark : AppColors.textHint,
+              color: active
+                  ? context.colorScheme.primary
+                  : context.colorScheme.onSurfaceVariant,
             ),
           ),
         ),

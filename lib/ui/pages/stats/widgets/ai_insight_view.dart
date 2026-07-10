@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mytime/core/constants/app_colors.dart';
+import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/core/utils/category_lookup.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/widgets/svg_icons.dart';
@@ -17,6 +18,9 @@ class AiInsightView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final gradientColors = context.isDark
+        ? const [Color(0xFF313152), Color(0xFF1E1E32)]
+        : const [AppColors.primaryDark, Color(0xFF2D2D44)];
     final totalMinutes = records.fold<int>(
       0,
       (sum, r) => sum + r.duration.inMinutes,
@@ -29,8 +33,8 @@ class AiInsightView extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Container(
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppColors.primaryDark, Color(0xFF2D2D44)],
+            gradient: LinearGradient(
+              colors: gradientColors,
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -115,8 +119,8 @@ class AiInsightView extends StatelessWidget {
         children: [
           Container(
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.primaryDark, Color(0xFF2D2D44)],
+              gradient: LinearGradient(
+                colors: gradientColors,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -178,14 +182,14 @@ class AiInsightView extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
-                side: const BorderSide(color: AppColors.divider),
+                side: BorderSide(color: context.colorScheme.outline),
               ),
-              child: const Text(
+              child: Text(
                 '重新生成建议',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.textSecondary,
+                  color: context.colorScheme.onSurfaceVariant,
                 ),
               ),
             ),

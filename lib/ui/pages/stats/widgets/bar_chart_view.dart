@@ -1,6 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:mytime/core/constants/app_colors.dart';
+import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/ui/pages/stats/stats_metrics.dart';
 
 /// Bar chart showing daily time trends.
@@ -21,9 +21,16 @@ class BarChartView extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.cardWhite,
+          color: context.colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 3)],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(
+                alpha: context.isDark ? 0.22 : 0.04,
+              ),
+              blurRadius: 3,
+            ),
+          ],
         ),
         padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
         child: SizedBox(
@@ -39,7 +46,9 @@ class BarChartView extends StatelessWidget {
                   barRods: [
                     BarChartRodData(
                       toY: spot.duration.inMinutes / 60,
-                      color: AppColors.accentStart.withValues(alpha: 0.85),
+                      color: context.colorScheme.primary.withValues(
+                        alpha: 0.85,
+                      ),
                       width: 16,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(4),
@@ -70,9 +79,9 @@ class BarChartView extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           points[idx].label,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: AppColors.textSecondary,
+                            color: context.colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
