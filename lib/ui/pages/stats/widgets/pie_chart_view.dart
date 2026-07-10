@@ -13,7 +13,8 @@ class PieChartView extends StatelessWidget {
   Map<String, Duration> _aggregateByCategory() {
     final map = <String, Duration>{};
     for (final r in records) {
-      map[r.categoryId] = (map[r.categoryId] ?? Duration.zero) + r.duration;
+      final key = r.categoryId ?? 'uncategorized';
+      map[key] = (map[key] ?? Duration.zero) + r.duration;
     }
     return map;
   }

@@ -62,11 +62,10 @@ class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
   ) async {
     try {
       final category = _repository.getById(event.id);
-      if (category == null || category.isSystem) throw StateError('系统分类不可删除');
-      final replacement = event.replacementCategoryId;
-      if (replacement != null && _recordRepository != null) {
-        await _recordRepository.reassignCategory(event.id, replacement);
-      }
+      if (category == null) throw StateError('分类不存在');
+      final all = _repository.getAll();
+      if (all.length <= 1) throw StateError('至少保留一个分类');
+      await _recordRepository?.clearCategory(event.id);
       await _repository.delete(event.id);
       final categories = _repository.getAll();
       emit(CategoriesLoaded(categories));

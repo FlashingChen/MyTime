@@ -147,6 +147,17 @@ const Icons = {
       <path d="M4 10l4 4 8-8" />
     </svg>
   ),
+  Edit: (props) => (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M3 17h14M13.5 2.5l4 4L7 17l-4-4L13.5 2.5z" />
+    </svg>
+  ),
+  Trash: (props) => (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M3 6h14M8 6V4h4v2M5 6l1 12h8l1-12" />
+      <path d="M10 11v6M6 11v6M14 11v6" />
+    </svg>
+  ),
   Sparkle: (props) => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="M12 2l1.5 5L18 8.5 13.5 10 12 15l-1.5-5L6 8.5 10.5 7z" fill="currentColor" />
@@ -877,7 +888,7 @@ function StatsScreen() {
 }
 
 // ===== Profile Screen =====
-function ProfileScreen() {
+function ProfileScreen({ onOpenCategoryManagement }) {
   const [darkMode, setDarkMode] = React.useState(false);
 
   const menuItems = [
@@ -889,6 +900,7 @@ function ProfileScreen() {
         </svg>
       ),
       label: '分类管理',
+      onClick: onOpenCategoryManagement,
     },
     {
       icon: (
@@ -986,12 +998,16 @@ function ProfileScreen() {
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
       }}>
         {menuItems.map((item, i) => (
-          <div key={i} style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '13px 16px',
-            borderBottom: i < menuItems.length - 1 ? '1px solid #F0F0F0' : 'none',
-            cursor: 'pointer',
-          }}>
+          <div
+            key={i}
+            onClick={item.onClick}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '13px 16px',
+              borderBottom: i < menuItems.length - 1 ? '1px solid #F0F0F0' : 'none',
+              cursor: 'pointer',
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               {item.icon}
               <span style={{ fontSize: 14, fontWeight: 500, color: '#1D1D1F' }}>{item.label}</span>
@@ -1006,16 +1022,164 @@ function ProfileScreen() {
   );
 }
 
+// ===== Category Management Screen =====
+function CategoryManagementScreen({ onBack }) {
+  const [deleteTarget, setDeleteTarget] = React.useState(null);
+
+  return (
+    <div style={{
+      height: '100%', background: '#F8F9FA',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{
+        height: 56, display: 'flex', alignItems: 'center',
+        padding: '0 12px', background: '#fff',
+        borderBottom: '1px solid #F0F0F0',
+      }}>
+        <button
+          onClick={onBack}
+          style={{
+            background: 'none', border: 'none', fontSize: 26,
+            color: '#1D1D1F', cursor: 'pointer', padding: '4px 8px',
+            display: 'flex', alignItems: 'center', lineHeight: 1,
+            fontWeight: 300,
+          }}
+        >
+          ‹
+        </button>
+        <span style={{
+          fontSize: 17, fontWeight: 600, color: '#1D1D1F',
+          marginLeft: 4,
+        }}>
+          分类管理
+        </span>
+      </div>
+
+      <div style={{
+        flex: 1, overflow: 'auto', padding: '12px 20px',
+      }}>
+        <div style={{
+          background: '#fff', borderRadius: 12, overflow: 'hidden',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        }}>
+          {CATEGORIES.map((cat, i) => (
+            <div key={cat.id} style={{
+              display: 'flex', alignItems: 'center',
+              padding: '13px 16px',
+              borderBottom: i < CATEGORIES.length - 1 ? '1px solid #F0F0F0' : 'none',
+            }}>
+              <div style={{
+                width: 10, height: 10, borderRadius: '50%',
+                background: cat.color, marginRight: 12,
+              }} />
+              <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: '#1D1D1F' }}>
+                {cat.name}
+              </span>
+              <button style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: 6, display: 'flex', alignItems: 'center',
+                color: '#86868B',
+              }}>
+                <Icons.Edit style={{ width: 18, height: 18 }} />
+              </button>
+              <button
+                onClick={() => setDeleteTarget(cat)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  padding: 6, display: 'flex', alignItems: 'center',
+                  color: '#86868B', marginLeft: 4,
+                }}
+              >
+                <Icons.Trash style={{ width: 18, height: 18 }} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{
+        padding: '12px 20px 16px', background: '#F8F9FA',
+      }}>
+        <button style={{
+          width: '100%', padding: '13px 0', borderRadius: 12,
+          border: 'none', background: '#1a1a2e',
+          color: '#fff', fontSize: 15, fontWeight: 600,
+          cursor: 'pointer',
+        }}>
+          新增分类
+        </button>
+      </div>
+
+      {deleteTarget && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.35)',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 100, padding: 24,
+          animation: 'fadeIn 0.2s ease',
+        }}>
+          <div style={{
+            width: '100%', background: '#fff', borderRadius: 24,
+            padding: '24px 20px 20px',
+            animation: 'fadeInUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          }}>
+            <div style={{
+              fontSize: 17, fontWeight: 600, color: '#1D1D1F',
+              marginBottom: 8,
+            }}>
+              删除分类
+            </div>
+            <div style={{
+              fontSize: 14, color: '#666', lineHeight: 1.5,
+              marginBottom: 20,
+            }}>
+              删除后，该分类下的记录将变为未分类。
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                style={{
+                  flex: 1, padding: '12px 0', borderRadius: 12,
+                  border: '1.5px solid #E8E8ED', background: '#fff',
+                  color: '#1D1D1F', fontSize: 15, fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                取消
+              </button>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                style={{
+                  flex: 1, padding: '12px 0', borderRadius: 12,
+                  border: 'none', background: '#EF4444',
+                  color: '#fff', fontSize: 15, fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ===== App Phone =====
 function AppPhone({ initialScreen, phoneTime }) {
   const [screen, setScreen] = React.useState(initialScreen || 'home');
+  const showTabBar = ['home', 'timeline', 'stats', 'profile'].includes(screen);
 
   const renderScreen = () => {
     switch (screen) {
       case 'home': return <HomeScreen />;
       case 'timeline': return <TimelineScreen />;
       case 'stats': return <StatsScreen />;
-      case 'profile': return <ProfileScreen />;
+      case 'profile': return <ProfileScreen onOpenCategoryManagement={() => setScreen('category')} />;
+      case 'category': return <CategoryManagementScreen onBack={() => setScreen('profile')} />;
       default: return <HomeScreen />;
     }
   };
@@ -1024,7 +1188,7 @@ function AppPhone({ initialScreen, phoneTime }) {
     <AndroidFrame time={phoneTime} battery={85}>
       <div style={{ height: '100%', position: 'relative' }}>
         {renderScreen()}
-        <TabBar activeTab={screen} onTabChange={setScreen} />
+        {showTabBar && <TabBar activeTab={screen} onTabChange={setScreen} />}
       </div>
     </AndroidFrame>
   );

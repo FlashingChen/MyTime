@@ -350,7 +350,6 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
       'id': c.id,
       'name': c.name,
       'color': c.color,
-      'isSystem': c.isSystem,
     };
   }
 
@@ -363,7 +362,6 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
       id: id,
       name: name,
       color: color,
-      isSystem: json['isSystem'] as bool? ?? false,
     );
   }
 
@@ -381,7 +379,7 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
     final categoryId = json['categoryId'] as String?;
     final start = json['startTime'] as String?;
     final end = json['endTime'] as String?;
-    if (categoryId == null || start == null || end == null) return null;
+    if (start == null || end == null) return null;
     return TimeRecord(
       id: json['id'] as String? ?? '',
       categoryId: categoryId,

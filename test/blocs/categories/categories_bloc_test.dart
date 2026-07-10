@@ -69,7 +69,7 @@ void main() {
     );
 
     blocTest<CategoriesBloc, CategoriesState>(
-      'rejects deletion of a system category',
+      'deletes a default category and clears its records',
       build: () => CategoriesBloc(repo),
       act: (bloc) async {
         bloc.add(const LoadCategories());
@@ -80,11 +80,35 @@ void main() {
       expect: () => [
         const CategoriesLoading(),
         isA<CategoriesLoaded>(),
-        isA<CategoriesError>(),
+        isA<CategoriesLoaded>(),
       ],
       verify: (bloc) {
-        expect(bloc.state, isA<CategoriesError>());
+        final state = bloc.state as CategoriesLoaded;
+        expect(state.categories.any((c) => c.id == 'work'), isFalse);
       },
+    );
+
+    blocTest<CategoriesBloc, CategoriesState>(
+      'rejects deletion of the last category',
+      build: () => CategoriesBloc(repo),
+      setUp: () async {
+        final box = repo.getAll().first;
+        for (final c in repo.getAll().where((c) => c.id != box.id).toList()) {
+          await repo.delete(c.id);
+        }
+      },
+      act: (bloc) async {
+        bloc.add(const LoadCategories());
+        await Future.delayed(const Duration(milliseconds: 50));
+        final last = repo.getAll().single;
+        bloc.add(CategoryDeleted(last.id));
+      },
+      wait: const Duration(milliseconds: 100),
+      expect: () => [
+        const CategoriesLoading(),
+        isA<CategoriesLoaded>(),
+        isA<CategoriesError>(),
+      ],
     );
   });
 }

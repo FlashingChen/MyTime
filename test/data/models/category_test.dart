@@ -12,17 +12,6 @@ void main() {
       expect(category.id, 'work');
       expect(category.name, 'Work');
       expect(category.color, '#6366F1');
-      expect(category.isSystem, false);
-    });
-
-    test('creates system category', () {
-      final category = Category(
-        id: 'system',
-        name: 'System',
-        color: '#000000',
-        isSystem: true,
-      );
-      expect(category.isSystem, true);
     });
 
     test('equality works via Equatable', () {

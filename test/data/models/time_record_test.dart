@@ -54,5 +54,26 @@ void main() {
       expect(updated.note, 'Updated note');
       expect(updated.startTime, record.startTime);
     });
+
+    test('allows nullable categoryId for uncategorized records', () {
+      final record = TimeRecord(
+        id: '1',
+        categoryId: null,
+        startTime: DateTime(2026, 7, 9, 8, 0),
+        endTime: DateTime(2026, 7, 9, 9, 0),
+      );
+      expect(record.categoryId, isNull);
+    });
+
+    test('copyWith can set categoryId to null', () {
+      final record = TimeRecord(
+        id: '1',
+        categoryId: 'work',
+        startTime: DateTime(2026, 7, 9, 8, 0),
+        endTime: DateTime(2026, 7, 9, 9, 0),
+      );
+      final updated = record.copyWith(categoryId: null);
+      expect(updated.categoryId, isNull);
+    });
   });
 }

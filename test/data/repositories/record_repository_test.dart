@@ -72,4 +72,24 @@ void main() {
     expect(day9.length, 1);
     expect(day9[0].categoryId, 'work');
   });
+
+  test('clearCategory sets categoryId to null for matching records', () async {
+    final r1 = await repo.add(TimeRecord(
+      id: '',
+      categoryId: 'work',
+      startTime: DateTime(2026, 7, 9, 8, 0),
+      endTime: DateTime(2026, 7, 9, 9, 0),
+    ));
+    await repo.add(TimeRecord(
+      id: '',
+      categoryId: 'read',
+      startTime: DateTime(2026, 7, 9, 10, 0),
+      endTime: DateTime(2026, 7, 9, 11, 0),
+    ));
+    await repo.clearCategory('work');
+    final updated = repo.getAll().firstWhere((r) => r.id == r1.id);
+    expect(updated.categoryId, isNull);
+    final other = repo.getAll().firstWhere((r) => r.categoryId == 'read');
+    expect(other.categoryId, 'read');
+  });
 }

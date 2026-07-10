@@ -68,12 +68,12 @@ class AiInsightView extends StatelessWidget {
     // Aggregate by category
     final categoryMinutes = <String, int>{};
     for (final r in records) {
-      categoryMinutes[r.categoryId] =
-          (categoryMinutes[r.categoryId] ?? 0) + r.duration.inMinutes;
+      final key = r.categoryId ?? 'uncategorized';
+      categoryMinutes[key] = (categoryMinutes[key] ?? 0) + r.duration.inMinutes;
     }
 
     // Find top category
-    String topCategoryId = records.first.categoryId;
+    String topCategoryId = records.first.categoryId ?? 'uncategorized';
     int topMinutes = 0;
     for (final e in categoryMinutes.entries) {
       if (e.value > topMinutes) {

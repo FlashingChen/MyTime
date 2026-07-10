@@ -58,7 +58,7 @@ void main() {
   test('update changes category fields', () async {
     await repo.add(Category(id: 'test', name: 'Test', color: '#000000'));
     await repo.update(
-      Category(id: 'test', name: 'Updated', color: '#FFFFFF', isSystem: true),
+      Category(id: 'test', name: 'Updated', color: '#FFFFFF'),
     );
     final updated = repo.getById('test');
     expect(updated?.name, 'Updated');

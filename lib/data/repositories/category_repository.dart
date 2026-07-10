@@ -30,7 +30,6 @@ class CategoryRepository {
       id: category.id.isEmpty ? _uuid.v4() : category.id,
       name: category.name,
       color: category.color,
-      isSystem: category.isSystem,
     );
     await _box.put(newCategory.id, newCategory);
     return newCategory;

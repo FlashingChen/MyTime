@@ -10,7 +10,7 @@ class TimeRecord extends HiveObject with Equatable {
   @HiveField(0)
   final String id;
   @HiveField(1)
-  final String categoryId;
+  final String? categoryId;
   @HiveField(2)
   final DateTime startTime;
   @HiveField(3)
@@ -22,7 +22,7 @@ class TimeRecord extends HiveObject with Equatable {
 
   TimeRecord({
     required this.id,
-    required this.categoryId,
+    this.categoryId,
     required this.startTime,
     required this.endTime,
     this.note,
@@ -41,7 +41,7 @@ class TimeRecord extends HiveObject with Equatable {
   }) {
     return TimeRecord(
       id: id ?? this.id,
-      categoryId: categoryId ?? this.categoryId,
+      categoryId: categoryId,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       note: note ?? this.note,
