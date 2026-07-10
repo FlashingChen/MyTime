@@ -39,6 +39,21 @@ class BarChartView extends StatelessWidget {
             BarChartData(
               alignment: BarChartAlignment.spaceAround,
               maxY: maxHours > 0 ? maxHours * 1.2 : 1,
+              barTouchData: BarTouchData(
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    final point = points[groupIndex];
+                    return BarTooltipItem(
+                      '${point.label}\n${formatStatsDuration(point.duration)}',
+                      TextStyle(
+                        color: context.colorScheme.onPrimary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    );
+                  },
+                ),
+              ),
               barGroups: points.indexed.map((entry) {
                 final spot = entry.$2;
                 return BarChartGroupData(
@@ -70,19 +85,26 @@ class BarChartView extends StatelessWidget {
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(
                     showTitles: true,
+                    reservedSize: 34,
                     getTitlesWidget: (value, meta) {
                       final idx = value.toInt();
                       if (idx < 0 || idx >= points.length) {
                         return const SizedBox.shrink();
                       }
+                      final point = points[idx];
+                      final showLabel = points.length <= 7 || idx % 3 == 0;
                       return Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          points[idx].label,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: context.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
+                        child: Semantics(
+                          label:
+                              '${point.label}，${formatStatsDuration(point.duration)}',
+                          child: Text(
+                            showLabel ? point.label : '',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: context.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       );

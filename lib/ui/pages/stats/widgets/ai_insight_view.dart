@@ -3,10 +3,11 @@ import 'package:mytime/core/constants/app_colors.dart';
 import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/core/utils/category_lookup.dart';
 import 'package:mytime/data/models/time_record.dart';
+import 'package:mytime/ui/pages/stats/stats_metrics.dart';
 import 'package:mytime/widgets/svg_icons.dart';
 
-/// AI insight card with weekly summary and suggestions based on real data.
-class AiInsightView extends StatelessWidget {
+/// Simulated, data-driven insight card for the currently selected period.
+class AiInsightView extends StatefulWidget {
   final List<TimeRecord> records;
   final String periodLabel;
 
@@ -17,101 +18,47 @@ class AiInsightView extends StatelessWidget {
   });
 
   @override
+  State<AiInsightView> createState() => _AiInsightViewState();
+}
+
+class _AiInsightViewState extends State<AiInsightView> {
+  int _suggestionOffset = 0;
+
+  @override
   Widget build(BuildContext context) {
     final gradientColors = context.isDark
         ? const [Color(0xFF313152), Color(0xFF1E1E32)]
         : const [AppColors.primaryDark, Color(0xFF2D2D44)];
-    final totalMinutes = records.fold<int>(
-      0,
-      (sum, r) => sum + r.duration.inMinutes,
-    );
-    final hours = totalMinutes ~/ 60;
-    final mins = totalMinutes % 60;
 
-    if (records.isEmpty) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: gradientColors,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SvgIcons.sparkle(),
-              const SizedBox(height: 8),
-              const Text(
-                '暂无数据',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                '还没有足够的记录来生成分析。开始记录你的时间吧！',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFFA5B4FC),
-                  height: 1.6,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+    if (widget.records.isEmpty) {
+      return _buildEmptyState(gradientColors);
     }
 
-    // Aggregate by category
     final categoryMinutes = <String, int>{};
-    for (final r in records) {
-      final key = r.categoryId ?? 'uncategorized';
-      categoryMinutes[key] = (categoryMinutes[key] ?? 0) + r.duration.inMinutes;
+    var totalMinutes = 0;
+    var longestMinutes = 0;
+    for (final record in widget.records) {
+      final minutes = record.duration.inMinutes;
+      totalMinutes += minutes;
+      longestMinutes = minutes > longestMinutes ? minutes : longestMinutes;
+      final categoryId = record.categoryId ?? 'uncategorized';
+      categoryMinutes[categoryId] =
+          (categoryMinutes[categoryId] ?? 0) + minutes;
     }
-
-    // Find top category
-    String topCategoryId = records.first.categoryId ?? 'uncategorized';
-    int topMinutes = 0;
-    for (final e in categoryMinutes.entries) {
-      if (e.value > topMinutes) {
-        topMinutes = e.value;
-        topCategoryId = e.key;
-      }
-    }
-    final topCat = CategoryLookup.byId(context, topCategoryId);
-
-    // Count longest session
-    int longestMinutes = 0;
-    for (final r in records) {
-      if (r.duration.inMinutes > longestMinutes) {
-        longestMinutes = r.duration.inMinutes;
-      }
-    }
-
-    // Generate dynamic suggestion
-    final suggestions = <String>[];
-    if (longestMinutes > 120) {
-      suggestions.add(
-        '你最长的工作块持续了 ${longestMinutes ~/ 60}h${longestMinutes % 60}m，建议每隔 90 分钟休息一次以保持效率。',
-      );
-    }
-    if (topMinutes > 0) {
-      final topPct = (topMinutes * 100 ~/ totalMinutes);
-      suggestions.add('${topCat.name}占比 $topPct%，是耗时最多的活动。');
-    }
-    if (totalMinutes < 120) {
-      suggestions.add('记录时间较短，建议增加专注时段。');
-    }
-    if (suggestions.isEmpty) {
-      suggestions.add('继续保持当前的节奏！');
-    }
+    final topEntry = categoryMinutes.entries.reduce(
+      (current, next) => current.value > next.value ? current : next,
+    );
+    final topCategory = CategoryLookup.byId(context, topEntry.key);
+    final suggestions = _suggestions(
+      totalMinutes: totalMinutes,
+      longestMinutes: longestMinutes,
+      topCategoryName: topCategory.name,
+      topCategoryMinutes: topEntry.value,
+    );
+    final visibleSuggestions = List.generate(
+      suggestions.length > 1 ? 2 : 1,
+      (index) => suggestions[(_suggestionOffset + index) % suggestions.length],
+    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -133,7 +80,7 @@ class AiInsightView extends StatelessWidget {
                 SvgIcons.sparkle(),
                 const SizedBox(height: 8),
                 Text(
-                  '$periodLabel总结',
+                  '${widget.periodLabel}总结',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -142,7 +89,7 @@ class AiInsightView extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '$periodLabel你共记录 ${hours}h ${mins}m 的活动，共 ${records.length} 条记录。',
+                  '${widget.periodLabel}你共记录 ${formatStatsDuration(Duration(minutes: totalMinutes))} 的活动，共 ${widget.records.length} 条记录。',
                   style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFFA5B4FC),
@@ -150,8 +97,8 @@ class AiInsightView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                ...suggestions.map(
-                  (s) => Container(
+                for (final (index, suggestion) in visibleSuggestions.indexed)
+                  Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 6),
                     padding: const EdgeInsets.all(8),
@@ -160,7 +107,8 @@ class AiInsightView extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      s,
+                      suggestion,
+                      key: ValueKey('ai-suggestion-$index'),
                       style: const TextStyle(
                         fontSize: 11,
                         color: Color(0xFFA5B4FC),
@@ -168,7 +116,6 @@ class AiInsightView extends StatelessWidget {
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -176,7 +123,10 @@ class AiInsightView extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: () {},
+              onPressed: () => setState(
+                () => _suggestionOffset =
+                    (_suggestionOffset + 1) % suggestions.length,
+              ),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(
@@ -195,6 +145,67 @@ class AiInsightView extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  List<String> _suggestions({
+    required int totalMinutes,
+    required int longestMinutes,
+    required String topCategoryName,
+    required int topCategoryMinutes,
+  }) {
+    final topPercentage = topCategoryMinutes * 100 ~/ totalMinutes;
+    return [
+      '$topCategoryName占比 $topPercentage%，是当前最投入的活动。',
+      if (longestMinutes > 120)
+        '最长连续记录为 ${formatStatsDuration(Duration(minutes: longestMinutes))}，建议每 90 分钟安排一次短暂休息。'
+      else
+        '当前最长连续记录为 ${formatStatsDuration(Duration(minutes: longestMinutes))}，节奏保持得不错。',
+      if (totalMinutes < 120)
+        '记录时间较短，建议安排一个完整的专注时段。'
+      else
+        '保持规律记录，能让下一次分析更贴合你的时间分配。',
+    ];
+  }
+
+  Widget _buildEmptyState(List<Color> gradientColors) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: gradientColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SvgIcons.sparkle(),
+            const SizedBox(height: 8),
+            const Text(
+              '暂无数据',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '还没有足够的记录来生成分析。开始记录你的时间吧！',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFFA5B4FC),
+                height: 1.6,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
