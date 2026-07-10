@@ -25,9 +25,16 @@ void main() async {
     MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => TimerBloc()),
-        BlocProvider(create: (_) => RecordsBloc(recordRepo)..add(LoadRecords())),
-        BlocProvider(create: (_) => CategoriesBloc(categoryRepo)..add(LoadCategories())),
-        BlocProvider(create: (_) => SettingsBloc(settingsRepo)..add(LoadSettings())),
+        BlocProvider(
+          create: (_) => RecordsBloc(recordRepo)..add(LoadRecords()),
+        ),
+        BlocProvider(
+          create: (_) =>
+              CategoriesBloc(categoryRepo, recordRepo)..add(LoadCategories()),
+        ),
+        BlocProvider(
+          create: (_) => SettingsBloc(settingsRepo)..add(LoadSettings()),
+        ),
       ],
       child: const AppShell(),
     ),

@@ -21,10 +21,15 @@ class PieChartView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final aggregated = _aggregateByCategory();
-    final totalSeconds = aggregated.values.fold<int>(0, (sum, d) => sum + d.inSeconds);
+    final totalSeconds = aggregated.values.fold<int>(
+      0,
+      (sum, d) => sum + d.inSeconds,
+    );
 
     if (totalSeconds == 0) {
-      return const Center(child: Text('暂无数据', style: TextStyle(color: AppColors.textSecondary)));
+      return const Center(
+        child: Text('暂无数据', style: TextStyle(color: AppColors.textSecondary)),
+      );
     }
 
     final sections = <PieChartSectionData>[];
@@ -34,18 +39,22 @@ class PieChartView extends StatelessWidget {
       final cat = CategoryLookup.byId(context, entry.key);
       final catColor = Color(int.parse(cat.color.replaceFirst('#', '0xFF')));
       final percentage = (entry.value.inSeconds / totalSeconds * 100).round();
-      sections.add(PieChartSectionData(
-        value: entry.value.inSeconds.toDouble(),
-        color: catColor.withValues(alpha: 0.9),
-        radius: 70,
-        showTitle: false,
-      ));
-      legendItems.add(_LegendItem(
-        color: catColor,
-        name: cat.name,
-        duration: _formatDuration(entry.value),
-        percentage: '$percentage%',
-      ));
+      sections.add(
+        PieChartSectionData(
+          value: entry.value.inSeconds.toDouble(),
+          color: catColor.withValues(alpha: 0.9),
+          radius: 70,
+          showTitle: false,
+        ),
+      );
+      legendItems.add(
+        _LegendItem(
+          color: catColor,
+          name: cat.name,
+          duration: _formatDuration(entry.value),
+          percentage: '$percentage%',
+        ),
+      );
     }
 
     return Padding(
@@ -56,7 +65,9 @@ class PieChartView extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.cardWhite,
               borderRadius: BorderRadius.circular(12),
-              boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 3)],
+              boxShadow: const [
+                BoxShadow(color: Color(0x0A000000), blurRadius: 3),
+              ],
             ),
             padding: const EdgeInsets.all(20),
             child: SizedBox(
@@ -77,9 +88,7 @@ class PieChartView extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            child: Column(
-              children: legendItems,
-            ),
+            child: Column(children: legendItems),
           ),
         ],
       ),
@@ -100,7 +109,12 @@ class _LegendItem extends StatelessWidget {
   final String duration;
   final String percentage;
 
-  const _LegendItem({required this.color, required this.name, required this.duration, required this.percentage});
+  const _LegendItem({
+    required this.color,
+    required this.name,
+    required this.duration,
+    required this.percentage,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -108,12 +122,32 @@ class _LegendItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Container(width: 8, height: 8, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           const SizedBox(width: 8),
           Expanded(child: Text(name, style: const TextStyle(fontSize: 13))),
-          Text(duration, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+          Text(
+            duration,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
+          ),
           const SizedBox(width: 8),
-          SizedBox(width: 32, child: Text(percentage, textAlign: TextAlign.right, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+          SizedBox(
+            width: 32,
+            child: Text(
+              percentage,
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );

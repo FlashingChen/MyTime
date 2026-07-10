@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mytime/blocs/records/records_bloc.dart';
@@ -5,10 +7,11 @@ import 'package:mytime/blocs/records/records_event.dart';
 import 'package:mytime/blocs/records/records_state.dart';
 import 'package:mytime/core/constants/app_colors.dart';
 import 'package:mytime/data/models/time_record.dart';
+import 'package:mytime/ui/pages/timeline/timeline_layout.dart';
 import 'package:mytime/ui/pages/timeline/widgets/date_navigator.dart';
 import 'package:mytime/ui/pages/timeline/widgets/timeline_card.dart';
 
-/// Timeline page showing daily records on a vertical time axis.
+/// Timeline page showing a selected day's records on a 24-hour vertical axis.
 class TimelinePage extends StatefulWidget {
   const TimelinePage({super.key});
 
@@ -17,24 +20,121 @@ class TimelinePage extends StatefulWidget {
 }
 
 class _TimelinePageState extends State<TimelinePage> {
+  static const _defaultHourHeight = 60.0;
+  static const _minHourHeight = 30.0;
+  static const _maxHourHeight = 120.0;
+  static const _labelWidth = 40.0;
+  static const _minCardHeight = 24.0;
+
+  final ScrollController _scrollController = ScrollController();
+  final Map<int, Offset> _activePointers = <int, Offset>{};
   DateTime _selectedDate = DateTime.now();
-  String _viewMode = 'day';
+  double _hourHeight = _defaultHourHeight;
+  double _renderedHourHeight = _defaultHourHeight;
+  double? _pinchDistance;
+  int _zoomCorrectionGeneration = 0;
+  Timer? _scaleFeedbackTimer;
+  bool _showsScaleFeedback = false;
 
   @override
   void initState() {
     super.initState();
-    context.read<RecordsBloc>().add(LoadRecordsByDate(_selectedDate));
+    context.read<RecordsBloc>().add(LoadRecords());
+  }
+
+  @override
+  void dispose() {
+    _scaleFeedbackTimer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _onDateChanged(int days) {
     setState(() {
       _selectedDate = _selectedDate.add(Duration(days: days));
     });
-    context.read<RecordsBloc>().add(LoadRecordsByDate(_selectedDate));
+  }
+
+  void _onPointerDown(PointerDownEvent event) {
+    _activePointers[event.pointer] = event.localPosition;
+    _resetPinchBaseline();
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (!_activePointers.containsKey(event.pointer)) return;
+    _activePointers[event.pointer] = event.localPosition;
+    if (_activePointers.length != 2 || _pinchDistance == null) return;
+
+    final positions = _activePointers.values.toList(growable: false);
+    final distance = (positions[0] - positions[1]).distance;
+    if (distance == 0) return;
+
+    final oldHourHeight = _hourHeight;
+    final renderedHourHeight = _renderedHourHeight;
+    final newHourHeight = (oldHourHeight * distance / _pinchDistance!).clamp(
+      _minHourHeight,
+      _maxHourHeight,
+    );
+    final localFocalY = (positions[0].dy + positions[1].dy) / 2;
+    if (newHourHeight != oldHourHeight) {
+      final correctionGeneration = ++_zoomCorrectionGeneration;
+      final contentY = _scrollController.hasClients
+          ? _scrollController.offset + localFocalY
+          : null;
+      setState(() => _hourHeight = newHourHeight);
+      if (contentY != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted ||
+              correctionGeneration != _zoomCorrectionGeneration ||
+              !_scrollController.hasClients) {
+            return;
+          }
+          _scrollController.jumpTo(
+            ((contentY * (newHourHeight / renderedHourHeight)) - localFocalY)
+                .clamp(0.0, _scrollController.position.maxScrollExtent)
+                .toDouble(),
+          );
+        });
+      }
+    }
+    _pinchDistance = distance;
+  }
+
+  void _onPointerUp(PointerEvent event) {
+    _activePointers.remove(event.pointer);
+    _resetPinchBaseline();
+  }
+
+  void _resetPinchBaseline() {
+    if (_activePointers.length == 2) {
+      final positions = _activePointers.values.toList(growable: false);
+      _pinchDistance = (positions[0] - positions[1]).distance;
+    } else {
+      _pinchDistance = null;
+    }
+  }
+
+  void _restoreDefaultScale() {
+    setState(() {
+      _hourHeight = _defaultHourHeight;
+      _showsScaleFeedback = true;
+    });
+    _scaleFeedbackTimer?.cancel();
+    _scaleFeedbackTimer = Timer(const Duration(seconds: 1), () {
+      if (mounted) setState(() => _showsScaleFeedback = false);
+    });
+  }
+
+  bool _isSelectedDate(TimeRecord record) {
+    final start = record.startTime;
+    return start.year == _selectedDate.year &&
+        start.month == _selectedDate.month &&
+        start.day == _selectedDate.day;
   }
 
   @override
   Widget build(BuildContext context) {
+    _renderedHourHeight = _hourHeight;
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -44,28 +144,23 @@ class _TimelinePageState extends State<TimelinePage> {
               onPrev: () => _onDateChanged(-1),
               onNext: () => _onDateChanged(1),
             ),
-            // View toggle
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  _ViewToggle(label: '日视图', active: _viewMode == 'day', onTap: () => setState(() => _viewMode = 'day')),
-                  const SizedBox(width: 4),
-                  _ViewToggle(label: '周视图', active: _viewMode == 'week', onTap: () => setState(() => _viewMode = 'week')),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
             Expanded(
               child: BlocBuilder<RecordsBloc, RecordsState>(
                 builder: (context, state) {
-                  if (state is RecordsLoading) {
+                  if (state is RecordsLoading || state is RecordsInitial) {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (state is RecordsLoaded) {
-                    return _buildTimeline(state.records);
+                    return _buildTimeline(
+                      state.records.where(_isSelectedDate).toList(),
+                    );
                   }
-                  return const Center(child: Text('暂无记录', style: TextStyle(color: AppColors.textSecondary)));
+                  return const Center(
+                    child: Text(
+                      '暂无记录',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                  );
                 },
               ),
             ),
@@ -76,125 +171,85 @@ class _TimelinePageState extends State<TimelinePage> {
   }
 
   Widget _buildTimeline(List<TimeRecord> records) {
-    const rangeStartHour = 8;
-    const rangeEndHour = 22;
-    const hourHeight = 60.0;
-    const labelWidth = 40.0;
-    final totalHours = rangeEndHour - rangeStartHour;
+    final layouts = TimelineLayout.calculate(
+      records,
+      hourHeight: _hourHeight,
+      minCardHeight: _minCardHeight,
+    );
+    final availableWidth = MediaQuery.of(context).size.width - 40 - _labelWidth;
 
-    // Sort by start time, then end time
-    final sorted = List<TimeRecord>.from(records)
-      ..sort((a, b) {
-        final c = a.startTime.compareTo(b.startTime);
-        if (c != 0) return c;
-        return a.endTime.compareTo(b.endTime);
-      });
-
-    // Assign columns to overlapping records
-    final groupEnds = <int>[];
-    final assignments = <int>[];
-
-    for (final record in sorted) {
-      final startMin = record.startTime.hour * 60 + record.startTime.minute;
-      for (int i = 0; i < groupEnds.length; i++) {
-        if (groupEnds[i] <= startMin) {
-          groupEnds[i] = -1;
-        }
-      }
-      int col = groupEnds.indexOf(-1);
-      if (col == -1) {
-        col = groupEnds.length;
-        groupEnds.add(-1);
-      }
-      final endMin = record.endTime.hour * 60 + record.endTime.minute;
-      groupEnds[col] = endMin;
-      assignments.add(col);
-    }
-
-    final maxCols = groupEnds.isEmpty ? 1 : groupEnds.length;
-    final availableWidth = MediaQuery.of(context).size.width - 40 - labelWidth;
-    final cardWidth = availableWidth / maxCols;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
-      child: SizedBox(
-        height: totalHours * hourHeight,
+    return Listener(
+      onPointerDown: _onPointerDown,
+      onPointerMove: _onPointerMove,
+      onPointerUp: _onPointerUp,
+      onPointerCancel: _onPointerUp,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onDoubleTap: _restoreDefaultScale,
         child: Stack(
           children: [
-            // Time grid
-            ...List.generate(totalHours + 1, (i) {
-              final hour = rangeStartHour + i;
-              return Positioned(
-                top: i * hourHeight,
-                left: 0,
-                right: 0,
-                child: Row(
+            SingleChildScrollView(
+              controller: _scrollController,
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
+              child: SizedBox(
+                height: 24 * _hourHeight,
+                child: Stack(
                   children: [
-                    SizedBox(
-                      width: labelWidth,
-                      child: Text(
-                        '${hour.toString().padLeft(2, '0')}:00',
-                        style: const TextStyle(fontSize: 11, color: AppColors.textHint, fontWeight: FontWeight.w500),
+                    ...List.generate(25, (hour) => _buildHourRow(hour)),
+                    ...layouts.map(
+                      (layout) => Positioned(
+                        top: layout.top,
+                        left:
+                            _labelWidth +
+                            layout.column *
+                                (availableWidth / layout.columnCount),
+                        width: availableWidth / layout.columnCount - 4,
+                        height: layout.height,
+                        child: TimelineCard(record: layout.record),
                       ),
-                    ),
-                    Expanded(
-                      child: Container(height: 0, decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.divider)))),
                     ),
                   ],
                 ),
-              );
-            }),
-            // Event cards with overlap avoidance
-            ...sorted.asMap().entries.map((entry) {
-              final i = entry.key;
-              final record = entry.value;
-              final startMin = record.startTime.hour * 60 + record.startTime.minute;
-              final endMin = record.endTime.hour * 60 + record.endTime.minute;
-              final rangeStartMin = rangeStartHour * 60;
-              final top = (startMin - rangeStartMin) / 60 * hourHeight;
-              final height = (endMin - startMin) / 60 * hourHeight;
-              final col = assignments[i];
-              return Positioned(
-                top: top,
-                left: labelWidth + col * cardWidth,
-                width: cardWidth - 4,
-                child: SizedBox(
-                  height: height < 24 ? 24 : height,
-                  child: TimelineCard(record: record),
+              ),
+            ),
+            if (_showsScaleFeedback)
+              Positioned(
+                top: 12,
+                right: 20,
+                child: Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    '100%',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
                 ),
-              );
-            }),
+              ),
           ],
         ),
       ),
     );
   }
-}
 
-class _ViewToggle extends StatelessWidget {
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  const _ViewToggle({required this.label, required this.active, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        decoration: BoxDecoration(
-          color: active ? AppColors.primaryDark : const Color(0xFFF5F5F7),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12, fontWeight: FontWeight.w500,
-            color: active ? Colors.white : AppColors.textSecondary,
+  Widget _buildHourRow(int hour) {
+    return Positioned(
+      top: hour * _hourHeight,
+      left: 0,
+      right: 0,
+      child: Row(
+        children: [
+          SizedBox(
+            width: _labelWidth,
+            child: Text(
+              '${hour.toString().padLeft(2, '0')}:00',
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textHint,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
-        ),
+          const Expanded(child: Divider(height: 0, color: AppColors.divider)),
+        ],
       ),
     );
   }

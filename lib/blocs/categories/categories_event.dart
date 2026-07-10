@@ -37,9 +37,10 @@ class CategoryUpdated extends CategoriesEvent {
 /// Delete a category by id.
 class CategoryDeleted extends CategoriesEvent {
   final String id;
+  final String? replacementCategoryId;
 
-  const CategoryDeleted(this.id);
+  const CategoryDeleted(this.id, {this.replacementCategoryId});
 
   @override
-  List<Object?> get props => [id];
+  List<Object?> get props => [id, replacementCategoryId];
 }

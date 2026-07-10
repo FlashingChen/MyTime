@@ -69,7 +69,7 @@ void main() {
     );
 
     blocTest<CategoriesBloc, CategoriesState>(
-      'emits CategoriesLoaded without deleted category',
+      'rejects deletion of a system category',
       build: () => CategoriesBloc(repo),
       act: (bloc) async {
         bloc.add(const LoadCategories());
@@ -80,11 +80,10 @@ void main() {
       expect: () => [
         const CategoriesLoading(),
         isA<CategoriesLoaded>(),
-        isA<CategoriesLoaded>(),
+        isA<CategoriesError>(),
       ],
       verify: (bloc) {
-        final state = bloc.state as CategoriesLoaded;
-        expect(state.categories.any((c) => c.id == 'work'), isFalse);
+        expect(bloc.state, isA<CategoriesError>());
       },
     );
   });

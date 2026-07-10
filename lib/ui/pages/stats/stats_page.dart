@@ -9,6 +9,7 @@ import 'package:mytime/ui/pages/stats/widgets/ai_insight_view.dart';
 import 'package:mytime/ui/pages/stats/widgets/bar_chart_view.dart';
 import 'package:mytime/ui/pages/stats/widgets/pie_chart_view.dart';
 import 'package:mytime/ui/pages/stats/widgets/summary_cards.dart';
+import 'package:mytime/ui/pages/stats/stats_metrics.dart';
 
 /// Statistics page with proportion, trend, and AI insight tabs.
 class StatsPage extends StatefulWidget {
@@ -19,7 +20,7 @@ class StatsPage extends StatefulWidget {
 }
 
 class _StatsPageState extends State<StatsPage> {
-  String _range = 'week';
+  StatsRange _range = StatsRange.week;
   String _tab = 'pie';
 
   @override
@@ -39,11 +40,23 @@ class _StatsPageState extends State<StatsPage> {
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
               child: Row(
                 children: [
-                  _RangeChip(label: '本日', active: _range == 'day', onTap: () => _onRangeChanged('day')),
+                  _RangeChip(
+                    label: '本日',
+                    active: _range == StatsRange.day,
+                    onTap: () => _onRangeChanged(StatsRange.day),
+                  ),
                   const SizedBox(width: 4),
-                  _RangeChip(label: '本周', active: _range == 'week', onTap: () => _onRangeChanged('week')),
+                  _RangeChip(
+                    label: '本周',
+                    active: _range == StatsRange.week,
+                    onTap: () => _onRangeChanged(StatsRange.week),
+                  ),
                   const SizedBox(width: 4),
-                  _RangeChip(label: '本月', active: _range == 'month', onTap: () => _onRangeChanged('month')),
+                  _RangeChip(
+                    label: '本月',
+                    active: _range == StatsRange.month,
+                    onTap: () => _onRangeChanged(StatsRange.month),
+                  ),
                 ],
               ),
             ),
@@ -51,7 +64,13 @@ class _StatsPageState extends State<StatsPage> {
             BlocBuilder<RecordsBloc, RecordsState>(
               builder: (context, state) {
                 if (state is RecordsLoaded) {
-                  return _buildSummaryCards(state.records);
+                  return _buildSummaryCards(
+                    StatsMetrics.forRange(
+                      state.records,
+                      _range,
+                      DateTime.now(),
+                    ),
+                  );
                 }
                 return const SizedBox.shrink();
               },
@@ -59,12 +78,26 @@ class _StatsPageState extends State<StatsPage> {
             const SizedBox(height: 12),
             // Tab bar
             Container(
-              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.divider))),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: AppColors.divider)),
+              ),
               child: Row(
                 children: [
-                  _TabButton(label: '占比', active: _tab == 'pie', onTap: () => setState(() => _tab = 'pie')),
-                  _TabButton(label: '趋势', active: _tab == 'bar', onTap: () => setState(() => _tab = 'bar')),
-                  _TabButton(label: 'AI 建议', active: _tab == 'ai', onTap: () => setState(() => _tab = 'ai')),
+                  _TabButton(
+                    label: '占比',
+                    active: _tab == 'pie',
+                    onTap: () => setState(() => _tab = 'pie'),
+                  ),
+                  _TabButton(
+                    label: '趋势',
+                    active: _tab == 'bar',
+                    onTap: () => setState(() => _tab = 'bar'),
+                  ),
+                  _TabButton(
+                    label: 'AI 建议',
+                    active: _tab == 'ai',
+                    onTap: () => setState(() => _tab = 'ai'),
+                  ),
                 ],
               ),
             ),
@@ -72,31 +105,39 @@ class _StatsPageState extends State<StatsPage> {
             Expanded(
               child: BlocBuilder<RecordsBloc, RecordsState>(
                 builder: (context, state) {
-                  final allRecords = state is RecordsLoaded ? state.records : <TimeRecord>[];
-                  final now = DateTime.now();
-                  final todayStart = DateTime(now.year, now.month, now.day);
-                  final weekStart = todayStart.subtract(Duration(days: now.weekday - 1));
-                  final monthStart = DateTime(now.year, now.month, 1);
-
-                  List<TimeRecord> records;
-                  switch (_range) {
-                    case 'day':
-                      records = allRecords.where((r) => r.startTime.isAfter(todayStart)).toList();
-                      break;
-                    case 'month':
-                      records = allRecords.where((r) => r.startTime.isAfter(monthStart)).toList();
-                      break;
-                    case 'week':
-                    default:
-                      records = allRecords.where((r) => r.startTime.isAfter(weekStart)).toList();
-                      break;
-                  }
+                  final allRecords = state is RecordsLoaded
+                      ? state.records
+                      : <TimeRecord>[];
+                  final metrics = StatsMetrics.forRange(
+                    allRecords,
+                    _range,
+                    DateTime.now(),
+                  );
 
                   switch (_tab) {
-                    case 'pie': return PieChartView(records: records);
-                    case 'bar': return BarChartView(records: records);
-                    case 'ai': return AiInsightView(records: records);
-                    default: return const SizedBox.shrink();
+                    case 'pie':
+                      return PieChartView(
+                        records: allRecords
+                            .where(
+                              (record) => metrics.byCategory.containsKey(
+                                record.categoryId,
+                              ),
+                            )
+                            .toList(),
+                      );
+                    case 'bar':
+                      return BarChartView(points: metrics.trend);
+                    case 'ai':
+                      return AiInsightView(
+                        records: allRecords,
+                        periodLabel: _range == StatsRange.day
+                            ? '今日'
+                            : _range == StatsRange.week
+                            ? '本周'
+                            : '本月',
+                      );
+                    default:
+                      return const SizedBox.shrink();
                   }
                 },
               ),
@@ -107,81 +148,34 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  void _onRangeChanged(String range) {
+  void _onRangeChanged(StatsRange range) {
     setState(() => _range = range);
     context.read<RecordsBloc>().add(LoadRecords());
   }
 
-  Widget _buildSummaryCards(List<TimeRecord> records) {
-    final now = DateTime.now();
-    final todayStart = DateTime(now.year, now.month, now.day);
-    final yesterdayStart = todayStart.subtract(const Duration(days: 1));
-    final weekStart = todayStart.subtract(Duration(days: todayStart.weekday - 1));
-    final monthStart = DateTime(now.year, now.month, 1);
-    final lastMonthStart = DateTime(now.year, now.month - 1, 1);
-
-    // Filter based on range
-    List<TimeRecord> currentRecords;
-    List<TimeRecord> previousRecords;
-    int daysElapsed;
-
-    switch (_range) {
-      case 'day':
-        currentRecords = records.where((r) => r.startTime.isAfter(todayStart)).toList();
-        previousRecords = records.where((r) => r.startTime.isAfter(yesterdayStart) && r.startTime.isBefore(todayStart)).toList();
-        daysElapsed = 1;
-        break;
-      case 'month':
-        currentRecords = records.where((r) => r.startTime.isAfter(monthStart)).toList();
-        previousRecords = records.where((r) => r.startTime.isAfter(lastMonthStart) && r.startTime.isBefore(monthStart)).toList();
-        daysElapsed = now.day;
-        break;
-      case 'week':
-      default:
-        currentRecords = records.where((r) => r.startTime.isAfter(weekStart)).toList();
-        previousRecords = records.where((r) => r.startTime.isAfter(weekStart.subtract(const Duration(days: 7))) && r.startTime.isBefore(weekStart)).toList();
-        daysElapsed = now.weekday;
-        break;
-    }
-
-    final currentMinutes = currentRecords.fold<int>(0, (s, r) => s + r.duration.inMinutes);
-    final previousMinutes = previousRecords.fold<int>(0, (s, r) => s + r.duration.inMinutes);
-    final avgMinutes = daysElapsed > 0 ? (currentMinutes ~/ daysElapsed) : 0;
-    final prevAvg = previousRecords.isNotEmpty ? (previousMinutes ~/ previousRecords.length) : 0;
-
-    final changePct = previousMinutes > 0
-        ? ((currentMinutes - previousMinutes) * 100 ~/ previousMinutes)
-        : 0;
-
-    final avgChangePct = prevAvg > 0
-        ? ((avgMinutes - prevAvg) * 100 ~/ prevAvg)
-        : 0;
-
-    String fmt(int m) {
-      final h = m ~/ 60;
-      final rem = m % 60;
-      if (h > 0) return '${h}h ${rem}m';
-      return '${rem}m';
-    }
-
-    String pct(int v) {
-      if (v >= 0) return '+$v%';
-      return '$v%';
-    }
-
-    String l1, l2, l3;
-    if (_range == 'day') {
-      l1 = '今日'; l2 = '昨日'; l3 = '同比';
-    } else if (_range == 'month') {
-      l1 = '本月'; l2 = '日均'; l3 = '同比';
-    } else {
-      l1 = '本周'; l2 = '日均'; l3 = '同比';
-    }
-
+  Widget _buildSummaryCards(StatsMetrics metrics) {
+    String format(Duration value) =>
+        '${value.inHours}h ${value.inMinutes % 60}m';
+    final change = metrics.previousTotal.inMinutes == 0
+        ? 0
+        : ((metrics.total.inMinutes - metrics.previousTotal.inMinutes) *
+              100 ~/
+              metrics.previousTotal.inMinutes);
+    final isDay = _range == StatsRange.day;
     return SummaryCards(
-      label1: l1, value1: fmt(currentMinutes), change1: pct(changePct),
-      label2: l2, value2: fmt(avgMinutes), change2: pct(avgChangePct),
-      label3: l3, value3: fmt(previousMinutes), change3: '',
+      label1: isDay
+          ? '今日总时长'
+          : _range == StatsRange.week
+          ? '本周总时长'
+          : '本月总时长',
+      value1: format(metrics.total),
+      change1: '${change >= 0 ? '+' : ''}$change%',
+      label2: isDay ? '昨日总时长' : '日均',
+      value2: format(isDay ? metrics.previousTotal : metrics.average),
+      change2: '',
+      label3: isDay ? '较昨日变化' : '较上一周期',
+      value3: format(metrics.previousTotal),
+      change3: '',
     );
   }
 }
@@ -191,7 +185,11 @@ class _RangeChip extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
 
-  const _RangeChip({required this.label, required this.active, required this.onTap});
+  const _RangeChip({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +201,14 @@ class _RangeChip extends StatelessWidget {
           color: active ? AppColors.primaryDark : const Color(0xFFF0F0F0),
           borderRadius: BorderRadius.circular(6),
         ),
-        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: active ? Colors.white : AppColors.textSecondary)),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: active ? Colors.white : AppColors.textSecondary,
+          ),
+        ),
       ),
     );
   }
@@ -214,7 +219,11 @@ class _TabButton extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
 
-  const _TabButton({required this.label, required this.active, required this.onTap});
+  const _TabButton({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -224,12 +233,21 @@ class _TabButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: active ? AppColors.primaryDark : Colors.transparent, width: 2)),
+            border: Border(
+              bottom: BorderSide(
+                color: active ? AppColors.primaryDark : Colors.transparent,
+                width: 2,
+              ),
+            ),
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: active ? AppColors.primaryDark : AppColors.textHint),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: active ? AppColors.primaryDark : AppColors.textHint,
+            ),
           ),
         ),
       ),

@@ -47,4 +47,18 @@ class RecordRepository {
   Future<void> update(TimeRecord record) async {
     await _box.put(record.id, record);
   }
+
+  /// Reassign every saved record using one category to another category.
+  Future<void> reassignCategory(
+    String fromCategoryId,
+    String toCategoryId,
+  ) async {
+    final updates = <String, TimeRecord>{
+      for (final record in _box.values.where(
+        (record) => record.categoryId == fromCategoryId,
+      ))
+        record.id: record.copyWith(categoryId: toCategoryId),
+    };
+    if (updates.isNotEmpty) await _box.putAll(updates);
+  }
 }

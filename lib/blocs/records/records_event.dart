@@ -23,6 +23,14 @@ class RecordDeleted extends RecordsEvent {
   List<Object?> get props => [id];
 }
 
+/// Persist edits to an existing record.
+class RecordUpdated extends RecordsEvent {
+  final TimeRecord record;
+  const RecordUpdated(this.record);
+  @override
+  List<Object?> get props => [record];
+}
+
 class LoadRecordsByDate extends RecordsEvent {
   final DateTime date;
   const LoadRecordsByDate(this.date);

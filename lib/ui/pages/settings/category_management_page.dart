@@ -67,9 +67,7 @@ class CategoryManagementPage extends StatelessWidget {
                             : () => _showEditDialog(context, category),
                         onDelete: category.isSystem
                             ? null
-                            : () => context.read<CategoriesBloc>().add(
-                                CategoryDeleted(category.id),
-                              ),
+                            : () => _confirmDelete(context, category, categories),
                       );
                     }, childCount: categories.length),
                   ),
@@ -120,6 +118,36 @@ class CategoryManagementPage extends StatelessWidget {
         return _CategoryDialog(bloc: bloc, category: category);
       },
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, Category category, List<Category> categories) async {
+    final replacements = categories.where((item) => item.id != category.id).toList();
+    String? replacementId = replacements.isEmpty ? null : replacements.first.id;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('删除分类'),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('删除“${category.name}”后，关联记录将迁移到替代分类。'),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: replacementId,
+              decoration: const InputDecoration(labelText: '替代分类'),
+              items: replacements.map((item) => DropdownMenuItem(value: item.id, child: Text(item.name))).toList(),
+              onChanged: (value) => setState(() => replacementId = value),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('取消')),
+            TextButton(onPressed: replacementId == null ? null : () => Navigator.pop(dialogContext, true), child: const Text('确认删除')),
+          ],
+        ),
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      context.read<CategoriesBloc>().add(CategoryDeleted(category.id, replacementCategoryId: replacementId));
+    }
   }
 }
 
