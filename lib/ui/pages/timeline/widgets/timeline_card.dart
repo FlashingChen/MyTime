@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mytime/core/constants/app_colors.dart';
-import 'package:mytime/core/constants/default_categories.dart';
+import 'package:mytime/core/utils/category_lookup.dart';
 import 'package:mytime/data/models/time_record.dart';
 
 /// A card representing a time record on the timeline.
@@ -24,7 +24,7 @@ class TimelineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cat = DefaultCategories.byId(record.categoryId);
+    final cat = CategoryLookup.byId(context, record.categoryId);
     final catColor = Color(int.parse(cat.color.replaceFirst('#', '0xFF')));
 
     return GestureDetector(
@@ -35,16 +35,17 @@ class TimelineCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border(left: BorderSide(color: catColor, width: 3)),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        child: Row(
           children: [
             Text(cat.name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: catColor)),
-            const SizedBox(height: 1),
-            Text(
-              '${_formatTime(record.startTime)} - ${_formatTime(record.endTime)} · ${_formatDuration(record.duration)}',
-              style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                '${_formatTime(record.startTime)} - ${_formatTime(record.endTime)} · ${_formatDuration(record.duration)}',
+                style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),

@@ -27,17 +27,17 @@ void main() {
 
   group('RecordsBloc', () {
     blocTest<RecordsBloc, RecordsState>(
-      'emits RecordsLoadSuccess with empty list on RecordsLoaded',
+      'emits RecordsLoaded with empty list on RecordsLoaded',
       build: () => RecordsBloc(repo),
-      act: (bloc) => bloc.add(RecordsLoaded()),
+      act: (bloc) => bloc.add(LoadRecords()),
       expect: () => [
         const RecordsLoading(),
-        const RecordsLoadSuccess([]),
+        const RecordsLoaded([]),
       ],
     );
 
     blocTest<RecordsBloc, RecordsState>(
-      'emits RecordsLoadSuccess with 1 record on RecordAdded',
+      'emits RecordsLoaded with 1 record on RecordAdded',
       build: () => RecordsBloc(repo),
       wait: const Duration(milliseconds: 100),
       act: (bloc) {
@@ -49,10 +49,10 @@ void main() {
         )));
       },
       expect: () => [
-        isA<RecordsLoadSuccess>(),
+        isA<RecordsLoaded>(),
       ],
       verify: (bloc) {
-        final state = bloc.state as RecordsLoadSuccess;
+        final state = bloc.state as RecordsLoaded;
         expect(state.records.length, 1);
         expect(state.records.first.categoryId, 'work');
       },

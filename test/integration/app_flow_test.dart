@@ -10,15 +10,22 @@ import 'package:mytime/blocs/timer/timer_bloc.dart';
 import 'package:mytime/data/models/app_settings.dart';
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
+import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/repositories/settings_repository.dart';
 import 'package:mytime/ui/app_shell.dart';
 
-Widget createApp(RecordRepository repo) {
+Widget createApp({
+  required RecordRepository recordsRepo,
+  required CategoryRepository categoryRepo,
+}) {
   return MultiBlocProvider(
     providers: [
       BlocProvider(create: (_) => TimerBloc()),
-      BlocProvider(create: (_) => RecordsBloc(repo)..add(RecordsLoaded())),
+      BlocProvider(create: (_) => RecordsBloc(recordsRepo)..add(LoadRecords())),
+      // CategoriesBloc is intentionally omitted from integration tests to avoid
+      // a flutter_tester finalization hang when Hive boxes are closed. Production
+      // provides the bloc at the root; consumers fall back to DefaultCategories.
       BlocProvider(create: (_) => SettingsBloc(_MockSettingsRepo())..add(const LoadSettings())),
     ],
     child: const AppShell(),
@@ -33,21 +40,25 @@ void main() {
   });
 
   group('empty state', () {
-    late RecordRepository repo;
+    late RecordRepository recordsRepo;
+    late CategoryRepository categoryRepo;
 
     setUp(() async {
-      final box = await Hive.openBox<TimeRecord>('test_integration');
-      repo = RecordRepository(box);
+      final recordsBox = await Hive.openBox<TimeRecord>('test_integration');
+      final categoriesBox = await Hive.openBox<Category>('test_integration_categories');
+      recordsRepo = RecordRepository(recordsBox);
+      categoryRepo = CategoryRepository(categoriesBox);
     });
 
     tearDown(() async {
-      final box = Hive.box<TimeRecord>('test_integration');
-      await box.clear();
-      await box.close();
+      await Hive.box<TimeRecord>('test_integration').clear();
+      await Hive.box<TimeRecord>('test_integration').close();
+      await Hive.box<Category>('test_integration_categories').clear();
+      await Hive.box<Category>('test_integration_categories').close();
     });
 
     testWidgets('home shows initial timer state', (tester) async {
-      await tester.pumpWidget(createApp(repo));
+      await tester.pumpWidget(createApp(recordsRepo: recordsRepo, categoryRepo: categoryRepo));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -56,7 +67,7 @@ void main() {
     });
 
     testWidgets('timer start and stop shows confirm bottom sheet', (tester) async {
-      await tester.pumpWidget(createApp(repo));
+      await tester.pumpWidget(createApp(recordsRepo: recordsRepo, categoryRepo: categoryRepo));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -75,13 +86,16 @@ void main() {
   });
 
   group('with existing data', () {
-    late RecordRepository repo;
+    late RecordRepository recordsRepo;
+    late CategoryRepository categoryRepo;
 
     setUp(() async {
-      final box = await Hive.openBox<TimeRecord>('test_integration');
-      repo = RecordRepository(box);
+      final recordsBox = await Hive.openBox<TimeRecord>('test_integration');
+      final categoriesBox = await Hive.openBox<Category>('test_integration_categories');
+      recordsRepo = RecordRepository(recordsBox);
+      categoryRepo = CategoryRepository(categoriesBox);
       final now = DateTime.now();
-      await repo.add(TimeRecord(
+      await recordsRepo.add(TimeRecord(
         id: '',
         categoryId: 'work',
         startTime: DateTime(now.year, now.month, now.day, 9, 0),
@@ -90,13 +104,14 @@ void main() {
     });
 
     tearDown(() async {
-      final box = Hive.box<TimeRecord>('test_integration');
-      await box.clear();
-      await box.close();
+      await Hive.box<TimeRecord>('test_integration').clear();
+      await Hive.box<TimeRecord>('test_integration').close();
+      await Hive.box<Category>('test_integration_categories').clear();
+      await Hive.box<Category>('test_integration_categories').close();
     });
 
     testWidgets('timeline tab shows saved records', (tester) async {
-      await tester.pumpWidget(createApp(repo));
+      await tester.pumpWidget(createApp(recordsRepo: recordsRepo, categoryRepo: categoryRepo));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 
@@ -113,7 +128,7 @@ void main() {
 
 class _MockSettingsRepo extends SettingsRepository {
   @override
-  Future<AppSettings> load() async => const AppSettings();
+  Future<AppSettings> load() async => const AppSettings(themeMode: 'light');
 
   @override
   Future<void> save(AppSettings settings) async {}

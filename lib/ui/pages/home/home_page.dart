@@ -45,7 +45,7 @@ class HomePage extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(24, 0, 24, 80),
                     child: BlocBuilder<RecordsBloc, RecordsState>(
                       builder: (context, recordsState) {
-                        if (recordsState is RecordsLoadSuccess) {
+                        if (recordsState is RecordsLoaded) {
                           return RecentRecordsList(records: recordsState.records);
                         }
                         return const SizedBox.shrink();

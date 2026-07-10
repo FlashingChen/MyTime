@@ -14,3 +14,18 @@
   - 统计：本日/周/月切换，占比/趋势/AI建议三标签
   - 我的：头像、深色模式开关、设置列表
 - `README.md`、`AGENTS.md`、`CHANGELOG.md` 项目基础文档
+- 分类管理：新增 `CategoryRepository`、`CategoriesBloc`、`CategoryManagementPage`，分类数据持久化到 Hive，支持新增/编辑/删除
+- 默认主题色配置：设置页可直接选择并持久化 accent color，AppTheme 动态应用
+- 数据导入导出：设置页支持将记录与分类导出为 JSON 到剪贴板，或从剪贴板导入 JSON
+- `CategoryLookup` 工具类，让分类消费者优先从 `CategoriesBloc` 读取真实数据，无 Bloc 时回退到系统默认
+
+### Changed
+- 设置页“分类管理”入口从占位提示改为真实页面
+- 设置页“默认主题色”入口从占位提示改为颜色选择器
+- 设置页“数据导入导出”入口从占位提示改为 JSON 导入/导出
+- 设置页“关于 MyTime”从占位提示改为系统关于对话框
+- `main.dart` 通过 `HiveHelper` 初始化并同时打开 `records` 与 `categories` 两个 Hive box，全局提供 `CategoriesBloc`
+
+### Fixed
+- `AppTheme.light` / `AppTheme.dark` 由 getter 改为接受 `accentColor` 的方法，支持主题色动态切换
+- 修复 HiveObject 子类的 `must_be_immutable` 分析警告

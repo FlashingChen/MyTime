@@ -4,6 +4,7 @@ import 'package:mytime/blocs/records/records_bloc.dart';
 import 'package:mytime/blocs/records/records_event.dart';
 import 'package:mytime/blocs/records/records_state.dart';
 import 'package:mytime/core/constants/app_colors.dart';
+import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/ui/pages/timeline/widgets/date_navigator.dart';
 import 'package:mytime/ui/pages/timeline/widgets/timeline_card.dart';
 
@@ -22,14 +23,14 @@ class _TimelinePageState extends State<TimelinePage> {
   @override
   void initState() {
     super.initState();
-    context.read<RecordsBloc>().add(RecordsLoadedByDate(_selectedDate));
+    context.read<RecordsBloc>().add(LoadRecordsByDate(_selectedDate));
   }
 
   void _onDateChanged(int days) {
     setState(() {
       _selectedDate = _selectedDate.add(Duration(days: days));
     });
-    context.read<RecordsBloc>().add(RecordsLoadedByDate(_selectedDate));
+    context.read<RecordsBloc>().add(LoadRecordsByDate(_selectedDate));
   }
 
   @override
@@ -61,7 +62,7 @@ class _TimelinePageState extends State<TimelinePage> {
                   if (state is RecordsLoading) {
                     return const Center(child: CircularProgressIndicator());
                   }
-                  if (state is RecordsLoadSuccess) {
+                  if (state is RecordsLoaded) {
                     return _buildTimeline(state.records);
                   }
                   return const Center(child: Text('暂无记录', style: TextStyle(color: AppColors.textSecondary)));
@@ -74,11 +75,45 @@ class _TimelinePageState extends State<TimelinePage> {
     );
   }
 
-  Widget _buildTimeline(List records) {
+  Widget _buildTimeline(List<TimeRecord> records) {
     const rangeStartHour = 8;
     const rangeEndHour = 22;
     const hourHeight = 60.0;
+    const labelWidth = 40.0;
     final totalHours = rangeEndHour - rangeStartHour;
+
+    // Sort by start time, then end time
+    final sorted = List<TimeRecord>.from(records)
+      ..sort((a, b) {
+        final c = a.startTime.compareTo(b.startTime);
+        if (c != 0) return c;
+        return a.endTime.compareTo(b.endTime);
+      });
+
+    // Assign columns to overlapping records
+    final groupEnds = <int>[];
+    final assignments = <int>[];
+
+    for (final record in sorted) {
+      final startMin = record.startTime.hour * 60 + record.startTime.minute;
+      for (int i = 0; i < groupEnds.length; i++) {
+        if (groupEnds[i] <= startMin) {
+          groupEnds[i] = -1;
+        }
+      }
+      int col = groupEnds.indexOf(-1);
+      if (col == -1) {
+        col = groupEnds.length;
+        groupEnds.add(-1);
+      }
+      final endMin = record.endTime.hour * 60 + record.endTime.minute;
+      groupEnds[col] = endMin;
+      assignments.add(col);
+    }
+
+    final maxCols = groupEnds.isEmpty ? 1 : groupEnds.length;
+    final availableWidth = MediaQuery.of(context).size.width - 40 - labelWidth;
+    final cardWidth = availableWidth / maxCols;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
@@ -96,7 +131,7 @@ class _TimelinePageState extends State<TimelinePage> {
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 32,
+                      width: labelWidth,
                       child: Text(
                         '${hour.toString().padLeft(2, '0')}:00',
                         style: const TextStyle(fontSize: 11, color: AppColors.textHint, fontWeight: FontWeight.w500),
@@ -109,19 +144,24 @@ class _TimelinePageState extends State<TimelinePage> {
                 ),
               );
             }),
-            // Event cards
-            ...records.map<Widget>((record) {
+            // Event cards with overlap avoidance
+            ...sorted.asMap().entries.map((entry) {
+              final i = entry.key;
+              final record = entry.value;
               final startMin = record.startTime.hour * 60 + record.startTime.minute;
               final endMin = record.endTime.hour * 60 + record.endTime.minute;
               final rangeStartMin = rangeStartHour * 60;
               final top = (startMin - rangeStartMin) / 60 * hourHeight;
               final height = (endMin - startMin) / 60 * hourHeight;
+              final col = assignments[i];
               return Positioned(
                 top: top,
-                left: 40,
-                right: 0,
-                height: height < 24 ? 24 : height,
-                child: TimelineCard(record: record),
+                left: labelWidth + col * cardWidth,
+                width: cardWidth - 4,
+                child: SizedBox(
+                  height: height < 24 ? 24 : height,
+                  child: TimelineCard(record: record),
+                ),
               );
             }),
           ],

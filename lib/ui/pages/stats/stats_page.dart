@@ -25,7 +25,7 @@ class _StatsPageState extends State<StatsPage> {
   @override
   void initState() {
     super.initState();
-    context.read<RecordsBloc>().add(RecordsLoaded());
+    context.read<RecordsBloc>().add(LoadRecords());
   }
 
   @override
@@ -39,16 +39,23 @@ class _StatsPageState extends State<StatsPage> {
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
               child: Row(
                 children: [
-                  _RangeChip(label: '本日', active: _range == 'day', onTap: () => setState(() => _range = 'day')),
+                  _RangeChip(label: '本日', active: _range == 'day', onTap: () => _onRangeChanged('day')),
                   const SizedBox(width: 4),
-                  _RangeChip(label: '本周', active: _range == 'week', onTap: () => setState(() => _range = 'week')),
+                  _RangeChip(label: '本周', active: _range == 'week', onTap: () => _onRangeChanged('week')),
                   const SizedBox(width: 4),
-                  _RangeChip(label: '本月', active: _range == 'month', onTap: () => setState(() => _range = 'month')),
+                  _RangeChip(label: '本月', active: _range == 'month', onTap: () => _onRangeChanged('month')),
                 ],
               ),
             ),
             // Summary cards
-            const SummaryCards(todayTotal: '4h 20m', weekTotal: '30h 30m', avgPerDay: '4h 21m', todayChange: '+12%', weekChange: '+5%', avgChange: '-2%'),
+            BlocBuilder<RecordsBloc, RecordsState>(
+              builder: (context, state) {
+                if (state is RecordsLoaded) {
+                  return _buildSummaryCards(state.records);
+                }
+                return const SizedBox.shrink();
+              },
+            ),
             const SizedBox(height: 12),
             // Tab bar
             Container(
@@ -65,7 +72,26 @@ class _StatsPageState extends State<StatsPage> {
             Expanded(
               child: BlocBuilder<RecordsBloc, RecordsState>(
                 builder: (context, state) {
-                  final records = state is RecordsLoadSuccess ? state.records : <TimeRecord>[];
+                  final allRecords = state is RecordsLoaded ? state.records : <TimeRecord>[];
+                  final now = DateTime.now();
+                  final todayStart = DateTime(now.year, now.month, now.day);
+                  final weekStart = todayStart.subtract(Duration(days: now.weekday - 1));
+                  final monthStart = DateTime(now.year, now.month, 1);
+
+                  List<TimeRecord> records;
+                  switch (_range) {
+                    case 'day':
+                      records = allRecords.where((r) => r.startTime.isAfter(todayStart)).toList();
+                      break;
+                    case 'month':
+                      records = allRecords.where((r) => r.startTime.isAfter(monthStart)).toList();
+                      break;
+                    case 'week':
+                    default:
+                      records = allRecords.where((r) => r.startTime.isAfter(weekStart)).toList();
+                      break;
+                  }
+
                   switch (_tab) {
                     case 'pie': return PieChartView(records: records);
                     case 'bar': return BarChartView(records: records);
@@ -78,6 +104,84 @@ class _StatsPageState extends State<StatsPage> {
           ],
         ),
       ),
+    );
+  }
+
+  void _onRangeChanged(String range) {
+    setState(() => _range = range);
+    context.read<RecordsBloc>().add(LoadRecords());
+  }
+
+  Widget _buildSummaryCards(List<TimeRecord> records) {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final yesterdayStart = todayStart.subtract(const Duration(days: 1));
+    final weekStart = todayStart.subtract(Duration(days: todayStart.weekday - 1));
+    final monthStart = DateTime(now.year, now.month, 1);
+    final lastMonthStart = DateTime(now.year, now.month - 1, 1);
+
+    // Filter based on range
+    List<TimeRecord> currentRecords;
+    List<TimeRecord> previousRecords;
+    int daysElapsed;
+
+    switch (_range) {
+      case 'day':
+        currentRecords = records.where((r) => r.startTime.isAfter(todayStart)).toList();
+        previousRecords = records.where((r) => r.startTime.isAfter(yesterdayStart) && r.startTime.isBefore(todayStart)).toList();
+        daysElapsed = 1;
+        break;
+      case 'month':
+        currentRecords = records.where((r) => r.startTime.isAfter(monthStart)).toList();
+        previousRecords = records.where((r) => r.startTime.isAfter(lastMonthStart) && r.startTime.isBefore(monthStart)).toList();
+        daysElapsed = now.day;
+        break;
+      case 'week':
+      default:
+        currentRecords = records.where((r) => r.startTime.isAfter(weekStart)).toList();
+        previousRecords = records.where((r) => r.startTime.isAfter(weekStart.subtract(const Duration(days: 7))) && r.startTime.isBefore(weekStart)).toList();
+        daysElapsed = now.weekday;
+        break;
+    }
+
+    final currentMinutes = currentRecords.fold<int>(0, (s, r) => s + r.duration.inMinutes);
+    final previousMinutes = previousRecords.fold<int>(0, (s, r) => s + r.duration.inMinutes);
+    final avgMinutes = daysElapsed > 0 ? (currentMinutes ~/ daysElapsed) : 0;
+    final prevAvg = previousRecords.isNotEmpty ? (previousMinutes ~/ previousRecords.length) : 0;
+
+    final changePct = previousMinutes > 0
+        ? ((currentMinutes - previousMinutes) * 100 ~/ previousMinutes)
+        : 0;
+
+    final avgChangePct = prevAvg > 0
+        ? ((avgMinutes - prevAvg) * 100 ~/ prevAvg)
+        : 0;
+
+    String fmt(int m) {
+      final h = m ~/ 60;
+      final rem = m % 60;
+      if (h > 0) return '${h}h ${rem}m';
+      return '${rem}m';
+    }
+
+    String pct(int v) {
+      if (v >= 0) return '+$v%';
+      return '$v%';
+    }
+
+    String l1, l2, l3;
+    if (_range == 'day') {
+      l1 = '今日'; l2 = '昨日'; l3 = '同比';
+    } else if (_range == 'month') {
+      l1 = '本月'; l2 = '日均'; l3 = '同比';
+    } else {
+      l1 = '本周'; l2 = '日均'; l3 = '同比';
+    }
+
+    return SummaryCards(
+      label1: l1, value1: fmt(currentMinutes), change1: pct(changePct),
+      label2: l2, value2: fmt(avgMinutes), change2: pct(avgChangePct),
+      label3: l3, value3: fmt(previousMinutes), change3: '',
     );
   }
 }

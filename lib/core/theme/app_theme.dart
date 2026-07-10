@@ -5,13 +5,20 @@ import 'package:mytime/core/constants/app_colors.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get light {
+  static Color _accent(String? accentColor) {
+    const fallback = '#6366F1';
+    final value = int.tryParse((accentColor ?? fallback).replaceFirst('#', '0xFF'));
+    return value != null ? Color(value) : AppColors.accentStart;
+  }
+
+  static ThemeData light({String? accentColor}) {
+    final accent = _accent(accentColor);
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
       scaffoldBackgroundColor: AppColors.backgroundLight,
-      colorScheme: const ColorScheme.light(
-        primary: AppColors.accentStart,
+      colorScheme: ColorScheme.light(
+        primary: accent,
         secondary: AppColors.accentEnd,
         surface: AppColors.cardWhite,
         onPrimary: Colors.white,
@@ -65,15 +72,16 @@ class AppTheme {
     );
   }
 
-  static ThemeData get dark {
+  static ThemeData dark({String? accentColor}) {
+    final accent = _accent(accentColor);
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: const Color(0xFF121212),
-      colorScheme: const ColorScheme.dark(
-        primary: AppColors.accentStart,
+      colorScheme: ColorScheme.dark(
+        primary: accent,
         secondary: AppColors.accentEnd,
-        surface: Color(0xFF1E1E1E),
+        surface: const Color(0xFF1E1E1E),
         onPrimary: Colors.white,
         onSurface: Colors.white,
       ),
