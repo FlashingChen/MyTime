@@ -120,7 +120,7 @@ class _StatsPageState extends State<StatsPage> {
                         records: allRecords
                             .where(
                               (record) => metrics.byCategory.containsKey(
-                                record.categoryId,
+                                record.categoryId ?? 'uncategorized',
                               ),
                             )
                             .toList(),

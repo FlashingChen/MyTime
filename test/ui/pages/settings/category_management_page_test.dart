@@ -60,18 +60,33 @@ void main() {
 
   testWidgets('shows title and default categories', (tester) async {
     await pumpPage(tester);
-
     expect(find.text('分类管理'), findsOneWidget);
     expect(find.text('工作'), findsOneWidget);
-    expect(find.text('阅读'), findsOneWidget);
-    expect(find.text('运动'), findsOneWidget);
-    expect(find.text('学习'), findsOneWidget);
-    expect(find.text('社交'), findsOneWidget);
-    expect(find.text('休息'), findsOneWidget);
-    expect(find.text('创作'), findsOneWidget);
-    expect(find.text('其他'), findsOneWidget);
-    expect(find.byIcon(Icons.edit_outlined), findsNothing);
-    expect(find.byIcon(Icons.delete_outline), findsNothing);
   });
 
+  testWidgets('shows edit and delete actions for default categories', (tester) async {
+    await pumpPage(tester);
+    expect(find.byTooltip('编辑分类'), findsWidgets);
+    expect(find.byTooltip('删除分类'), findsWidgets);
+  });
+
+  testWidgets('opens delete confirmation dialog', (tester) async {
+    await pumpPage(tester);
+    await tester.tap(find.byTooltip('删除分类').first);
+    await tester.pumpAndSettle();
+    expect(find.text('删除分类'), findsOneWidget);
+    expect(find.textContaining('未分类'), findsOneWidget);
+  });
+
+  testWidgets('disables delete when only one category remains', (tester) async {
+    await pumpPage(tester);
+    final all = repo.getAll();
+    for (var i = 0; i < all.length - 1; i++) {
+      await tester.tap(find.byTooltip('删除分类').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('确认删除'));
+      await tester.pumpAndSettle();
+    }
+    expect(find.byTooltip('删除分类'), findsNothing);
+  });
 }

@@ -62,12 +62,10 @@ class CategoryManagementPage extends StatelessWidget {
                       final category = categories[index];
                       return _CategoryListTile(
                         category: category,
-                        onEdit: category.isSystem
+                        onEdit: () => _showEditDialog(context, category),
+                        onDelete: categories.length <= 1
                             ? null
-                            : () => _showEditDialog(context, category),
-                        onDelete: category.isSystem
-                            ? null
-                            : () => _confirmDelete(context, category, categories),
+                            : () => _confirmDelete(context, category),
                       );
                     }, childCount: categories.length),
                   ),
@@ -120,33 +118,26 @@ class CategoryManagementPage extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, Category category, List<Category> categories) async {
-    final replacements = categories.where((item) => item.id != category.id).toList();
-    String? replacementId = replacements.isEmpty ? null : replacements.first.id;
+  Future<void> _confirmDelete(BuildContext context, Category category) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('删除分类'),
-          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('删除“${category.name}”后，关联记录将迁移到替代分类。'),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: replacementId,
-              decoration: const InputDecoration(labelText: '替代分类'),
-              items: replacements.map((item) => DropdownMenuItem(value: item.id, child: Text(item.name))).toList(),
-              onChanged: (value) => setState(() => replacementId = value),
-            ),
-          ]),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('取消')),
-            TextButton(onPressed: replacementId == null ? null : () => Navigator.pop(dialogContext, true), child: const Text('确认删除')),
-          ],
-        ),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除分类'),
+        content: Text('删除“${category.name}”后，该分类下的记录将变为未分类。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('确认删除'),
+          ),
+        ],
       ),
     );
     if (confirmed == true && context.mounted) {
-      context.read<CategoriesBloc>().add(CategoryDeleted(category.id, replacementCategoryId: replacementId));
+      context.read<CategoriesBloc>().add(CategoryDeleted(category.id));
     }
   }
 }
@@ -304,12 +295,6 @@ class _CategoryListTile extends StatelessWidget {
           category.name,
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
         ),
-        subtitle: category.isSystem
-            ? const Text(
-                '系统',
-                style: TextStyle(fontSize: 11, color: AppColors.textHint),
-              )
-            : null,
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -320,6 +305,7 @@ class _CategoryListTile extends StatelessWidget {
                   size: 18,
                   color: AppColors.textSecondary,
                 ),
+                tooltip: '编辑分类',
                 onPressed: onEdit,
               ),
             if (onDelete != null)
@@ -329,6 +315,7 @@ class _CategoryListTile extends StatelessWidget {
                   size: 18,
                   color: AppColors.danger,
                 ),
+                tooltip: '删除分类',
                 onPressed: onDelete,
               ),
           ],

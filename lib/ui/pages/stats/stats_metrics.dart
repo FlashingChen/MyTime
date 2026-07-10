@@ -48,10 +48,10 @@ class StatsMetrics {
       final duration = _overlap(record, period);
       if (duration == Duration.zero) continue;
       total += duration;
-      categoryDurations[record.categoryId] =
-          (categoryDurations[record.categoryId] ?? Duration.zero) + duration;
-      categoryCounts[record.categoryId] =
-          (categoryCounts[record.categoryId] ?? 0) + 1;
+      final key = record.categoryId ?? 'uncategorized';
+      categoryDurations[key] =
+          (categoryDurations[key] ?? Duration.zero) + duration;
+      categoryCounts[key] = (categoryCounts[key] ?? 0) + 1;
     }
     final previousTotal = records.fold<Duration>(
       Duration.zero,
