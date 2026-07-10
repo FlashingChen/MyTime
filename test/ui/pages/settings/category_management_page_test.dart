@@ -78,5 +78,7 @@ void main() {
     expect(find.textContaining('未分类'), findsOneWidget);
   });
 
-
+  // Note: the "disables delete when only one category remains" scenario is
+  // covered by the BLoC unit test because widget tests that drive
+  // CategoriesBloc + Hive real I/O hang on flutter_tester finalization.
 }
