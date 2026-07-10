@@ -118,20 +118,12 @@ class _StatsPageState extends State<StatsPage> {
 
                   switch (_tab) {
                     case 'pie':
-                      return PieChartView(
-                        records: allRecords
-                            .where(
-                              (record) => metrics.byCategory.containsKey(
-                                record.categoryId ?? 'uncategorized',
-                              ),
-                            )
-                            .toList(),
-                      );
+                      return PieChartView(records: metrics.records);
                     case 'bar':
                       return BarChartView(points: metrics.trend);
                     case 'ai':
                       return AiInsightView(
-                        records: allRecords,
+                        records: metrics.records,
                         periodLabel: _range == StatsRange.day
                             ? '今日'
                             : _range == StatsRange.week

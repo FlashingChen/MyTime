@@ -15,6 +15,7 @@ class StatsTrendPoint {
 class StatsMetrics {
   const StatsMetrics({
     required this.range,
+    required this.records,
     required this.total,
     required this.previousTotal,
     required this.average,
@@ -24,6 +25,9 @@ class StatsMetrics {
   });
 
   final StatsRange range;
+
+  /// Records clipped to the selected range, for consumers that need sessions.
+  final List<TimeRecord> records;
   final Duration total;
   final Duration previousTotal;
   final Duration average;
@@ -43,10 +47,20 @@ class StatsMetrics {
     );
     final categoryDurations = <String, Duration>{};
     final categoryCounts = <String, int>{};
+    final periodRecords = <TimeRecord>[];
     Duration total = Duration.zero;
     for (final record in records) {
       final duration = _overlap(record, period);
       if (duration == Duration.zero) continue;
+      final startTime = record.startTime.isAfter(period.start)
+          ? record.startTime
+          : period.start;
+      final endTime = record.endTime.isBefore(period.end)
+          ? record.endTime
+          : period.end;
+      periodRecords.add(
+        record.copyWith(startTime: startTime, endTime: endTime),
+      );
       total += duration;
       final key = record.categoryId ?? 'uncategorized';
       categoryDurations[key] =
@@ -60,6 +74,7 @@ class StatsMetrics {
     final days = period.end.difference(period.start).inDays;
     return StatsMetrics(
       range: range,
+      records: List.unmodifiable(periodRecords),
       total: total,
       previousTotal: previousTotal,
       average: days == 0
@@ -128,6 +143,14 @@ class StatsMetrics {
       return StatsTrendPoint(label: label, duration: duration);
     });
   }
+}
+
+/// Formats a tracked duration for compact, human-readable statistics labels.
+String formatStatsDuration(Duration duration) {
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes % 60;
+  if (hours == 0) return '${minutes}m';
+  return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
 }
 
 class _DateRange {
