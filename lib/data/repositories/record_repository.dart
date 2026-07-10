@@ -61,4 +61,15 @@ class RecordRepository {
     };
     if (updates.isNotEmpty) await _box.putAll(updates);
   }
+
+  /// Clear the category of every saved record using the given category.
+  Future<void> clearCategory(String categoryId) async {
+    final updates = <String, TimeRecord>{
+      for (final record in _box.values.where(
+        (record) => record.categoryId == categoryId,
+      ))
+        record.id: record.copyWith(categoryId: null),
+    };
+    if (updates.isNotEmpty) await _box.putAll(updates);
+  }
 }
