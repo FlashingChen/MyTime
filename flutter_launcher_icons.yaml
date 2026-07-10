@@ -1,6 +1,7 @@
-# PNG intermediates used because flutter_launcher_icons does not accept SVG input directly.
-# These PNGs are generated from the SVG sources in assets/logo/ and must be regenerated
-# if the SVGs change.
+# PNG sources are used because flutter_launcher_icons does not accept SVG input directly.
+# The master logo is assets/logo/logo.png (a user-supplied raster design).
+# If the master design changes, replace logo.png and regenerate platform icons with:
+#   flutter pub run flutter_launcher_icons
 flutter_launcher_icons:
   android: true
   ios: true

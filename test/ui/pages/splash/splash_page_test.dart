@@ -1,32 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mytime/ui/pages/splash/splash_page.dart';
 
 void main() {
   group('SplashPage', () {
-    testWidgets('renders SvgPicture in light mode', (tester) async {
+    testWidgets('renders logo image with correct asset', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(home: SplashPage()),
       );
 
-      final svgPicture = tester.widget<SvgPicture>(find.byType(SvgPicture));
-      final loader = svgPicture.bytesLoader as SvgAssetLoader;
-      expect(loader.assetName, contains('logo.svg'));
-      expect(find.bySemanticsLabel('MyTime 标志'), findsOneWidget);
+      final image = tester.widget<Image>(find.byType(Image));
+      final assetImage = image.image as AssetImage;
+      expect(assetImage.assetName, 'assets/logo/logo.png');
     });
 
-    testWidgets('uses dark logo in dark mode', (tester) async {
+    testWidgets('provides MyTime semantics label', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData.dark(),
-          home: const SplashPage(),
-        ),
+        const MaterialApp(home: SplashPage()),
       );
 
-      final svgPicture = tester.widget<SvgPicture>(find.byType(SvgPicture));
-      final loader = svgPicture.bytesLoader as SvgAssetLoader;
-      expect(loader.assetName, contains('logo_dark.svg'));
+      expect(find.bySemanticsLabel('MyTime 标志'), findsOneWidget);
     });
   });
 }
