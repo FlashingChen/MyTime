@@ -119,8 +119,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 
-      expect(find.text('日视图'), findsOneWidget);
-      expect(find.text('周视图'), findsOneWidget);
+      expect(find.text('00:00'), findsOneWidget);
       expect(find.text('工作'), findsWidgets);
     });
   });

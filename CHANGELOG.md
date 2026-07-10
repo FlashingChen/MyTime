@@ -5,6 +5,15 @@
 ## [Unreleased]
 
 ### Added
+- “我的”新增记录管理页面，支持新增、编辑和删除本地记录。
+- 日时间线支持双指捏合缩放，并保持缩放焦点时间稳定。
+
+### Changed
+- 时间线改为全天日视图，修复短记录相邻时的视觉重叠。
+- 统计趋势按日、周、月使用小时、星期和日期粒度。
+- 系统分类不可删除；删除自定义分类时可将关联记录迁移到替代分类。
+
+### Added
 - 新增 MyTime 品牌 Logo：PNG 源文件、Android/iOS 启动图标、应用内 Splash 页面及 Widget 测试；Android 应用标签统一为 MyTime
 - 项目初始化（git 仓库 + GitHub 私有远端）
 - 设计规格文档 `docs/superpowers/specs/2026-07-09-mytime-design.md`

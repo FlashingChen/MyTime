@@ -12,6 +12,7 @@ import 'package:mytime/core/constants/app_colors.dart';
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/ui/pages/settings/category_management_page.dart';
+import 'package:mytime/ui/pages/settings/record_management_page.dart';
 import 'package:mytime/ui/pages/settings/widgets/color_picker.dart';
 import 'package:mytime/widgets/svg_icons.dart';
 
@@ -107,6 +108,7 @@ class SettingsPage extends StatelessWidget {
               decoration: BoxDecoration(color: AppColors.cardWhite, borderRadius: BorderRadius.circular(12), boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 3)]),
               child: Column(
                 children: [
+                  _SettingsItem(icon: Icons.list_alt_outlined, iconColor: AppColors.primaryDark, label: '记录管理', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RecordManagementPage()))),
                   _SettingsItem(icon: Icons.category_outlined, iconColor: AppColors.accentStart, label: '分类管理', onTap: () => _openCategoryManagement(context)),
                   _SettingsItem(icon: Icons.palette_outlined, iconColor: AppColors.success, label: '默认主题色', value: _colorPreview(state.settings.accentColor), onTap: () => _pickAccentColor(context, state.settings.accentColor)),
                   _SettingsItem(icon: Icons.smart_toy_outlined, iconColor: const Color(0xFF8B5CF6), label: 'AI 模型配置', onTap: () => _onSettingTap(context, 'AI 模型配置')),
