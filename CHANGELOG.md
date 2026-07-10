@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- 新增 MyTime 品牌 Logo：PNG 源文件、Android/iOS 启动图标、应用内 Splash 页面及 Widget 测试；Android 应用标签统一为 MyTime
 - 项目初始化（git 仓库 + GitHub 私有远端）
 - 设计规格文档 `docs/superpowers/specs/2026-07-09-mytime-design.md`
 - 高保真 HTML 原型 `design-demos/mytime-prototype.html`，覆盖四个主页面交互流程：
