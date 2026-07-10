@@ -1,0 +1,12 @@
+# PNG sources are used because flutter_launcher_icons does not accept SVG input directly.
+# The master logo is assets/logo/logo.png (a user-supplied raster design).
+# If the master design changes, replace logo.png and regenerate platform icons with:
+#   flutter pub run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo/logo.png"
+  adaptive_icon_background: "assets/logo/ic_launcher_background.png"
+  adaptive_icon_foreground: "assets/logo/ic_launcher_foreground.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true

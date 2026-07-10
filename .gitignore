@@ -21,3 +21,6 @@ flutter_*.png
 
 # 测试 Hive 数据库
 test_hive_*/
+
+# 隔离工作区
+.worktrees/
