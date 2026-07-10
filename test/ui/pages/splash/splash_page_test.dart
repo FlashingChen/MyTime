@@ -10,7 +10,10 @@ void main() {
         const MaterialApp(home: SplashPage()),
       );
 
-      expect(find.byType(SvgPicture), findsOneWidget);
+      final svgPicture = tester.widget<SvgPicture>(find.byType(SvgPicture));
+      final loader = svgPicture.bytesLoader as SvgAssetLoader;
+      expect(loader.assetName, contains('logo.svg'));
+      expect(find.bySemanticsLabel('MyTime 标志'), findsOneWidget);
     });
 
     testWidgets('uses dark logo in dark mode', (tester) async {
