@@ -70,4 +70,33 @@ void main() {
 
     expect(find.text('100%'), findsOneWidget);
   });
+
+  testWidgets(
+    'pinch zoom restores focal time using the updated scroll extent',
+    (tester) async {
+      await pumpTimeline(tester);
+      final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+      final oldMaxScrollExtent = scrollable.position.maxScrollExtent;
+      scrollable.position.jumpTo(oldMaxScrollExtent);
+
+      final firstPointer = await tester.startGesture(
+        const Offset(100, 300),
+        pointer: 1,
+      );
+      final secondPointer = await tester.startGesture(
+        const Offset(200, 300),
+        pointer: 2,
+      );
+      await tester.pump();
+      await secondPointer.moveTo(const Offset(300, 300));
+      await tester.pump();
+      await tester.pump();
+
+      expect(scrollable.position.pixels, greaterThan(oldMaxScrollExtent));
+
+      await firstPointer.up();
+      await secondPointer.up();
+      await tester.pump(const Duration(milliseconds: 50));
+    },
+  );
 }

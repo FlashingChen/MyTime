@@ -73,14 +73,21 @@ class _TimelinePageState extends State<TimelinePage> {
       _maxHourHeight,
     );
     final localFocalY = (positions[0].dy + positions[1].dy) / 2;
-    if (newHourHeight != oldHourHeight && _scrollController.hasClients) {
-      final contentY = _scrollController.offset + localFocalY;
+    if (newHourHeight != oldHourHeight) {
+      final contentY = _scrollController.hasClients
+          ? _scrollController.offset + localFocalY
+          : null;
       setState(() => _hourHeight = newHourHeight);
-      _scrollController.jumpTo(
-        ((contentY * (newHourHeight / oldHourHeight)) - localFocalY)
-            .clamp(0.0, _scrollController.position.maxScrollExtent)
-            .toDouble(),
-      );
+      if (contentY != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_scrollController.hasClients) return;
+          _scrollController.jumpTo(
+            ((contentY * (newHourHeight / oldHourHeight)) - localFocalY)
+                .clamp(0.0, _scrollController.position.maxScrollExtent)
+                .toDouble(),
+          );
+        });
+      }
     }
     _pinchDistance = distance;
   }
