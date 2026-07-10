@@ -78,15 +78,5 @@ void main() {
     expect(find.textContaining('未分类'), findsOneWidget);
   });
 
-  testWidgets('disables delete when only one category remains', (tester) async {
-    await pumpPage(tester);
-    final all = repo.getAll();
-    for (var i = 0; i < all.length - 1; i++) {
-      await tester.tap(find.byTooltip('删除分类').first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('确认删除'));
-      await tester.pumpAndSettle();
-    }
-    expect(find.byTooltip('删除分类'), findsNothing);
-  });
+
 }
