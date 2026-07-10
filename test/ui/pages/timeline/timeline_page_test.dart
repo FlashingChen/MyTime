@@ -77,7 +77,12 @@ void main() {
       await pumpTimeline(tester);
       final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
       final oldMaxScrollExtent = scrollable.position.maxScrollExtent;
-      scrollable.position.jumpTo(oldMaxScrollExtent);
+      final initialOffset = oldMaxScrollExtent / 2;
+      scrollable.position.jumpTo(initialOffset);
+      final timelineListener = find.byWidgetPredicate(
+        (widget) => widget is Listener && widget.onPointerMove != null,
+      );
+      final localFocalY = 300 - tester.getTopLeft(timelineListener).dy;
       var positionChanges = 0;
       void countPositionChange() => positionChanges++;
       scrollable.position.addListener(countPositionChange);
@@ -96,7 +101,13 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(scrollable.position.pixels, greaterThan(oldMaxScrollExtent));
+      final expectedContentY = (initialOffset + localFocalY) * 2;
+      final expectedOffset = expectedContentY - localFocalY;
+      expect(scrollable.position.pixels, closeTo(expectedOffset, 0.01));
+      expect(
+        scrollable.position.pixels + localFocalY,
+        closeTo(expectedContentY, 0.01),
+      );
       expect(positionChanges, 1);
 
       await firstPointer.up();

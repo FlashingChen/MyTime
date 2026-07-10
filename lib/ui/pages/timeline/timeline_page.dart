@@ -30,6 +30,7 @@ class _TimelinePageState extends State<TimelinePage> {
   final Map<int, Offset> _activePointers = <int, Offset>{};
   DateTime _selectedDate = DateTime.now();
   double _hourHeight = _defaultHourHeight;
+  double _renderedHourHeight = _defaultHourHeight;
   double? _pinchDistance;
   int _zoomCorrectionGeneration = 0;
   Timer? _scaleFeedbackTimer;
@@ -69,6 +70,7 @@ class _TimelinePageState extends State<TimelinePage> {
     if (distance == 0) return;
 
     final oldHourHeight = _hourHeight;
+    final renderedHourHeight = _renderedHourHeight;
     final newHourHeight = (oldHourHeight * distance / _pinchDistance!).clamp(
       _minHourHeight,
       _maxHourHeight,
@@ -88,7 +90,7 @@ class _TimelinePageState extends State<TimelinePage> {
             return;
           }
           _scrollController.jumpTo(
-            ((contentY * (newHourHeight / oldHourHeight)) - localFocalY)
+            ((contentY * (newHourHeight / renderedHourHeight)) - localFocalY)
                 .clamp(0.0, _scrollController.position.maxScrollExtent)
                 .toDouble(),
           );
@@ -132,6 +134,7 @@ class _TimelinePageState extends State<TimelinePage> {
 
   @override
   Widget build(BuildContext context) {
+    _renderedHourHeight = _hourHeight;
     return Scaffold(
       body: SafeArea(
         child: Column(
