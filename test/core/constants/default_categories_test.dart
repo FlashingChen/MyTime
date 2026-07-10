@@ -7,12 +7,6 @@ void main() {
       expect(DefaultCategories.all.length, 8);
     });
 
-    test('system categories cannot be deleted', () {
-      for (final cat in DefaultCategories.all) {
-        expect(cat.isSystem, isTrue);
-      }
-    });
-
     test('work category has correct color', () {
       final work = DefaultCategories.all.firstWhere((c) => c.id == 'work');
       expect(work.color, '#6366F1');

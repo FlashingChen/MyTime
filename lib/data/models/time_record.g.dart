@@ -18,7 +18,7 @@ class TimeRecordAdapter extends TypeAdapter<TimeRecord> {
     };
     return TimeRecord(
       id: fields[0] as String,
-      categoryId: fields[1] as String,
+      categoryId: fields[1] as String?,
       startTime: fields[2] as DateTime,
       endTime: fields[3] as DateTime,
       note: fields[4] as String?,
