@@ -67,6 +67,13 @@ class SvgIcons {
       painter: _ChevronRightPainter(color: color ?? const Color(0xFFC7C7CC)),
     );
   }
+
+  static Widget chevronLeft({double size = 18, Color? color}) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: _ChevronLeftPainter(color: color ?? const Color(0xFFC7C7CC)),
+    );
+  }
 }
 
 class _PlayPainter extends CustomPainter {
@@ -257,6 +264,27 @@ class _ChevronRightPainter extends CustomPainter {
     path.moveTo(size.width * 0.35, size.height * 0.2);
     path.lineTo(size.width * 0.65, size.height * 0.5);
     path.lineTo(size.width * 0.35, size.height * 0.8);
+    canvas.drawPath(path, paint);
+  }
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _ChevronLeftPainter extends CustomPainter {
+  final Color color;
+  _ChevronLeftPainter({required this.color});
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final path = Path();
+    path.moveTo(size.width * 0.65, size.height * 0.2);
+    path.lineTo(size.width * 0.35, size.height * 0.5);
+    path.lineTo(size.width * 0.65, size.height * 0.8);
     canvas.drawPath(path, paint);
   }
   @override

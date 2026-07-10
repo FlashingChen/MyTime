@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mytime/core/constants/app_colors.dart';
-import 'package:mytime/core/constants/default_categories.dart';
+import 'package:mytime/core/utils/category_lookup.dart';
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/widgets/svg_icons.dart';
@@ -21,13 +21,13 @@ class ConfirmBottomSheet extends StatefulWidget {
 }
 
 class _ConfirmBottomSheetState extends State<ConfirmBottomSheet> {
-  late Category _selectedCategory;
+  Category? _selectedCategory;
   final TextEditingController _noteController = TextEditingController();
 
   @override
-  void initState() {
-    super.initState();
-    _selectedCategory = DefaultCategories.all.first;
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _selectedCategory ??= CategoryLookup.all(context).first;
   }
 
   String _formatDuration(Duration d) {
@@ -44,6 +44,7 @@ class _ConfirmBottomSheetState extends State<ConfirmBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final selected = _selectedCategory ?? CategoryLookup.all(context).first;
     final now = DateTime.now();
     final startTime = now.subtract(widget.duration);
 
@@ -94,8 +95,8 @@ class _ConfirmBottomSheetState extends State<ConfirmBottomSheet> {
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: DefaultCategories.all.map((cat) {
-              final isSelected = _selectedCategory.id == cat.id;
+            children: CategoryLookup.all(context).map((cat) {
+              final isSelected = selected.id == cat.id;
               final catColor = Color(int.parse(cat.color.replaceFirst('#', '0xFF')));
               return GestureDetector(
                 onTap: () => setState(() => _selectedCategory = cat),
@@ -151,7 +152,7 @@ class _ConfirmBottomSheetState extends State<ConfirmBottomSheet> {
               onPressed: () {
                 widget.onConfirm(TimeRecord(
                   id: '',
-                  categoryId: _selectedCategory.id,
+                  categoryId: selected.id,
                   startTime: startTime,
                   endTime: now,
                   note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),

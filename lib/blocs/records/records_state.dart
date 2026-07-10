@@ -15,9 +15,9 @@ class RecordsLoading extends RecordsState {
   const RecordsLoading();
 }
 
-class RecordsLoadSuccess extends RecordsState {
+class RecordsLoaded extends RecordsState {
   final List<TimeRecord> records;
-  const RecordsLoadSuccess(this.records);
+  const RecordsLoaded(this.records);
   @override
   List<Object?> get props => [records];
 }

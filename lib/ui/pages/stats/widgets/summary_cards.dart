@@ -3,21 +3,27 @@ import 'package:mytime/core/constants/app_colors.dart';
 
 /// Three summary stat cards displayed at the top of the stats page.
 class SummaryCards extends StatelessWidget {
-  final String todayTotal;
-  final String weekTotal;
-  final String avgPerDay;
-  final String todayChange;
-  final String weekChange;
-  final String avgChange;
+  final String label1;
+  final String label2;
+  final String label3;
+  final String value1;
+  final String value2;
+  final String value3;
+  final String change1;
+  final String change2;
+  final String change3;
 
   const SummaryCards({
     super.key,
-    required this.todayTotal,
-    required this.weekTotal,
-    required this.avgPerDay,
-    this.todayChange = '+0%',
-    this.weekChange = '+0%',
-    this.avgChange = '+0%',
+    required this.value1,
+    required this.value2,
+    required this.value3,
+    this.label1 = '今日',
+    this.label2 = '本周',
+    this.label3 = '日均',
+    this.change1 = '+0%',
+    this.change2 = '+0%',
+    this.change3 = '+0%',
   });
 
   @override
@@ -26,11 +32,11 @@ class SummaryCards extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          _StatCard(label: '今日', value: todayTotal, change: todayChange),
+          _StatCard(label: label1, value: value1, change: change1),
           const SizedBox(width: 6),
-          _StatCard(label: '本周', value: weekTotal, change: weekChange),
+          _StatCard(label: label2, value: value2, change: change2),
           const SizedBox(width: 6),
-          _StatCard(label: '日均', value: avgPerDay, change: avgChange),
+          _StatCard(label: label3, value: value3, change: change3),
         ],
       ),
     );

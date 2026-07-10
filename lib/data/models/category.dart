@@ -4,6 +4,7 @@ import 'package:hive_ce/hive.dart';
 part 'category.g.dart';
 
 @HiveType(typeId: 1)
+// ignore: must_be_immutable
 class Category extends HiveObject with Equatable {
   @HiveField(0)
   final String id;

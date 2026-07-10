@@ -7,7 +7,7 @@ abstract class RecordsEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class RecordsLoaded extends RecordsEvent {}
+class LoadRecords extends RecordsEvent {}
 
 class RecordAdded extends RecordsEvent {
   final TimeRecord record;
@@ -23,9 +23,9 @@ class RecordDeleted extends RecordsEvent {
   List<Object?> get props => [id];
 }
 
-class RecordsLoadedByDate extends RecordsEvent {
+class LoadRecordsByDate extends RecordsEvent {
   final DateTime date;
-  const RecordsLoadedByDate(this.date);
+  const LoadRecordsByDate(this.date);
   @override
   List<Object?> get props => [date];
 }

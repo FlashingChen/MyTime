@@ -22,3 +22,13 @@ class ThemeModeChanged extends SettingsEvent {
   @override
   List<Object?> get props => [mode];
 }
+
+/// Change accent color.
+class AccentColorChanged extends SettingsEvent {
+  final String color;
+
+  const AccentColorChanged(this.color);
+
+  @override
+  List<Object?> get props => [color];
+}

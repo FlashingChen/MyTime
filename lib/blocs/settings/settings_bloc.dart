@@ -10,6 +10,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   SettingsBloc(this._repository) : super(const SettingsInitial()) {
     on<LoadSettings>(_onLoadSettings);
     on<ThemeModeChanged>(_onThemeModeChanged);
+    on<AccentColorChanged>(_onAccentColorChanged);
   }
 
   Future<void> _onLoadSettings(LoadSettings event, Emitter<SettingsState> emit) async {
@@ -26,6 +27,15 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     if (state is SettingsLoaded) {
       final current = (state as SettingsLoaded).settings;
       final updated = current.copyWith(themeMode: event.mode);
+      await _repository.save(updated);
+      emit(SettingsLoaded(updated));
+    }
+  }
+
+  Future<void> _onAccentColorChanged(AccentColorChanged event, Emitter<SettingsState> emit) async {
+    if (state is SettingsLoaded) {
+      final current = (state as SettingsLoaded).settings;
+      final updated = current.copyWith(accentColor: event.color);
       await _repository.save(updated);
       emit(SettingsLoaded(updated));
     }

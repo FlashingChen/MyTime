@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mytime/core/constants/app_colors.dart';
-import 'package:mytime/core/constants/default_categories.dart';
+import 'package:mytime/core/utils/category_lookup.dart';
 import 'package:mytime/data/models/time_record.dart';
 
 /// Displays the most recent time records on the home page.
@@ -31,7 +31,7 @@ class RecentRecordsList extends StatelessWidget {
         ...recent.asMap().entries.map((entry) {
           final i = entry.key;
           final record = entry.value;
-          final cat = DefaultCategories.byId(record.categoryId);
+          final cat = CategoryLookup.byId(context, record.categoryId);
           final catColor = Color(int.parse(cat.color.replaceFirst('#', '0xFF')));
           return Column(
             children: [

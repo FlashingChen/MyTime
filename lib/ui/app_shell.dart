@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mytime/blocs/settings/settings.dart';
 import 'package:mytime/core/constants/app_colors.dart';
+import 'package:mytime/data/models/app_settings.dart';
 import 'package:mytime/core/theme/app_theme.dart';
 import 'package:mytime/ui/pages/home/home_page.dart';
 import 'package:mytime/ui/pages/settings/settings_page.dart';
@@ -17,20 +18,31 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<SettingsBloc, SettingsState>(
       builder: (context, settingsState) {
-        final themeMode = settingsState is SettingsLoaded
-            ? (settingsState.settings.themeMode == 'dark' ? ThemeMode.dark : ThemeMode.light)
-            : ThemeMode.light;
+        final settings = settingsState is SettingsLoaded ? settingsState.settings : const AppSettings();
+        final themeMode = _parseThemeMode(settings.themeMode);
 
         return MaterialApp(
           title: 'MyTime',
-          theme: AppTheme.light,
-          darkTheme: AppTheme.dark,
+          theme: AppTheme.light(accentColor: settings.accentColor),
+          darkTheme: AppTheme.dark(accentColor: settings.accentColor),
           themeMode: themeMode,
           debugShowCheckedModeBanner: false,
           home: const _MainShell(),
         );
       },
     );
+  }
+
+  ThemeMode _parseThemeMode(String mode) {
+    switch (mode) {
+      case 'dark':
+        return ThemeMode.dark;
+      case 'light':
+        return ThemeMode.light;
+      case 'system':
+      default:
+        return ThemeMode.system;
+    }
   }
 }
 
