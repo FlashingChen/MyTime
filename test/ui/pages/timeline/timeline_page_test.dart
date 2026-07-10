@@ -78,6 +78,9 @@ void main() {
       final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
       final oldMaxScrollExtent = scrollable.position.maxScrollExtent;
       scrollable.position.jumpTo(oldMaxScrollExtent);
+      var positionChanges = 0;
+      void countPositionChange() => positionChanges++;
+      scrollable.position.addListener(countPositionChange);
 
       final firstPointer = await tester.startGesture(
         const Offset(100, 300),
@@ -88,15 +91,18 @@ void main() {
         pointer: 2,
       );
       await tester.pump();
+      await secondPointer.moveTo(const Offset(250, 300));
       await secondPointer.moveTo(const Offset(300, 300));
       await tester.pump();
       await tester.pump();
 
       expect(scrollable.position.pixels, greaterThan(oldMaxScrollExtent));
+      expect(positionChanges, 1);
 
       await firstPointer.up();
       await secondPointer.up();
       await tester.pump(const Duration(milliseconds: 50));
+      scrollable.position.removeListener(countPositionChange);
     },
   );
 }

@@ -31,6 +31,7 @@ class _TimelinePageState extends State<TimelinePage> {
   DateTime _selectedDate = DateTime.now();
   double _hourHeight = _defaultHourHeight;
   double? _pinchDistance;
+  int _zoomCorrectionGeneration = 0;
   Timer? _scaleFeedbackTimer;
   bool _showsScaleFeedback = false;
 
@@ -74,13 +75,18 @@ class _TimelinePageState extends State<TimelinePage> {
     );
     final localFocalY = (positions[0].dy + positions[1].dy) / 2;
     if (newHourHeight != oldHourHeight) {
+      final correctionGeneration = ++_zoomCorrectionGeneration;
       final contentY = _scrollController.hasClients
           ? _scrollController.offset + localFocalY
           : null;
       setState(() => _hourHeight = newHourHeight);
       if (contentY != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || !_scrollController.hasClients) return;
+          if (!mounted ||
+              correctionGeneration != _zoomCorrectionGeneration ||
+              !_scrollController.hasClients) {
+            return;
+          }
           _scrollController.jumpTo(
             ((contentY * (newHourHeight / oldHourHeight)) - localFocalY)
                 .clamp(0.0, _scrollController.position.maxScrollExtent)
