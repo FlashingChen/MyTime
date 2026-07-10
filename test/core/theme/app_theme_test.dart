@@ -12,6 +12,16 @@ void main() {
     test('dark theme has dark scaffold background', () {
       final theme = AppTheme.dark();
       expect(theme.scaffoldBackgroundColor, const Color(0xFF121212));
+      expect(theme.colorScheme.brightness, Brightness.dark);
+      expect(theme.colorScheme.surface, const Color(0xFF1E1E1E));
+      expect(theme.colorScheme.onSurfaceVariant, const Color(0xFF999999));
+      expect(theme.colorScheme.outline, const Color(0xFF2A2A2A));
+      expect(theme.bottomSheetTheme.backgroundColor, theme.colorScheme.surface);
+      expect(theme.dialogTheme.backgroundColor, theme.colorScheme.surface);
+      expect(
+        theme.bottomNavigationBarTheme.unselectedItemColor,
+        theme.colorScheme.onSurfaceVariant,
+      );
     });
 
     test('light theme uses correct primary color', () {

@@ -9,6 +9,7 @@ import 'package:mytime/blocs/settings/settings_bloc.dart';
 import 'package:mytime/blocs/settings/settings_event.dart';
 import 'package:mytime/blocs/settings/settings_state.dart';
 import 'package:mytime/core/constants/app_colors.dart';
+import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/ui/pages/settings/category_management_page.dart';
@@ -57,19 +58,35 @@ class SettingsPage extends StatelessWidget {
       child: Column(
         children: [
           // Profile
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(20, 24, 20, 16),
             child: Column(
               children: [
                 CircleAvatar(
                   radius: 32,
                   backgroundColor: AppColors.accentStart,
-                  child: Text('M', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: Colors.white)),
+                  child: Text(
+                    'M',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
                 SizedBox(height: 10),
-                Text('MyTime', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                Text(
+                  'MyTime',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
                 SizedBox(height: 2),
-                Text('本地账户', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                Text(
+                  '本地账户',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ],
             ),
           ),
@@ -77,24 +94,46 @@ class SettingsPage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Container(
-              decoration: BoxDecoration(color: AppColors.cardWhite, borderRadius: BorderRadius.circular(12), boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 3)]),
+              decoration: BoxDecoration(
+                color: context.colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                      alpha: context.isDark ? 0.22 : 0.04,
+                    ),
+                    blurRadius: 3,
+                  ),
+                ],
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.dark_mode_outlined, size: 18, color: AppColors.primaryDark),
+                      Icon(
+                        Icons.dark_mode_outlined,
+                        size: 18,
+                        color: context.colorScheme.primary,
+                      ),
                       const SizedBox(width: 10),
-                      const Text('深色模式', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                      const Text(
+                        '深色模式',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                   Switch(
                     value: isDark,
                     onChanged: (v) {
-                      context.read<SettingsBloc>().add(ThemeModeChanged(v ? 'dark' : 'light'));
+                      context.read<SettingsBloc>().add(
+                        ThemeModeChanged(v ? 'dark' : 'light'),
+                      );
                     },
-                    activeThumbColor: AppColors.accentStart,
                   ),
                 ],
               ),
@@ -105,15 +144,64 @@ class SettingsPage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Container(
-              decoration: BoxDecoration(color: AppColors.cardWhite, borderRadius: BorderRadius.circular(12), boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 3)]),
+              decoration: BoxDecoration(
+                color: context.colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                      alpha: context.isDark ? 0.22 : 0.04,
+                    ),
+                    blurRadius: 3,
+                  ),
+                ],
+              ),
               child: Column(
                 children: [
-                  _SettingsItem(icon: Icons.list_alt_outlined, iconColor: AppColors.primaryDark, label: '记录管理', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RecordManagementPage()))),
-                  _SettingsItem(icon: Icons.category_outlined, iconColor: AppColors.accentStart, label: '分类管理', onTap: () => _openCategoryManagement(context)),
-                  _SettingsItem(icon: Icons.palette_outlined, iconColor: AppColors.success, label: '默认主题色', value: _colorPreview(state.settings.accentColor), onTap: () => _pickAccentColor(context, state.settings.accentColor)),
-                  _SettingsItem(icon: Icons.smart_toy_outlined, iconColor: const Color(0xFF8B5CF6), label: 'AI 模型配置', onTap: () => _onSettingTap(context, 'AI 模型配置')),
-                  _SettingsItem(icon: Icons.upload_outlined, iconColor: AppColors.accentEnd, label: '数据导入导出', onTap: () => _openDataExchange(context)),
-                  _SettingsItem(icon: Icons.info_outline, iconColor: AppColors.textSecondary, label: '关于 MyTime', isLast: true, onTap: () => _showAbout(context)),
+                  _SettingsItem(
+                    icon: Icons.list_alt_outlined,
+                    iconColor: AppColors.primaryDark,
+                    label: '记录管理',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const RecordManagementPage(),
+                      ),
+                    ),
+                  ),
+                  _SettingsItem(
+                    icon: Icons.category_outlined,
+                    iconColor: AppColors.accentStart,
+                    label: '分类管理',
+                    onTap: () => _openCategoryManagement(context),
+                  ),
+                  _SettingsItem(
+                    icon: Icons.palette_outlined,
+                    iconColor: AppColors.success,
+                    label: '默认主题色',
+                    value: _colorPreview(state.settings.accentColor),
+                    onTap: () =>
+                        _pickAccentColor(context, state.settings.accentColor),
+                  ),
+                  _SettingsItem(
+                    icon: Icons.smart_toy_outlined,
+                    iconColor: const Color(0xFF8B5CF6),
+                    label: 'AI 模型配置',
+                    onTap: () => _onSettingTap(context, 'AI 模型配置'),
+                  ),
+                  _SettingsItem(
+                    icon: Icons.upload_outlined,
+                    iconColor: AppColors.accentEnd,
+                    label: '数据导入导出',
+                    onTap: () => _openDataExchange(context),
+                  ),
+                  _SettingsItem(
+                    icon: Icons.info_outline,
+                    iconColor: AppColors.textSecondary,
+                    label: '关于 MyTime',
+                    isLast: true,
+                    onTap: () => _showAbout(context),
+                  ),
                 ],
               ),
             ),
@@ -129,7 +217,10 @@ class SettingsPage extends StatelessWidget {
     return Container(
       width: 18,
       height: 18,
-      decoration: BoxDecoration(color: preview, borderRadius: BorderRadius.circular(4)),
+      decoration: BoxDecoration(
+        color: preview,
+        borderRadius: BorderRadius.circular(4),
+      ),
     );
   }
 
@@ -164,7 +255,14 @@ class SettingsPage extends StatelessWidget {
       applicationIcon: const CircleAvatar(
         radius: 24,
         backgroundColor: AppColors.accentStart,
-        child: Text('M', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white)),
+        child: Text(
+          'M',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
       ),
       applicationLegalese: '开源免费、纯本地、跨端的时间记录 APP。',
     );
@@ -179,26 +277,41 @@ class _SettingsItem extends StatelessWidget {
   final bool isLast;
   final VoidCallback? onTap;
 
-  const _SettingsItem({required this.icon, required this.iconColor, required this.label, this.value, this.isLast = false, this.onTap});
+  const _SettingsItem({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    this.value,
+    this.isLast = false,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        border: isLast ? null : const Border(bottom: BorderSide(color: AppColors.divider)),
+        border: isLast
+            ? null
+            : Border(bottom: BorderSide(color: context.colorScheme.outline)),
       ),
-      child: Material(color: Colors.transparent, child: ListTile(
-        leading: Icon(icon, size: 18, color: iconColor),
-        title: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (value != null) ...[value!, const SizedBox(width: 8)],
-            SvgIcons.chevronRight(),
-          ],
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          leading: Icon(icon, size: 18, color: iconColor),
+          title: Text(
+            label,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (value != null) ...[value!, const SizedBox(width: 8)],
+              SvgIcons.chevronRight(),
+            ],
+          ),
+          onTap: onTap,
         ),
-        onTap: onTap,
-      ),),
+      ),
     );
   }
 }
@@ -216,8 +329,8 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.cardWhite,
+      decoration: BoxDecoration(
+        color: context.colorScheme.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
@@ -227,10 +340,20 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
-              child: Container(width: 36, height: 4, decoration: BoxDecoration(color: const Color(0xFFE0E0E0), borderRadius: BorderRadius.circular(2))),
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
             ),
             const SizedBox(height: 16),
-            const Text('数据导入导出', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+            const Text(
+              '数据导入导出',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -239,10 +362,10 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
                 icon: const Icon(Icons.download_outlined, size: 18),
                 label: Text(_exportBusy ? '导出中...' : '导出 JSON 到剪贴板'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryDark,
-                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 0,
                 ),
               ),
@@ -252,12 +375,21 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: _importJson,
-                icon: const Icon(Icons.upload_outlined, size: 18, color: AppColors.textPrimary),
-                label: const Text('从剪贴板导入 JSON', style: TextStyle(color: AppColors.textPrimary)),
+                icon: Icon(
+                  Icons.upload_outlined,
+                  size: 18,
+                  color: context.colorScheme.onSurface,
+                ),
+                label: Text(
+                  '从剪贴板导入 JSON',
+                  style: TextStyle(color: context.colorScheme.onSurface),
+                ),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  side: const BorderSide(color: Color(0xFFE8E8ED)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: BorderSide(color: context.colorScheme.outline),
                 ),
               ),
             ),
@@ -287,8 +419,9 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
     await Clipboard.setData(ClipboardData(text: jsonString));
     if (mounted) {
       setState(() => _exportBusy = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('JSON 已复制到剪贴板'), behavior: SnackBarBehavior.floating),
+      _showResultDialog(
+        '导出成功',
+        '已将数据以 JSON 格式复制到剪贴板，包含 ${records.length} 条记录、${categories.length} 个分类。',
       );
     }
   }
@@ -301,9 +434,7 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
     final text = clipboard?.text;
     if (text == null || text.trim().isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('剪贴板为空'), behavior: SnackBarBehavior.floating),
-        );
+        _showResultDialog('无法导入', '剪贴板为空，请先复制 JSON 数据。', isError: true);
       }
       return;
     }
@@ -332,25 +463,36 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('成功导入 $importedRecords 条记录、$importedCategories 个分类'), behavior: SnackBarBehavior.floating),
+        _showResultDialog(
+          '导入成功',
+          '成功导入 $importedRecords 条记录、$importedCategories 个分类。',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导入失败：$e'), behavior: SnackBarBehavior.floating),
-        );
+        _showResultDialog('导入失败', e.toString(), isError: true);
       }
     }
   }
 
+  void _showResultDialog(String title, String message, {bool isError = false}) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Map<String, dynamic> _categoryToJson(Category c) {
-    return {
-      'id': c.id,
-      'name': c.name,
-      'color': c.color,
-    };
+    return {'id': c.id, 'name': c.name, 'color': c.color};
   }
 
   Category? _categoryFromJson(Map<String, dynamic> json) {
@@ -358,11 +500,7 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
     final name = json['name'] as String?;
     final color = json['color'] as String?;
     if (id == null || name == null || color == null) return null;
-    return Category(
-      id: id,
-      name: name,
-      color: color,
-    );
+    return Category(id: id, name: name, color: color);
   }
 
   Map<String, dynamic> _recordToJson(TimeRecord r) {

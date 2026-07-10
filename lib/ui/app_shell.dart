@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mytime/blocs/settings/settings.dart';
-import 'package:mytime/core/constants/app_colors.dart';
+import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/data/models/app_settings.dart';
 import 'package:mytime/core/theme/app_theme.dart';
 import 'package:mytime/ui/pages/home/home_page.dart';
@@ -18,7 +18,9 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<SettingsBloc, SettingsState>(
       builder: (context, settingsState) {
-        final settings = settingsState is SettingsLoaded ? settingsState.settings : const AppSettings();
+        final settings = settingsState is SettingsLoaded
+            ? settingsState.settings
+            : const AppSettings();
         final themeMode = _parseThemeMode(settings.themeMode);
 
         return MaterialApp(
@@ -69,7 +71,11 @@ class _MainShellState extends State<_MainShell> {
       body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: AppColors.divider.withValues(alpha: 0.5))),
+          border: Border(
+            top: BorderSide(
+              color: context.colorScheme.outline.withValues(alpha: 0.5),
+            ),
+          ),
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
@@ -80,10 +86,10 @@ class _MainShellState extends State<_MainShell> {
             BottomNavigationBarItem(icon: SvgIcons.stats(), label: '统计'),
             BottomNavigationBarItem(icon: SvgIcons.profile(), label: '我的'),
           ],
-          selectedItemColor: AppColors.primaryDark,
-          unselectedItemColor: AppColors.textSecondary,
+          selectedItemColor: context.colorScheme.primary,
+          unselectedItemColor: context.colorScheme.onSurfaceVariant,
           type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
+          backgroundColor: context.colorScheme.surface,
           elevation: 0,
         ),
       ),

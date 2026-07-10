@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mytime/core/constants/app_colors.dart';
+import 'package:mytime/core/theme/app_theme_ext.dart';
 
 /// Three summary stat cards displayed at the top of the stats page.
 class SummaryCards extends StatelessWidget {
@@ -61,18 +62,25 @@ class _StatCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: AppColors.cardWhite,
+          color: context.colorScheme.surface,
           borderRadius: BorderRadius.circular(10),
-          boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 3)],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(
+                alpha: context.isDark ? 0.22 : 0.04,
+              ),
+              blurRadius: 3,
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
-                color: AppColors.textSecondary,
+                color: context.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
               ),
             ),

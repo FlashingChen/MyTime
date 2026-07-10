@@ -7,115 +7,154 @@ class AppTheme {
 
   static Color _accent(String? accentColor) {
     const fallback = '#6366F1';
-    final value = int.tryParse((accentColor ?? fallback).replaceFirst('#', '0xFF'));
+    final value = int.tryParse(
+      (accentColor ?? fallback).replaceFirst('#', '0xFF'),
+    );
     return value != null ? Color(value) : AppColors.accentStart;
   }
 
-  static ThemeData light({String? accentColor}) {
-    final accent = _accent(accentColor);
+  static ThemeData light({String? accentColor}) => _theme(
+    scheme: ColorScheme.light(
+      primary: _accent(accentColor),
+      secondary: AppColors.accentEnd,
+      surface: AppColors.cardWhite,
+      onPrimary: Colors.white,
+      onSurface: AppColors.textPrimary,
+      onSurfaceVariant: AppColors.textSecondary,
+      outline: AppColors.divider,
+      surfaceContainerHighest: const Color(0xFFF0F0F0),
+    ),
+    scaffoldBackground: AppColors.backgroundLight,
+  );
+
+  static ThemeData dark({String? accentColor}) => _theme(
+    scheme: ColorScheme.dark(
+      primary: _accent(accentColor),
+      secondary: AppColors.accentEnd,
+      surface: const Color(0xFF1E1E1E),
+      onPrimary: Colors.white,
+      onSurface: Colors.white,
+      onSurfaceVariant: const Color(0xFF999999),
+      outline: const Color(0xFF2A2A2A),
+      surfaceContainerHighest: const Color(0xFF2C2C2C),
+    ),
+    scaffoldBackground: const Color(0xFF121212),
+  );
+
+  static ThemeData _theme({
+    required ColorScheme scheme,
+    required Color scaffoldBackground,
+  }) {
+    final isDark = scheme.brightness == Brightness.dark;
+    final textTheme = TextTheme(
+      displayLarge: TextStyle(
+        fontSize: 72,
+        fontWeight: FontWeight.w700,
+        color: scheme.onSurface,
+        letterSpacing: -2,
+      ),
+      titleLarge: TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+        color: scheme.onSurface,
+      ),
+      bodyMedium: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: scheme.onSurface,
+      ),
+      bodySmall: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+      labelSmall: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        color: scheme.onSurfaceVariant,
+        letterSpacing: 0.5,
+      ),
+    );
+
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
-      scaffoldBackgroundColor: AppColors.backgroundLight,
-      colorScheme: ColorScheme.light(
-        primary: accent,
-        secondary: AppColors.accentEnd,
-        surface: AppColors.cardWhite,
-        onPrimary: Colors.white,
-        onSurface: AppColors.textPrimary,
-      ),
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(
-          fontSize: 72, fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary, letterSpacing: -2,
-        ),
-        titleLarge: TextStyle(
-          fontSize: 17, fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
-        bodyMedium: TextStyle(
-          fontSize: 14, fontWeight: FontWeight.w400,
-          color: AppColors.textPrimary,
-        ),
-        bodySmall: TextStyle(
-          fontSize: 12, color: AppColors.textSecondary,
-        ),
-        labelSmall: TextStyle(
-          fontSize: 11, fontWeight: FontWeight.w600,
-          color: AppColors.textSecondary, letterSpacing: 0.5,
-        ),
-      ),
-      cardTheme: const CardThemeData(
-        color: AppColors.cardWhite,
+      brightness: scheme.brightness,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: scaffoldBackground,
+      textTheme: textTheme,
+      cardTheme: CardThemeData(
+        color: scheme.surface,
         elevation: 0,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(12)),
         ),
       ),
-      appBarTheme: const AppBarThemeData(
-        backgroundColor: AppColors.backgroundLight,
+      dialogTheme: DialogThemeData(
+        backgroundColor: scheme.surface,
+        titleTextStyle: textTheme.titleLarge,
+        contentTextStyle: textTheme.bodyMedium,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(24)),
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: scheme.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+      ),
+      appBarTheme: AppBarThemeData(
+        backgroundColor: scaffoldBackground,
+        foregroundColor: scheme.onSurface,
         elevation: 0,
         scrolledUnderElevation: 0,
-        titleTextStyle: TextStyle(
-          fontSize: 15, fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
-        iconTheme: IconThemeData(color: AppColors.textPrimary),
+        titleTextStyle: textTheme.titleLarge,
+        iconTheme: IconThemeData(color: scheme.onSurface),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
-        selectedItemColor: AppColors.primaryDark,
-        unselectedItemColor: AppColors.textSecondary,
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: scheme.surface,
+        selectedItemColor: scheme.primary,
+        unselectedItemColor: scheme.onSurfaceVariant,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
       ),
-    );
-  }
-
-  static ThemeData dark({String? accentColor}) {
-    final accent = _accent(accentColor);
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: const Color(0xFF121212),
-      colorScheme: ColorScheme.dark(
-        primary: accent,
-        secondary: AppColors.accentEnd,
-        surface: const Color(0xFF1E1E1E),
-        onPrimary: Colors.white,
-        onSurface: Colors.white,
-      ),
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(
-          fontSize: 72, fontWeight: FontWeight.w700,
-          color: Colors.white, letterSpacing: -2,
-        ),
-        titleLarge: TextStyle(
-          fontSize: 17, fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
-        bodyMedium: TextStyle(
-          fontSize: 14, fontWeight: FontWeight.w400,
-          color: Colors.white,
-        ),
-        bodySmall: TextStyle(
-          fontSize: 12, color: Color(0xFF999999),
-        ),
-        labelSmall: TextStyle(
-          fontSize: 11, fontWeight: FontWeight.w600,
-          color: Color(0xFF999999), letterSpacing: 0.5,
+      dividerTheme: DividerThemeData(color: scheme.outline),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStatePropertyAll(scheme.onPrimary),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? scheme.primary
+              : scheme.surfaceContainerHighest,
         ),
       ),
-      cardTheme: const CardThemeData(
-        color: Color(0xFF1E1E1E),
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(12)),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: scheme.primary,
+          foregroundColor: scheme.onPrimary,
+          elevation: 0,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
         ),
       ),
-      dividerTheme: const DividerThemeData(
-        color: Color(0xFF2A2A2A),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: scheme.onSurface,
+          side: BorderSide(color: scheme.outline),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+        ),
       ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: scheme.primary),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: scheme.surfaceContainerHighest,
+        hintStyle: TextStyle(color: scheme.onSurfaceVariant),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: scheme.outline),
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      splashColor: isDark ? Colors.white.withValues(alpha: 0.06) : null,
     );
   }
 }
