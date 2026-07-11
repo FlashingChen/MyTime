@@ -44,5 +44,6 @@
 - `main.dart` 通过 `HiveHelper` 初始化并同时打开 `records` 与 `categories` 两个 Hive box，全局提供 `CategoriesBloc`
 
 ### Fixed
+- 修复冷启动后统计分类标签错误显示为「其他」的问题。
 - `AppTheme.light` / `AppTheme.dark` 由 getter 改为接受 `accentColor` 的方法，支持主题色动态切换
 - 修复 HiveObject 子类的 `must_be_immutable` 分析警告

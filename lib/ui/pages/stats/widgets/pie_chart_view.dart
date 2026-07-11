@@ -2,6 +2,9 @@ import 'dart:ui';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mytime/blocs/categories/categories_bloc.dart';
+import 'package:mytime/blocs/categories/categories_state.dart';
 import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/core/utils/category_lookup.dart';
 import 'package:mytime/data/models/time_record.dart';
@@ -30,6 +33,26 @@ class _PieChartViewState extends State<PieChartView> {
 
   @override
   Widget build(BuildContext context) {
+    final categoriesBloc = _tryGetCategoriesBloc(context);
+    if (categoriesBloc == null) {
+      return _buildContent(context);
+    }
+
+    return BlocBuilder<CategoriesBloc, CategoriesState>(
+      bloc: categoriesBloc,
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  CategoriesBloc? _tryGetCategoriesBloc(BuildContext context) {
+    try {
+      return context.read<CategoriesBloc>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Widget _buildContent(BuildContext context) {
     final aggregated = _aggregateByCategory();
     final totalSeconds = aggregated.values.fold<int>(
       0,
