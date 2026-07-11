@@ -13,17 +13,27 @@ class TimerInitial extends TimerState {
 }
 
 /// Timer is currently running.
+///
+/// Stores the absolute [startTime] so that the elapsed duration can be
+/// recomputed correctly even after an app restart. The [duration] field
+/// is updated on each tick so that the BLoC emits a distinct state.
 class TimerRunInProgress extends TimerState {
+  final DateTime startTime;
   final Duration duration;
-  const TimerRunInProgress(this.duration);
+
+  const TimerRunInProgress(this.startTime, this.duration);
+
   @override
-  List<Object?> get props => [duration];
+  List<Object?> get props => [startTime, duration];
 }
 
 /// Timer has been stopped and is awaiting confirmation.
 class TimerRunComplete extends TimerState {
+  final DateTime startTime;
   final Duration duration;
-  const TimerRunComplete(this.duration);
+
+  const TimerRunComplete(this.startTime, this.duration);
+
   @override
-  List<Object?> get props => [duration];
+  List<Object?> get props => [startTime, duration];
 }

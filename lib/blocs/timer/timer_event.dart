@@ -23,3 +23,9 @@ class TimerTicked extends TimerEvent {
   @override
   List<Object?> get props => [duration];
 }
+
+/// Restores a previously persisted active timer, if any.
+///
+/// Dispatched on app launch to resume a timer that was running when
+/// the app was killed.
+class RestoreTimer extends TimerEvent {}
