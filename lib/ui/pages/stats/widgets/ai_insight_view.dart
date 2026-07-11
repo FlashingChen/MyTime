@@ -32,6 +32,7 @@ class _AiInsightViewState extends State<AiInsightView> {
   bool _loading = false;
   String? _error;
   AiGeneratedInsight? _generated;
+  int _requestId = 0;
 
   bool get _configured =>
       widget.settings.aiBaseUrl.isNotEmpty &&
@@ -44,8 +45,22 @@ class _AiInsightViewState extends State<AiInsightView> {
     if (_configured && widget.records.isNotEmpty) _generate();
   }
 
+  @override
+  void didUpdateWidget(covariant AiInsightView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final selectionChanged =
+        oldWidget.periodLabel != widget.periodLabel ||
+        oldWidget.records != widget.records ||
+        oldWidget.settings != widget.settings;
+    if (selectionChanged && _configured && widget.records.isNotEmpty) {
+      _generated = null;
+      _generate();
+    }
+  }
+
   Future<void> _generate() async {
     if (!_configured || widget.records.isEmpty) return;
+    final requestId = ++_requestId;
     setState(() {
       _loading = true;
       _error = null;
@@ -66,11 +81,17 @@ class _AiInsightViewState extends State<AiInsightView> {
         periodLabel: widget.periodLabel,
         metrics: metrics,
       );
-      if (mounted) setState(() => _generated = generated);
+      if (mounted && requestId == _requestId) {
+        setState(() => _generated = generated);
+      }
     } on AiInsightException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted && requestId == _requestId) {
+        setState(() => _error = error.message);
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && requestId == _requestId) {
+        setState(() => _loading = false);
+      }
     }
   }
 
