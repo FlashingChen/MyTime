@@ -30,6 +30,8 @@ void main() {
       ),
     );
 
+    expect(find.textContaining('尚未配置 AI 模型'), findsOneWidget);
+
     final firstSuggestion = tester
         .widget<Text>(find.byKey(const ValueKey('ai-suggestion-0')))
         .data;

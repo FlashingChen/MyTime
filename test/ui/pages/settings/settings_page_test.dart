@@ -39,8 +39,14 @@ void main() {
         MaterialApp(
           home: MultiBlocProvider(
             providers: [
-              BlocProvider(create: (_) => SettingsBloc(settingsRepo)..add(const LoadSettings())),
-              BlocProvider(create: (_) => CategoriesBloc(categoryRepo)..add(LoadCategories())),
+              BlocProvider(
+                create: (_) =>
+                    SettingsBloc(settingsRepo)..add(const LoadSettings()),
+              ),
+              BlocProvider(
+                create: (_) =>
+                    CategoriesBloc(categoryRepo)..add(LoadCategories()),
+              ),
             ],
             child: const SettingsPage(),
           ),
@@ -66,8 +72,14 @@ void main() {
         MaterialApp(
           home: MultiBlocProvider(
             providers: [
-              BlocProvider(create: (_) => SettingsBloc(settingsRepo)..add(const LoadSettings())),
-              BlocProvider(create: (_) => CategoriesBloc(categoryRepo)..add(LoadCategories())),
+              BlocProvider(
+                create: (_) =>
+                    SettingsBloc(settingsRepo)..add(const LoadSettings()),
+              ),
+              BlocProvider(
+                create: (_) =>
+                    CategoriesBloc(categoryRepo)..add(LoadCategories()),
+              ),
             ],
             child: const SettingsPage(),
           ),
@@ -82,6 +94,38 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('深色模式'), findsOneWidget);
+    });
+
+    testWidgets('opens AI configuration sheet', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final settingsRepo = SettingsRepository();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider(
+                create: (_) => SettingsBloc(settingsRepo)..add(LoadSettings()),
+              ),
+              BlocProvider(
+                create: (_) =>
+                    CategoriesBloc(categoryRepo)..add(LoadCategories()),
+              ),
+            ],
+            child: const SettingsPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('AI 模型配置'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('服务地址'), findsOneWidget);
+      expect(find.text('API Key'), findsOneWidget);
+      expect(find.text('模型名称'), findsOneWidget);
+      expect(find.text('测试连接'), findsOneWidget);
+      expect(find.text('保存配置'), findsOneWidget);
     });
   });
 }

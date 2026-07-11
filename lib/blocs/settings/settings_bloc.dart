@@ -11,9 +11,13 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<LoadSettings>(_onLoadSettings);
     on<ThemeModeChanged>(_onThemeModeChanged);
     on<AccentColorChanged>(_onAccentColorChanged);
+    on<AiSettingsChanged>(_onAiSettingsChanged);
   }
 
-  Future<void> _onLoadSettings(LoadSettings event, Emitter<SettingsState> emit) async {
+  Future<void> _onLoadSettings(
+    LoadSettings event,
+    Emitter<SettingsState> emit,
+  ) async {
     emit(const SettingsLoading());
     try {
       final settings = await _repository.load();
@@ -23,7 +27,10 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     }
   }
 
-  Future<void> _onThemeModeChanged(ThemeModeChanged event, Emitter<SettingsState> emit) async {
+  Future<void> _onThemeModeChanged(
+    ThemeModeChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
     if (state is SettingsLoaded) {
       final current = (state as SettingsLoaded).settings;
       final updated = current.copyWith(themeMode: event.mode);
@@ -32,10 +39,29 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     }
   }
 
-  Future<void> _onAccentColorChanged(AccentColorChanged event, Emitter<SettingsState> emit) async {
+  Future<void> _onAccentColorChanged(
+    AccentColorChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
     if (state is SettingsLoaded) {
       final current = (state as SettingsLoaded).settings;
       final updated = current.copyWith(accentColor: event.color);
+      await _repository.save(updated);
+      emit(SettingsLoaded(updated));
+    }
+  }
+
+  Future<void> _onAiSettingsChanged(
+    AiSettingsChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    if (state is SettingsLoaded) {
+      final current = (state as SettingsLoaded).settings;
+      final updated = current.copyWith(
+        aiBaseUrl: event.baseUrl,
+        aiApiKey: event.apiKey,
+        aiModel: event.model,
+      );
       await _repository.save(updated);
       emit(SettingsLoaded(updated));
     }

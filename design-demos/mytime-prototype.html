@@ -901,6 +901,7 @@ function StatsScreen() {
 // ===== Profile Screen =====
 function ProfileScreen({ onOpenCategoryManagement }) {
   const [darkMode, setDarkMode] = React.useState(false);
+  const [showAiConfig, setShowAiConfig] = React.useState(false);
 
   const menuItems = [
     {
@@ -930,6 +931,7 @@ function ProfileScreen({ onOpenCategoryManagement }) {
         </svg>
       ),
       label: 'AI 模型配置',
+      onClick: () => setShowAiConfig(true),
     },
     {
       icon: (
@@ -1029,6 +1031,20 @@ function ProfileScreen({ onOpenCategoryManagement }) {
       </div>
 
       <div style={{ flex: 1 }} />
+      {showAiConfig && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.25)', display: 'flex', alignItems: 'flex-end' }}>
+          <div style={{ width: '100%', background: '#fff', borderRadius: '24px 24px 0 0', padding: '20px 24px 32px' }}>
+            <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 16 }}>AI 模型配置</div>
+            <input placeholder="服务地址，例如 https://api.example.com/v1" style={{ width: '100%', boxSizing: 'border-box', padding: 12, marginBottom: 10, border: '1px solid #E8E8ED', borderRadius: 10 }} />
+            <input type="password" placeholder="API Key" style={{ width: '100%', boxSizing: 'border-box', padding: 12, marginBottom: 10, border: '1px solid #E8E8ED', borderRadius: 10 }} />
+            <input placeholder="模型名称" style={{ width: '100%', boxSizing: 'border-box', padding: 12, marginBottom: 16, border: '1px solid #E8E8ED', borderRadius: 10 }} />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button style={{ flex: 1, padding: 11, border: '1px solid #E8E8ED', borderRadius: 10, background: '#fff' }}>测试连接</button>
+              <button onClick={() => setShowAiConfig(false)} style={{ flex: 1, padding: 11, border: 'none', borderRadius: 10, background: '#1a1a2e', color: '#fff' }}>保存配置</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
