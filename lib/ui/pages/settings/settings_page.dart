@@ -15,6 +15,7 @@ import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/ui/pages/settings/category_management_page.dart';
 import 'package:mytime/ui/pages/settings/record_management_page.dart';
 import 'package:mytime/ui/pages/settings/widgets/color_picker.dart';
+import 'package:mytime/ui/pages/settings/widgets/ai_model_config_sheet.dart';
 import 'package:mytime/widgets/svg_icons.dart';
 
 /// Settings page with profile, dark mode toggle, and settings list.
@@ -36,16 +37,6 @@ class SettingsPage extends StatelessWidget {
             return _buildContent(context, state as SettingsLoaded);
           },
         ),
-      ),
-    );
-  }
-
-  void _onSettingTap(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label 功能即将上线'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 1),
       ),
     );
   }
@@ -187,7 +178,19 @@ class SettingsPage extends StatelessWidget {
                     icon: Icons.smart_toy_outlined,
                     iconColor: const Color(0xFF8B5CF6),
                     label: 'AI 模型配置',
-                    onTap: () => _onSettingTap(context, 'AI 模型配置'),
+                    value:
+                        state.settings.aiModel == null ||
+                            state.settings.aiModel!.isEmpty
+                        ? null
+                        : Text(
+                            state.settings.aiModel!,
+                            style: TextStyle(
+                              color: context.colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                    onTap: () =>
+                        AiModelConfigSheet.show(context, state.settings),
                   ),
                   _SettingsItem(
                     icon: Icons.upload_outlined,
