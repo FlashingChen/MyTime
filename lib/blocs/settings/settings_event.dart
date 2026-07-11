@@ -32,3 +32,19 @@ class AccentColorChanged extends SettingsEvent {
   @override
   List<Object?> get props => [color];
 }
+
+/// Change the saved OpenAI-compatible model configuration.
+class AiSettingsChanged extends SettingsEvent {
+  final String baseUrl;
+  final String apiKey;
+  final String model;
+
+  const AiSettingsChanged({
+    required this.baseUrl,
+    required this.apiKey,
+    required this.model,
+  });
+
+  @override
+  List<Object?> get props => [baseUrl, apiKey, model];
+}
