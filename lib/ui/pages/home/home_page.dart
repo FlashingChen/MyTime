@@ -125,6 +125,7 @@ class HomePage extends StatelessWidget {
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
           builder: (_) => ConfirmBottomSheet(
+            startTime: state.startTime,
             duration: state.duration,
             onConfirm: (record) {
               context.read<RecordsBloc>().add(RecordAdded(record));

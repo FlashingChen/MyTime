@@ -6,8 +6,10 @@ import 'package:mytime/blocs/records/records_bloc.dart';
 import 'package:mytime/blocs/timer/timer_bloc.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/models/category.dart';
+import 'package:mytime/data/repositories/active_timer_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/ui/pages/home/home_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   late RecordRepository repo;
@@ -18,6 +20,7 @@ void main() {
     Hive.registerAdapter(CategoryAdapter());
     final box = await Hive.openBox<TimeRecord>('test_home');
     repo = RecordRepository(box);
+    SharedPreferences.setMockInitialValues({});
   });
 
   tearDown(() async {
@@ -29,7 +32,7 @@ void main() {
       MaterialApp(
         home: MultiBlocProvider(
           providers: [
-            BlocProvider(create: (_) => TimerBloc()),
+            BlocProvider(create: (_) => TimerBloc(ActiveTimerRepository())),
             BlocProvider(create: (_) => RecordsBloc(repo)),
           ],
           child: const HomePage(),

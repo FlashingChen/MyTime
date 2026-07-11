@@ -7,11 +7,13 @@ import 'package:mytime/widgets/svg_icons.dart';
 
 /// Bottom sheet for confirming a completed timer session.
 class ConfirmBottomSheet extends StatefulWidget {
+  final DateTime startTime;
   final Duration duration;
   final ValueChanged<TimeRecord> onConfirm;
 
   const ConfirmBottomSheet({
     super.key,
+    required this.startTime,
     required this.duration,
     required this.onConfirm,
   });
@@ -46,7 +48,6 @@ class _ConfirmBottomSheetState extends State<ConfirmBottomSheet> {
   Widget build(BuildContext context) {
     final selected = _selectedCategory ?? CategoryLookup.all(context).first;
     final now = DateTime.now();
-    final startTime = now.subtract(widget.duration);
 
     return Container(
       decoration: const BoxDecoration(
@@ -81,7 +82,7 @@ class _ConfirmBottomSheetState extends State<ConfirmBottomSheet> {
             ),
             child: Row(
               children: [
-                Expanded(child: _TimeBlock(label: '开始', text: _formatDuration(Duration(hours: startTime.hour, minutes: startTime.minute)))),
+                Expanded(child: _TimeBlock(label: '开始', text: _formatDuration(Duration(hours: widget.startTime.hour, minutes: widget.startTime.minute)))),
                 const Text('→', style: TextStyle(color: AppColors.textHint, fontSize: 14)),
                 Expanded(child: _TimeBlock(label: '结束', text: _formatDuration(Duration(hours: now.hour, minutes: now.minute)))),
                 const Text('→', style: TextStyle(color: AppColors.textHint, fontSize: 14)),
@@ -153,7 +154,7 @@ class _ConfirmBottomSheetState extends State<ConfirmBottomSheet> {
                 widget.onConfirm(TimeRecord(
                   id: '',
                   categoryId: selected.id,
-                  startTime: startTime,
+                  startTime: widget.startTime,
                   endTime: now,
                   note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
                 ));

@@ -7,13 +7,16 @@ import 'package:mytime/blocs/records/records_event.dart';
 import 'package:mytime/blocs/settings/settings_bloc.dart';
 import 'package:mytime/blocs/settings/settings_event.dart';
 import 'package:mytime/blocs/timer/timer_bloc.dart';
+import 'package:mytime/blocs/timer/timer_event.dart';
 import 'package:mytime/data/models/app_settings.dart';
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
+import 'package:mytime/data/repositories/active_timer_repository.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/repositories/settings_repository.dart';
 import 'package:mytime/ui/app_shell.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Widget createApp({
   required RecordRepository recordsRepo,
@@ -21,7 +24,10 @@ Widget createApp({
 }) {
   return MultiBlocProvider(
     providers: [
-      BlocProvider(create: (_) => TimerBloc()),
+      BlocProvider(
+        create: (_) =>
+            TimerBloc(ActiveTimerRepository())..add(RestoreTimer()),
+      ),
       BlocProvider(create: (_) => RecordsBloc(recordsRepo)..add(LoadRecords())),
       // CategoriesBloc is intentionally omitted from integration tests to avoid
       // a flutter_tester finalization hang when Hive boxes are closed. Production
@@ -37,6 +43,7 @@ void main() {
     Hive.init('test_hive_integration');
     Hive.registerAdapter(TimeRecordAdapter());
     Hive.registerAdapter(CategoryAdapter());
+    SharedPreferences.setMockInitialValues({});
   });
 
   group('empty state', () {

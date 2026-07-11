@@ -5,6 +5,7 @@ import 'package:mytime/blocs/records/records.dart';
 import 'package:mytime/blocs/settings/settings.dart';
 import 'package:mytime/blocs/timer/timer.dart';
 import 'package:mytime/core/utils/hive_helper.dart';
+import 'package:mytime/data/repositories/active_timer_repository.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/repositories/settings_repository.dart';
@@ -20,11 +21,14 @@ void main() async {
   final recordRepo = RecordRepository(recordsBox);
   final categoryRepo = CategoryRepository(categoriesBox);
   final settingsRepo = SettingsRepository();
+  final activeTimerRepo = ActiveTimerRepository();
 
   runApp(
     MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => TimerBloc()),
+        BlocProvider(
+          create: (_) => TimerBloc(activeTimerRepo)..add(RestoreTimer()),
+        ),
         BlocProvider(
           create: (_) => RecordsBloc(recordRepo)..add(LoadRecords()),
         ),
