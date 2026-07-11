@@ -3,6 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mytime/blocs/records/records_bloc.dart';
 import 'package:mytime/blocs/records/records_event.dart';
 import 'package:mytime/blocs/records/records_state.dart';
+import 'package:mytime/blocs/settings/settings_bloc.dart';
+import 'package:mytime/blocs/settings/settings_state.dart';
+import 'package:mytime/data/models/app_settings.dart';
 import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/ui/pages/stats/widgets/ai_insight_view.dart';
@@ -122,13 +125,18 @@ class _StatsPageState extends State<StatsPage> {
                     case 'bar':
                       return BarChartView(points: metrics.trend);
                     case 'ai':
-                      return AiInsightView(
-                        records: metrics.records,
-                        periodLabel: _range == StatsRange.day
-                            ? '今日'
-                            : _range == StatsRange.week
-                            ? '本周'
-                            : '本月',
+                      return BlocBuilder<SettingsBloc, SettingsState>(
+                        builder: (context, settingsState) => AiInsightView(
+                          records: metrics.records,
+                          settings: settingsState is SettingsLoaded
+                              ? settingsState.settings
+                              : const AppSettings(),
+                          periodLabel: _range == StatsRange.day
+                              ? '今日'
+                              : _range == StatsRange.week
+                              ? '本周'
+                              : '本月',
+                        ),
                       );
                     default:
                       return const SizedBox.shrink();
