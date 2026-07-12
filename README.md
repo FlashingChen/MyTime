@@ -2,6 +2,12 @@
 
 开源免费的多端时间记录 APP。
 
+## Android 发布签名
+
+不要提交 keystore 或 `android/key.properties`。复制
+`android/key.properties.example` 为 `android/key.properties`，并填入本机
+keystore 信息后再运行 `flutter build apk --release`。
+
 ## 特性
 
 - 开始/结束点击式时间记录

@@ -5,6 +5,10 @@
 ## [Unreleased]
 
 ### Added
+- AI API Key 改由平台安全存储保存；旧版 SharedPreferences 明文 Key 会在首次读取时迁移并删除。
+- JSON 导入增加版本、结构、重复 ID、分类引用和时间范围校验；完整验证后执行，失败时恢复导入前数据。
+- 新增 GitHub Actions 质量门禁，覆盖格式化、分析、测试与 Debug APK 构建。
+- Android 发布签名支持通过未提交的 `android/key.properties` 注入，并提供安全模板。
 - 计时器状态持久化：开始计时立即启动前台计时，并异步保存启动时间；APP 重启后自动恢复正在运行的计时器，实现退出后继续计时。
 - `ActiveTimerRepository`：负责活动计时器启动时间的持久化与恢复。
 - `RestoreTimer` 事件：APP 启动时派发，从持久化存储恢复运行中的计时器。
@@ -49,6 +53,11 @@
 - `main.dart` 通过 `HiveHelper` 初始化并同时打开 `records` 与 `categories` 两个 Hive box，全局提供 `CategoriesBloc`
 
 ### Fixed
+- AI 服务仅允许 HTTPS 地址，避免 Bearer Token 经明文 HTTP 传输。
+- 停止计时后的待确认会话会持久化固定结束时间；仅在记录保存成功后清理，避免退出、保存失败或确认延迟造成记录丢失和时长漂移。
+- 记录更新不再意外清空可空分类/备注；记录和分类输入会在 Repository 边界校验。
+- 删除分类后记录消费者会自动刷新；跨午夜记录会在相交的两个日时间线中正确裁剪显示。
+- 修复统计上月比较边界、饼图筛选在数据变化后的失效状态，以及 AI 建议面对少于一分钟记录的除零异常。
 - 修复冷启动后统计分类标签错误显示为「其他」的问题。
 - `AppTheme.light` / `AppTheme.dark` 由 getter 改为接受 `accentColor` 的方法，支持主题色动态切换
 - 修复 HiveObject 子类的 `must_be_immutable` 分析警告

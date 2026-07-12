@@ -28,25 +28,40 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
     final start = DateTime.now();
     emit(TimerRunInProgress(start, Duration.zero));
     _startTicker(start);
-    _enqueueStorage(() => _activeTimerStore.saveStartTime(start));
+    _enqueueStorage(
+      () => _activeTimerStore.saveSession(
+        PersistedTimerSession(startTime: start),
+      ),
+    );
   }
 
   Future<void> _onRestore(RestoreTimer event, Emitter<TimerState> emit) async {
     final versionAtRequest = _sessionVersion;
-    DateTime? savedStart;
+    PersistedTimerSession? savedSession;
     try {
-      savedStart = await _activeTimerStore.getStartTime();
+      savedSession = await _activeTimerStore.getSession();
     } catch (_) {
       return;
     }
-    if (savedStart == null ||
+    if (savedSession == null ||
         _sessionVersion != versionAtRequest ||
         state is! TimerInitial) {
       return;
     }
-    final elapsed = DateTime.now().difference(savedStart);
-    emit(TimerRunInProgress(savedStart, elapsed));
-    _startTicker(savedStart);
+    if (savedSession.isPendingConfirmation) {
+      final stoppedAt = savedSession.stoppedAt!;
+      emit(
+        TimerRunComplete(
+          savedSession.startTime,
+          stoppedAt.difference(savedSession.startTime),
+          stoppedAt,
+        ),
+      );
+      return;
+    }
+    final elapsed = DateTime.now().difference(savedSession.startTime);
+    emit(TimerRunInProgress(savedSession.startTime, elapsed));
+    _startTicker(savedSession.startTime);
   }
 
   void _onStopped(TimerStopped event, Emitter<TimerState> emit) {
@@ -54,9 +69,17 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
     _tickerSubscription?.cancel();
     if (state is TimerRunInProgress) {
       final progress = state as TimerRunInProgress;
-      final elapsed = DateTime.now().difference(progress.startTime);
-      emit(TimerRunComplete(progress.startTime, elapsed));
-      _enqueueStorage(_activeTimerStore.clear);
+      final stoppedAt = DateTime.now();
+      final elapsed = stoppedAt.difference(progress.startTime);
+      emit(TimerRunComplete(progress.startTime, elapsed, stoppedAt));
+      _enqueueStorage(
+        () => _activeTimerStore.saveSession(
+          PersistedTimerSession(
+            startTime: progress.startTime,
+            stoppedAt: stoppedAt,
+          ),
+        ),
+      );
     }
   }
 

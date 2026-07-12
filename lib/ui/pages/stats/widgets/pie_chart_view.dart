@@ -20,7 +20,7 @@ class PieChartView extends StatefulWidget {
 }
 
 class _PieChartViewState extends State<PieChartView> {
-  int? _selectedIndex;
+  String? _selectedCategory;
 
   Map<String, Duration> _aggregateByCategory() {
     final map = <String, Duration>{};
@@ -72,6 +72,7 @@ class _PieChartViewState extends State<PieChartView> {
         .map((entry) {
           final category = CategoryLookup.byId(context, entry.key);
           return _PieItem(
+            categoryId: entry.key,
             category: category.name,
             color: Color(int.parse(category.color.replaceFirst('#', '0xFF'))),
             duration: entry.value,
@@ -79,7 +80,10 @@ class _PieChartViewState extends State<PieChartView> {
           );
         })
         .toList(growable: false);
-    final selectedItem = _selectedIndex == null ? null : items[_selectedIndex!];
+    final selectedIndex = items.indexWhere(
+      (item) => item.categoryId == _selectedCategory,
+    );
+    final selectedItem = selectedIndex == -1 ? null : items[selectedIndex];
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -118,13 +122,14 @@ class _PieChartViewState extends State<PieChartView> {
                             final index =
                                 response?.touchedSection?.touchedSectionIndex;
                             setState(() {
-                              _selectedIndex =
+                              _selectedCategory =
                                   index == null ||
                                       index < 0 ||
                                       index >= items.length ||
-                                      index == _selectedIndex
+                                      items[index].categoryId ==
+                                          _selectedCategory
                                   ? null
-                                  : index;
+                                  : items[index].categoryId;
                             });
                           },
                         ),
@@ -147,8 +152,11 @@ class _PieChartViewState extends State<PieChartView> {
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             child: Column(
               children: [
-                for (final (index, item) in items.indexed)
-                  _LegendItem(item: item, selected: index == _selectedIndex),
+                for (final item in items)
+                  _LegendItem(
+                    item: item,
+                    selected: item.categoryId == _selectedCategory,
+                  ),
               ],
             ),
           ),
@@ -159,15 +167,15 @@ class _PieChartViewState extends State<PieChartView> {
 
   List<PieChartSectionData> _sections(List<_PieItem> items) {
     return [
-      for (final (index, item) in items.indexed)
+      for (final item in items)
         PieChartSectionData(
           value: item.duration.inSeconds.toDouble(),
-          color: _selectedIndex == null
+          color: _selectedCategory == null
               ? item.color.withValues(alpha: 0.9)
-              : index == _selectedIndex
+              : item.categoryId == _selectedCategory
               ? item.color
               : item.color.withValues(alpha: 0.5),
-          radius: index == _selectedIndex ? 82 : 70,
+          radius: item.categoryId == _selectedCategory ? 82 : 70,
           showTitle: false,
         ),
     ];
@@ -175,12 +183,14 @@ class _PieChartViewState extends State<PieChartView> {
 }
 
 class _PieItem {
+  final String categoryId;
   final String category;
   final Color color;
   final Duration duration;
   final int percentage;
 
   const _PieItem({
+    required this.categoryId,
     required this.category,
     required this.color,
     required this.duration,

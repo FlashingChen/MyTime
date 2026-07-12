@@ -11,7 +11,8 @@ void main() {
   blocTest<SettingsBloc, SettingsState>(
     'stores all AI configuration fields together',
     setUp: () => SharedPreferences.setMockInitialValues({}),
-    build: () => SettingsBloc(SettingsRepository()),
+    build: () =>
+        SettingsBloc(SettingsRepository(secureStorage: _MemoryStore())),
     act: (bloc) async {
       bloc.add(const LoadSettings());
       await Future<void>.delayed(Duration.zero);
@@ -35,4 +36,19 @@ void main() {
       ),
     ],
   );
+}
+
+class _MemoryStore implements SecureKeyValueStore {
+  final values = <String, String>{};
+
+  @override
+  Future<void> delete(String key) async => values.remove(key);
+
+  @override
+  Future<String?> read(String key) async => values[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    values[key] = value;
+  }
 }

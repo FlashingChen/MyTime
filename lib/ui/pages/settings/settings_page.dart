@@ -12,6 +12,7 @@ import 'package:mytime/core/constants/app_colors.dart';
 import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
+import 'package:mytime/data/services/data_transfer_service.dart';
 import 'package:mytime/ui/pages/settings/category_management_page.dart';
 import 'package:mytime/ui/pages/settings/record_management_page.dart';
 import 'package:mytime/ui/pages/settings/widgets/color_picker.dart';
@@ -430,9 +431,9 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
   }
 
   Future<void> _importJson() async {
-    final recordsBloc = context.read<RecordsBloc>();
+    final dataTransferService = context.read<DataTransferService>();
     final categoriesBloc = context.read<CategoriesBloc>();
-
+    final recordsBloc = context.read<RecordsBloc>();
     final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
     final text = clipboard?.text;
     if (text == null || text.trim().isEmpty) {
@@ -443,32 +444,15 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
     }
 
     try {
-      final payload = _parseJson(text);
-      final recordsJson = payload['records'] as List<dynamic>? ?? [];
-      final categoriesJson = payload['categories'] as List<dynamic>? ?? [];
-
-      var importedCategories = 0;
-      for (final c in categoriesJson) {
-        final category = _categoryFromJson(c as Map<String, dynamic>);
-        if (category != null) {
-          categoriesBloc.add(CategoryAdded(category));
-          importedCategories++;
-        }
-      }
-
-      var importedRecords = 0;
-      for (final r in recordsJson) {
-        final record = _recordFromJson(r as Map<String, dynamic>);
-        if (record != null) {
-          recordsBloc.add(RecordAdded(record));
-          importedRecords++;
-        }
-      }
+      final result = await dataTransferService.importJson(text);
+      if (!mounted) return;
+      categoriesBloc.add(const LoadCategories());
+      recordsBloc.add(LoadRecords());
 
       if (mounted) {
         _showResultDialog(
           '导入成功',
-          '成功导入 $importedRecords 条记录、$importedCategories 个分类。',
+          '成功导入 ${result.recordCount} 条记录、${result.categoryCount} 个分类。',
         );
       }
     } catch (e) {
@@ -498,14 +482,6 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
     return {'id': c.id, 'name': c.name, 'color': c.color};
   }
 
-  Category? _categoryFromJson(Map<String, dynamic> json) {
-    final id = json['id'] as String?;
-    final name = json['name'] as String?;
-    final color = json['color'] as String?;
-    if (id == null || name == null || color == null) return null;
-    return Category(id: id, name: name, color: color);
-  }
-
   Map<String, dynamic> _recordToJson(TimeRecord r) {
     return {
       'id': r.id,
@@ -514,27 +490,6 @@ class _DataExchangeSheetState extends State<_DataExchangeSheet> {
       'endTime': r.endTime.toIso8601String(),
       'note': r.note,
     };
-  }
-
-  TimeRecord? _recordFromJson(Map<String, dynamic> json) {
-    final categoryId = json['categoryId'] as String?;
-    final start = json['startTime'] as String?;
-    final end = json['endTime'] as String?;
-    if (start == null || end == null) return null;
-    return TimeRecord(
-      id: json['id'] as String? ?? '',
-      categoryId: categoryId,
-      startTime: DateTime.parse(start),
-      endTime: DateTime.parse(end),
-      note: json['note'] as String?,
-    );
-  }
-
-  Map<String, dynamic> _parseJson(String text) {
-    // Minimal JSON parser: strip whitespace and parse manually to avoid adding dart:convert? No, dart:convert is built-in.
-    // We use dart:convert via jsonDecode which is available.
-    // ignore: avoid_dynamic_calls
-    return jsonDecode(text) as Map<String, dynamic>;
   }
 
   String _formatJson(Map<String, dynamic> payload) {

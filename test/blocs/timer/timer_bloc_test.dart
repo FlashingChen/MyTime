@@ -155,7 +155,7 @@ void main() {
     );
 
     blocTest<TimerBloc, TimerState>(
-      'TimerStopped clears persisted start time',
+      'TimerStopped persists a session awaiting confirmation',
       build: () => TimerBloc(activeTimerRepo),
       seed: () => TimerRunInProgress(
         DateTime.now().subtract(const Duration(seconds: 5)),
@@ -163,8 +163,9 @@ void main() {
       ),
       act: (bloc) => bloc.add(TimerStopped()),
       verify: (bloc) async {
-        final saved = await activeTimerRepo.getStartTime();
-        expect(saved, isNull);
+        final saved = await activeTimerRepo.getSession();
+        expect(saved, isNotNull);
+        expect(saved!.isPendingConfirmation, isTrue);
       },
     );
 
@@ -215,13 +216,15 @@ Future<void> _settleEvents() => Future<void>.delayed(Duration.zero);
 
 class _ControlledActiveTimerRepository extends ActiveTimerRepository {
   final Completer<void> _saveCompleter = Completer<void>();
-  final Completer<DateTime?> _readCompleter = Completer<DateTime?>();
+  final Completer<PersistedTimerSession?> _readCompleter =
+      Completer<PersistedTimerSession?>();
 
   @override
-  Future<void> saveStartTime(DateTime startTime) => _saveCompleter.future;
+  Future<void> saveSession(PersistedTimerSession session) =>
+      _saveCompleter.future;
 
   @override
-  Future<DateTime?> getStartTime() => _readCompleter.future;
+  Future<PersistedTimerSession?> getSession() => _readCompleter.future;
 
   void completePendingSave() {
     if (!_saveCompleter.isCompleted) {
@@ -231,14 +234,16 @@ class _ControlledActiveTimerRepository extends ActiveTimerRepository {
 
   void completePendingRead(DateTime? startTime) {
     if (!_readCompleter.isCompleted) {
-      _readCompleter.complete(startTime);
+      _readCompleter.complete(
+        startTime == null ? null : PersistedTimerSession(startTime: startTime),
+      );
     }
   }
 }
 
 class _FailingActiveTimerRepository extends ActiveTimerRepository {
   @override
-  Future<void> saveStartTime(DateTime startTime) {
+  Future<void> saveSession(PersistedTimerSession session) {
     throw StateError('Storage unavailable');
   }
 }

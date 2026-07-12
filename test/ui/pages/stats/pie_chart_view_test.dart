@@ -109,7 +109,7 @@ void main() {
       ),
     );
 
-    expect(find.text('其他'), findsOneWidget);
+    expect(find.text('未分类'), findsOneWidget);
 
     categoriesBloc.add(const LoadCategories());
     await tester.pump(const Duration(milliseconds: 1));

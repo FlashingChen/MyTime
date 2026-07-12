@@ -230,20 +230,20 @@ class _AiInsightViewState extends State<AiInsightView> {
 
   List<String> _localSuggestions(BuildContext context) {
     final categories = <String, int>{};
-    var total = 0;
-    var longest = 0;
+    var totalSeconds = 0;
+    var longestSeconds = 0;
     for (final record in widget.records) {
-      final minutes = record.duration.inMinutes;
-      total += minutes;
-      longest = minutes > longest ? minutes : longest;
+      final seconds = record.duration.inSeconds;
+      totalSeconds += seconds;
+      longestSeconds = seconds > longestSeconds ? seconds : longestSeconds;
       final id = record.categoryId ?? 'uncategorized';
-      categories[id] = (categories[id] ?? 0) + minutes;
+      categories[id] = (categories[id] ?? 0) + seconds;
     }
     final top = categories.entries.reduce((a, b) => a.value >= b.value ? a : b);
     final name = CategoryLookup.byId(context, top.key).name;
     return [
-      '$name占比 ${top.value * 100 ~/ total}%，是当前最投入的活动。',
-      '最长连续记录为 ${formatStatsDuration(Duration(minutes: longest))}，建议每 90 分钟安排一次短暂休息。',
+      '$name占比 ${top.value * 100 ~/ totalSeconds}%，是当前最投入的活动。',
+      '最长连续记录为 ${formatStatsDuration(Duration(seconds: longestSeconds))}，建议每 90 分钟安排一次短暂休息。',
       '保持规律记录，能让下一次分析更贴合你的时间分配。',
     ];
   }

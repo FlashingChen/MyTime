@@ -1,0 +1,108 @@
+import 'dart:convert';
+
+import 'package:mytime/data/models/category.dart';
+import 'package:mytime/data/models/time_record.dart';
+import 'package:mytime/data/repositories/category_repository.dart';
+import 'package:mytime/data/repositories/record_repository.dart';
+
+/// Validates and atomically imports a MyTime JSON backup.
+class DataTransferService {
+  DataTransferService(this._records, this._categories);
+
+  final RecordRepository _records;
+  final CategoryRepository _categories;
+
+  Future<ImportResult> importJson(String source) async {
+    final backup = _parse(source);
+    final previousRecords = _records.getAll();
+    final previousCategories = _categories.getAll();
+    try {
+      await _categories.replaceAll(backup.categories);
+      await _records.replaceAll(backup.records);
+      return ImportResult(backup.records.length, backup.categories.length);
+    } catch (_) {
+      await _categories.replaceAll(previousCategories);
+      await _records.replaceAll(previousRecords);
+      rethrow;
+    }
+  }
+
+  _Backup _parse(String source) {
+    final decoded = jsonDecode(source);
+    if (decoded is! Map<String, dynamic> || decoded['version'] != 1) {
+      throw const FormatException('仅支持版本为 1 的 MyTime 备份文件。');
+    }
+    final rawCategories = decoded['categories'];
+    final rawRecords = decoded['records'];
+    if (rawCategories is! List || rawRecords is! List) {
+      throw const FormatException('备份必须包含 categories 和 records 数组。');
+    }
+    final categories = rawCategories.map(_category).toList(growable: false);
+    if (categories.map((item) => item.id).toSet().length != categories.length) {
+      throw const FormatException('备份中存在重复的分类 ID。');
+    }
+    final categoryIds = categories.map((item) => item.id).toSet();
+    final records = rawRecords
+        .map((item) => _record(item, categoryIds))
+        .toList(growable: false);
+    if (records.map((item) => item.id).toSet().length != records.length) {
+      throw const FormatException('备份中存在重复的记录 ID。');
+    }
+    return _Backup(categories, records);
+  }
+
+  Category _category(Object? source) {
+    if (source is! Map) throw const FormatException('分类格式无效。');
+    final id = source['id'];
+    final name = source['name'];
+    final color = source['color'];
+    if (id is! String || id.isEmpty || name is! String || color is! String) {
+      throw const FormatException('分类缺少有效字段。');
+    }
+    return Category(id: id, name: name, color: color);
+  }
+
+  TimeRecord _record(Object? source, Set<String> categoryIds) {
+    if (source is! Map) throw const FormatException('记录格式无效。');
+    final id = source['id'];
+    final categoryId = source['categoryId'];
+    final start = source['startTime'];
+    final end = source['endTime'];
+    final note = source['note'];
+    if (id is! String ||
+        id.isEmpty ||
+        start is! String ||
+        end is! String ||
+        (categoryId != null && categoryId is! String) ||
+        (note != null && note is! String)) {
+      throw const FormatException('记录缺少有效字段。');
+    }
+    final startTime = DateTime.tryParse(start);
+    final endTime = DateTime.tryParse(end);
+    if (startTime == null || endTime == null || !endTime.isAfter(startTime)) {
+      throw const FormatException('记录时间范围无效。');
+    }
+    if (categoryId is String && !categoryIds.contains(categoryId)) {
+      throw const FormatException('记录引用了不存在的分类。');
+    }
+    return TimeRecord(
+      id: id,
+      categoryId: categoryId as String?,
+      startTime: startTime,
+      endTime: endTime,
+      note: note as String?,
+    );
+  }
+}
+
+class ImportResult {
+  const ImportResult(this.recordCount, this.categoryCount);
+  final int recordCount;
+  final int categoryCount;
+}
+
+class _Backup {
+  const _Backup(this.categories, this.records);
+  final List<Category> categories;
+  final List<TimeRecord> records;
+}

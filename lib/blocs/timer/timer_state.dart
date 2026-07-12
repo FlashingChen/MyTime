@@ -31,9 +31,10 @@ class TimerRunInProgress extends TimerState {
 class TimerRunComplete extends TimerState {
   final DateTime startTime;
   final Duration duration;
+  final DateTime stoppedAt;
 
-  const TimerRunComplete(this.startTime, this.duration);
+  const TimerRunComplete(this.startTime, this.duration, this.stoppedAt);
 
   @override
-  List<Object?> get props => [startTime, duration];
+  List<Object?> get props => [startTime, duration, stoppedAt];
 }

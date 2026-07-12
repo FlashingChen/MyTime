@@ -33,7 +33,7 @@ void main() {
 
     testWidgets('shows profile and dark mode toggle', (tester) async {
       SharedPreferences.setMockInitialValues({});
-      final settingsRepo = SettingsRepository();
+      final settingsRepo = SettingsRepository(secureStorage: _MemoryStore());
 
       await tester.pumpWidget(
         MaterialApp(
@@ -66,7 +66,7 @@ void main() {
 
     testWidgets('toggles dark mode', (tester) async {
       SharedPreferences.setMockInitialValues({});
-      final settingsRepo = SettingsRepository();
+      final settingsRepo = SettingsRepository(secureStorage: _MemoryStore());
 
       await tester.pumpWidget(
         MaterialApp(
@@ -98,7 +98,7 @@ void main() {
 
     testWidgets('opens AI configuration sheet', (tester) async {
       SharedPreferences.setMockInitialValues({});
-      final settingsRepo = SettingsRepository();
+      final settingsRepo = SettingsRepository(secureStorage: _MemoryStore());
 
       await tester.pumpWidget(
         MaterialApp(
@@ -128,4 +128,19 @@ void main() {
       expect(find.text('保存配置'), findsOneWidget);
     });
   });
+}
+
+class _MemoryStore implements SecureKeyValueStore {
+  final values = <String, String>{};
+
+  @override
+  Future<void> delete(String key) async => values.remove(key);
+
+  @override
+  Future<String?> read(String key) async => values[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    values[key] = value;
+  }
 }

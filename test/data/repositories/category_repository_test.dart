@@ -55,11 +55,20 @@ void main() {
     expect(result.name, 'Test');
   });
 
+  test('add rejects a blank name or invalid color', () async {
+    await expectLater(
+      repo.add(Category(id: '', name: '   ', color: '#000000')),
+      throwsArgumentError,
+    );
+    await expectLater(
+      repo.add(Category(id: '', name: 'Test', color: 'black')),
+      throwsArgumentError,
+    );
+  });
+
   test('update changes category fields', () async {
     await repo.add(Category(id: 'test', name: 'Test', color: '#000000'));
-    await repo.update(
-      Category(id: 'test', name: 'Updated', color: '#FFFFFF'),
-    );
+    await repo.update(Category(id: 'test', name: 'Updated', color: '#FFFFFF'));
     final updated = repo.getById('test');
     expect(updated?.name, 'Updated');
     expect(updated?.color, '#FFFFFF');

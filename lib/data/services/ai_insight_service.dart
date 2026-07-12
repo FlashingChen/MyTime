@@ -145,9 +145,7 @@ class AiInsightService {
   static Uri? _endpoint(String baseUrl) {
     final normalized = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final uri = Uri.tryParse(normalized);
-    if (uri == null ||
-        !uri.hasAuthority ||
-        (uri.scheme != 'http' && uri.scheme != 'https')) {
+    if (uri == null || !uri.hasAuthority || uri.scheme != 'https') {
       return null;
     }
     return Uri.parse('$normalized/chat/completions');

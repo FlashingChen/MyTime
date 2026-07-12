@@ -7,6 +7,8 @@ part 'time_record.g.dart';
 @HiveType(typeId: 0)
 // ignore: must_be_immutable
 class TimeRecord extends HiveObject with Equatable {
+  static const Object _unset = Object();
+
   @HiveField(0)
   final String id;
   @HiveField(1)
@@ -33,18 +35,20 @@ class TimeRecord extends HiveObject with Equatable {
 
   TimeRecord copyWith({
     String? id,
-    String? categoryId,
+    Object? categoryId = _unset,
     DateTime? startTime,
     DateTime? endTime,
-    String? note,
+    Object? note = _unset,
     DateTime? createdAt,
   }) {
     return TimeRecord(
       id: id ?? this.id,
-      categoryId: categoryId,
+      categoryId: identical(categoryId, _unset)
+          ? this.categoryId
+          : categoryId as String?,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
-      note: note ?? this.note,
+      note: identical(note, _unset) ? this.note : note as String?,
       createdAt: createdAt ?? this.createdAt,
     );
   }

@@ -44,4 +44,29 @@ void main() {
       isNot(firstSuggestion),
     );
   });
+
+  testWidgets('handles a sub-minute record without an arithmetic error', (
+    tester,
+  ) async {
+    final start = DateTime(2026, 7, 10, 9);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiInsightView(
+            records: [
+              TimeRecord(
+                id: 'short',
+                categoryId: 'work',
+                startTime: start,
+                endTime: start.add(const Duration(seconds: 30)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('ai-suggestion-0')), findsOneWidget);
+  });
 }

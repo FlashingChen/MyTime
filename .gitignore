@@ -27,3 +27,4 @@ test_hive_*/
 
 # Superpowers SDD scratch
 .superpowers/
+android/key.properties
