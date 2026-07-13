@@ -38,7 +38,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     if (state is SettingsLoaded) {
       final current = (state as SettingsLoaded).settings;
       final updated = current.copyWith(themeMode: event.mode);
-      await _save(updated, emit);
+      await _save(updated, current, emit);
     }
   }
 
@@ -49,7 +49,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     if (state is SettingsLoaded) {
       final current = (state as SettingsLoaded).settings;
       final updated = current.copyWith(accentColor: event.color);
-      await _save(updated, emit);
+      await _save(updated, current, emit);
     }
   }
 
@@ -64,7 +64,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
         aiApiKey: event.apiKey,
         aiModel: event.model,
       );
-      await _save(updated, emit);
+      await _save(updated, current, emit);
     }
   }
 
@@ -82,11 +82,12 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       webDavUsername: event.username,
       webDavPassword: event.password,
     );
-    await _save(updated, emit, event.completion);
+    await _save(updated, current, emit, event.completion);
   }
 
   Future<void> _save(
     AppSettings settings,
+    AppSettings previous,
     Emitter<SettingsState> emit, [
     Completer<void>? completion,
   ]) async {
@@ -95,7 +96,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       emit(SettingsLoaded(settings));
       completion?.complete();
     } catch (_) {
-      emit(const SettingsError('保存设置失败，请重试'));
+      emit(SettingsLoaded(previous, saveErrorMessage: '保存设置失败，请重试'));
       completion?.completeError(const SettingsSaveException());
     }
   }

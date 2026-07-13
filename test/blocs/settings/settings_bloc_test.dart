@@ -79,7 +79,7 @@ void main() {
     expect: () => [
       const SettingsLoading(),
       const SettingsLoaded(AppSettings()),
-      const SettingsError('保存设置失败，请重试'),
+      const SettingsLoaded(AppSettings(), saveErrorMessage: '保存设置失败，请重试'),
     ],
   );
 
@@ -105,8 +105,59 @@ void main() {
         completion.future,
         throwsA(isA<SettingsSaveException>()),
       );
-      expect(states.last, const SettingsError('保存设置失败，请重试'));
+      expect(
+        states.last,
+        const SettingsLoaded(AppSettings(), saveErrorMessage: '保存设置失败，请重试'),
+      );
       await subscription.cancel();
+      await bloc.close();
+    },
+  );
+
+  test(
+    'allows a WebDAV save to be retried after a transient storage failure',
+    () async {
+      final repository = _FailsOnceSettingsRepository();
+      final bloc = SettingsBloc(repository);
+      bloc.add(const LoadSettings());
+      await Future<void>.delayed(Duration.zero);
+
+      final firstAttempt = Completer<void>();
+      bloc.add(
+        WebDavSettingsChanged(
+          endpoint: 'https://dav.example.com/mytime.json',
+          username: 'alice',
+          password: 'secret',
+          completion: firstAttempt,
+        ),
+      );
+      await expectLater(
+        firstAttempt.future,
+        throwsA(isA<SettingsSaveException>()),
+      );
+
+      final retry = Completer<void>();
+      bloc.add(
+        WebDavSettingsChanged(
+          endpoint: 'https://dav.example.com/mytime.json',
+          username: 'alice',
+          password: 'secret',
+          completion: retry,
+        ),
+      );
+
+      await retry.future;
+      expect(repository.saveCalls, 2);
+      expect(
+        bloc.state,
+        const SettingsLoaded(
+          AppSettings(
+            webDavEndpoint: 'https://dav.example.com/mytime.json',
+            webDavUsername: 'alice',
+            webDavPassword: 'secret',
+          ),
+        ),
+      );
       await bloc.close();
     },
   );
@@ -134,5 +185,20 @@ class _FailingSettingsRepository extends SettingsRepository {
   @override
   Future<void> save(AppSettings settings) {
     throw StateError('storage unavailable');
+  }
+}
+
+class _FailsOnceSettingsRepository extends SettingsRepository {
+  var saveCalls = 0;
+
+  @override
+  Future<AppSettings> load() async => const AppSettings();
+
+  @override
+  Future<void> save(AppSettings settings) async {
+    saveCalls += 1;
+    if (saveCalls == 1) {
+      throw StateError('storage temporarily unavailable');
+    }
   }
 }

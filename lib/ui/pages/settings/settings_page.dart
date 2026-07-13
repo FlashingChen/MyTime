@@ -57,6 +57,27 @@ class SettingsPage extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 40),
       child: Column(
         children: [
+          if (state.saveErrorMessage != null)
+            Semantics(
+              liveRegion: true,
+              label: state.saveErrorMessage,
+              child: Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: context.colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  state.saveErrorMessage!,
+                  style: TextStyle(
+                    color: context.colorScheme.onErrorContainer,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
           // Profile
           Padding(
             padding: EdgeInsets.fromLTRB(20, 24, 20, 16),
