@@ -70,10 +70,7 @@ class TimerCircle extends StatelessWidget {
               const SizedBox(height: 4),
               const Text(
                 '正在计时',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -89,7 +86,12 @@ class _RingPainter extends CustomPainter {
   final double strokeWidth;
   final double progress;
 
-  _RingPainter({this.color, this.gradient, required this.strokeWidth, required this.progress});
+  _RingPainter({
+    this.color,
+    this.gradient,
+    required this.strokeWidth,
+    required this.progress,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {

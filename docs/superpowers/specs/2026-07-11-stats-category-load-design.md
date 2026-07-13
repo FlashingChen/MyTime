@@ -1,5 +1,7 @@
 # Statistics Category Load Design
 
+> 文档状态：已实施。分类持久化现已通过 DTO/DataStore Adapter 完成，但本文件的冷启动刷新行为与验收目标保持不变。
+
 ## Goal
 
 Ensure statistics always renders the saved name and color of a custom category after a cold app launch.

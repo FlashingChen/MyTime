@@ -6,7 +6,9 @@ import 'package:hive_ce/hive.dart';
 import 'package:mytime/blocs/categories/categories_bloc.dart';
 import 'package:mytime/blocs/categories/categories_event.dart';
 import 'package:mytime/blocs/categories/categories_state.dart';
+import 'package:mytime/data/dtos/hive_category.dart';
 import 'package:mytime/data/models/category.dart';
+import 'package:mytime/data/providers/hive_data_stores.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 
 void main() {
@@ -14,19 +16,19 @@ void main() {
 
   setUpAll(() {
     Hive.init('test_hive_categories_bloc');
-    if (!Hive.isAdapterRegistered(CategoryAdapter().typeId)) {
-      Hive.registerAdapter(CategoryAdapter());
+    if (!Hive.isAdapterRegistered(HiveCategoryAdapter().typeId)) {
+      Hive.registerAdapter(HiveCategoryAdapter());
     }
   });
 
   setUp(() async {
-    final box = await Hive.openBox<Category>('categories_bloc');
-    repo = CategoryRepository(box);
+    final box = await Hive.openBox<HiveCategory>('categories_bloc');
+    repo = CategoryRepository.withStore(HiveCategoryDataStore(box));
   });
 
   tearDown(() async {
-    await Hive.box<Category>('categories_bloc').clear();
-    await Hive.box<Category>('categories_bloc').close();
+    await Hive.box<HiveCategory>('categories_bloc').clear();
+    await Hive.box<HiveCategory>('categories_bloc').close();
   });
 
   tearDownAll(() async {
@@ -42,10 +44,7 @@ void main() {
       'emits CategoriesLoaded on LoadCategories',
       build: () => CategoriesBloc(repo),
       act: (bloc) => bloc.add(const LoadCategories()),
-      expect: () => [
-        const CategoriesLoading(),
-        isA<CategoriesLoaded>(),
-      ],
+      expect: () => [const CategoriesLoading(), isA<CategoriesLoaded>()],
     );
 
     blocTest<CategoriesBloc, CategoriesState>(
@@ -54,7 +53,9 @@ void main() {
       act: (bloc) async {
         bloc.add(const LoadCategories());
         await Future.delayed(const Duration(milliseconds: 50));
-        bloc.add(CategoryAdded(Category(id: '', name: 'New', color: '#000000')));
+        bloc.add(
+          CategoryAdded(Category(id: '', name: 'New', color: '#000000')),
+        );
       },
       wait: const Duration(milliseconds: 100),
       expect: () => [

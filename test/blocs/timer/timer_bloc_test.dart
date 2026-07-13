@@ -84,6 +84,27 @@ void main() {
       );
     });
 
+    test(
+      'exposes a recoverable error when a timer session cannot persist',
+      () async {
+        final bloc = TimerBloc(_FailingActiveTimerRepository());
+        addTearDown(bloc.close);
+
+        bloc.add(TimerStarted());
+        await _settleEvents();
+        await _settleEvents();
+
+        expect(
+          bloc.state,
+          isA<TimerRunInProgress>().having(
+            (state) => state.persistenceError,
+            'persistence error',
+            isNotNull,
+          ),
+        );
+      },
+    );
+
     blocTest<TimerBloc, TimerState>(
       'emits TimerRunInProgress when TimerStarted is added',
       build: () => TimerBloc(activeTimerRepo),

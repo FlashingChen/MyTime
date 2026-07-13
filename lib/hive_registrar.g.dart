@@ -3,19 +3,19 @@
 // Check in to version control
 
 import 'package:hive_ce/hive_ce.dart';
-import 'package:mytime/data/models/category.dart';
-import 'package:mytime/data/models/time_record.dart';
+import 'package:mytime/data/dtos/hive_category.dart';
+import 'package:mytime/data/dtos/hive_time_record.dart';
 
 extension HiveRegistrar on HiveInterface {
   void registerAdapters() {
-    registerAdapter(CategoryAdapter());
-    registerAdapter(TimeRecordAdapter());
+    registerAdapter(HiveCategoryAdapter());
+    registerAdapter(HiveTimeRecordAdapter());
   }
 }
 
 extension IsolatedHiveRegistrar on IsolatedHiveInterface {
   void registerAdapters() {
-    registerAdapter(CategoryAdapter());
-    registerAdapter(TimeRecordAdapter());
+    registerAdapter(HiveCategoryAdapter());
+    registerAdapter(HiveTimeRecordAdapter());
   }
 }

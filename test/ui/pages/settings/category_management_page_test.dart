@@ -7,7 +7,8 @@ import 'package:hive_ce/hive.dart';
 import 'package:mytime/blocs/categories/categories_bloc.dart';
 import 'package:mytime/blocs/categories/categories_event.dart';
 import 'package:mytime/core/constants/default_categories.dart';
-import 'package:mytime/data/models/category.dart';
+import 'package:mytime/data/dtos/hive_category.dart';
+import 'package:mytime/data/providers/hive_data_stores.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/ui/pages/settings/category_management_page.dart';
 
@@ -16,22 +17,24 @@ void main() {
 
   setUpAll(() {
     Hive.init('test_hive_category_management_page');
-    if (!Hive.isAdapterRegistered(CategoryAdapter().typeId)) {
-      Hive.registerAdapter(CategoryAdapter());
+    if (!Hive.isAdapterRegistered(HiveCategoryAdapter().typeId)) {
+      Hive.registerAdapter(HiveCategoryAdapter());
     }
   });
 
   setUp(() async {
-    final box = await Hive.openBox<Category>('category_management_page_categories');
+    final box = await Hive.openBox<HiveCategory>(
+      'category_management_page_categories',
+    );
     for (final category in DefaultCategories.all) {
-      await box.put(category.id, category);
+      await box.put(category.id, HiveCategory.fromDomain(category));
     }
-    repo = CategoryRepository(box);
+    repo = CategoryRepository.withStore(HiveCategoryDataStore(box));
   });
 
   tearDown(() async {
-    await Hive.box<Category>('category_management_page_categories').clear();
-    await Hive.box<Category>('category_management_page_categories').close();
+    await Hive.box<HiveCategory>('category_management_page_categories').clear();
+    await Hive.box<HiveCategory>('category_management_page_categories').close();
   });
 
   tearDownAll(() async {
@@ -64,7 +67,9 @@ void main() {
     expect(find.text('工作'), findsOneWidget);
   });
 
-  testWidgets('shows edit and delete actions for default categories', (tester) async {
+  testWidgets('shows edit and delete actions for default categories', (
+    tester,
+  ) async {
     await pumpPage(tester);
     expect(find.byTooltip('编辑分类'), findsWidgets);
     expect(find.byTooltip('删除分类'), findsWidgets);

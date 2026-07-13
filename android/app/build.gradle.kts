@@ -1,4 +1,23 @@
 import java.util.Properties
+import java.io.ByteArrayOutputStream
+
+fun keychainPassword(service: String): String {
+    val output = ByteArrayOutputStream()
+    val process = ProcessBuilder(
+        "security",
+        "find-generic-password",
+        "-a",
+        "MyTime Android Release",
+        "-s",
+        service,
+        "-w",
+    ).redirectErrorStream(true).start()
+    process.inputStream.copyTo(output)
+    if (process.waitFor() != 0) {
+        throw GradleException("Missing Keychain password for $service")
+    }
+    return output.toString().trim()
+}
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
@@ -42,9 +61,13 @@ android {
         if (keystorePropertiesFile.exists()) {
             create("release") {
                 keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
+                keyPassword = keychainPassword(
+                    "com.mytime.mytime.android.release.key-password",
+                )
                 storeFile = file(keystoreProperties.getProperty("storeFile"))
-                storePassword = keystoreProperties.getProperty("storePassword")
+                storePassword = keychainPassword(
+                    "com.mytime.mytime.android.release.store-password",
+                )
             }
         }
     }

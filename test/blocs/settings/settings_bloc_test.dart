@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mytime/blocs/settings/settings_bloc.dart';
@@ -36,6 +38,78 @@ void main() {
       ),
     ],
   );
+
+  blocTest<SettingsBloc, SettingsState>(
+    'stores complete WebDAV configuration together',
+    setUp: () => SharedPreferences.setMockInitialValues({}),
+    build: () =>
+        SettingsBloc(SettingsRepository(secureStorage: _MemoryStore())),
+    act: (bloc) async {
+      bloc.add(const LoadSettings());
+      await Future<void>.delayed(Duration.zero);
+      bloc.add(
+        const WebDavSettingsChanged(
+          endpoint: 'https://dav.example.com/mytime.json',
+          username: 'alice',
+          password: 'secret',
+        ),
+      );
+    },
+    expect: () => [
+      const SettingsLoading(),
+      const SettingsLoaded(AppSettings()),
+      const SettingsLoaded(
+        AppSettings(
+          webDavEndpoint: 'https://dav.example.com/mytime.json',
+          webDavUsername: 'alice',
+          webDavPassword: 'secret',
+        ),
+      ),
+    ],
+  );
+
+  blocTest<SettingsBloc, SettingsState>(
+    'surfaces a user-visible state when saving settings fails',
+    build: () => SettingsBloc(_FailingSettingsRepository()),
+    act: (bloc) async {
+      bloc.add(const LoadSettings());
+      await Future<void>.delayed(Duration.zero);
+      bloc.add(const ThemeModeChanged('dark'));
+    },
+    expect: () => [
+      const SettingsLoading(),
+      const SettingsLoaded(AppSettings()),
+      const SettingsError('保存设置失败，请重试'),
+    ],
+  );
+
+  test(
+    'completes a WebDAV save caller with an error when storage fails',
+    () async {
+      final bloc = SettingsBloc(_FailingSettingsRepository());
+      final states = <SettingsState>[];
+      final subscription = bloc.stream.listen(states.add);
+      bloc.add(const LoadSettings());
+      await Future<void>.delayed(Duration.zero);
+      final completion = Completer<void>();
+      bloc.add(
+        WebDavSettingsChanged(
+          endpoint: 'https://dav.example.com/mytime.json',
+          username: 'alice',
+          password: 'secret',
+          completion: completion,
+        ),
+      );
+
+      await expectLater(
+        completion.future,
+        throwsA(isA<SettingsSaveException>()),
+      );
+      expect(states.last, const SettingsError('保存设置失败，请重试'));
+      await subscription.cancel();
+      await bloc.close();
+    },
+  );
 }
 
 class _MemoryStore implements SecureKeyValueStore {
@@ -50,5 +124,15 @@ class _MemoryStore implements SecureKeyValueStore {
   @override
   Future<void> write(String key, String value) async {
     values[key] = value;
+  }
+}
+
+class _FailingSettingsRepository extends SettingsRepository {
+  @override
+  Future<AppSettings> load() async => const AppSettings();
+
+  @override
+  Future<void> save(AppSettings settings) {
+    throw StateError('storage unavailable');
   }
 }

@@ -1,23 +1,21 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:mytime/data/dtos/hive_time_record.dart';
 import 'package:mytime/data/models/time_record.dart';
-import 'package:mytime/data/models/category.dart';
+import 'package:mytime/data/providers/hive_data_stores.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 
 void main() {
-  late Box<TimeRecord> box;
+  late Box<HiveTimeRecord> box;
   late RecordRepository repo;
 
   setUp(() async {
     Hive.init('test_hive');
     if (!Hive.isAdapterRegistered(0)) {
-      Hive.registerAdapter(TimeRecordAdapter());
+      Hive.registerAdapter(HiveTimeRecordAdapter());
     }
-    if (!Hive.isAdapterRegistered(1)) {
-      Hive.registerAdapter(CategoryAdapter());
-    }
-    box = await Hive.openBox<TimeRecord>('test_records');
-    repo = RecordRepository(box);
+    box = await Hive.openBox<HiveTimeRecord>('test_records');
+    repo = RecordRepository.withStore(HiveRecordDataStore(box));
   });
 
   tearDown(() async {
@@ -54,6 +52,22 @@ void main() {
       expect(repo.getAll().single.id, 'stable-id');
     },
   );
+
+  test('add persists a Hive DTO that maps back to the record', () async {
+    final record = TimeRecord(
+      id: 'record-id',
+      categoryId: 'work',
+      startTime: DateTime(2026, 7, 9, 8, 30),
+      endTime: DateTime(2026, 7, 9, 9, 50),
+      note: 'Focus',
+    );
+
+    final result = await repo.add(record);
+
+    final stored = box.get(result.id);
+    expect(stored, isA<HiveTimeRecord>());
+    expect(stored?.toDomain(), result);
+  });
 
   test('add rejects a record whose end is not after its start', () async {
     final record = TimeRecord(

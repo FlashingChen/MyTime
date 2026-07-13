@@ -1,13 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mytime/blocs/records/records_bloc.dart';
-import 'package:mytime/blocs/records/records_event.dart';
-import 'package:mytime/blocs/records/records_state.dart';
 import 'package:mytime/blocs/settings/settings_bloc.dart';
 import 'package:mytime/blocs/settings/settings_state.dart';
+import 'package:mytime/blocs/stats/stats.dart';
 import 'package:mytime/data/models/app_settings.dart';
 import 'package:mytime/core/theme/app_theme_ext.dart';
-import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/ui/pages/stats/widgets/ai_insight_view.dart';
 import 'package:mytime/ui/pages/stats/widgets/bar_chart_view.dart';
 import 'package:mytime/ui/pages/stats/widgets/pie_chart_view.dart';
@@ -23,136 +23,123 @@ class StatsPage extends StatefulWidget {
 }
 
 class _StatsPageState extends State<StatsPage> {
-  StatsRange _range = StatsRange.week;
+  late final StatsBloc _statsBloc;
   String _tab = 'pie';
 
   @override
   void initState() {
     super.initState();
-    context.read<RecordsBloc>().add(LoadRecords());
+    _statsBloc = StatsBloc(context.read<RecordsBloc>());
+  }
+
+  @override
+  void dispose() {
+    unawaited(_statsBloc.close());
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Range selector
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-              child: Row(
+    return BlocProvider.value(
+      value: _statsBloc,
+      child: BlocBuilder<StatsBloc, StatsState>(
+        builder: (context, state) {
+          final metrics = state is StatsLoaded ? state.metrics : null;
+          final range = metrics?.range ?? StatsRange.week;
+          return Scaffold(
+            body: SafeArea(
+              child: Column(
                 children: [
-                  _RangeChip(
-                    label: '本日',
-                    active: _range == StatsRange.day,
-                    onTap: () => _onRangeChanged(StatsRange.day),
-                  ),
-                  const SizedBox(width: 4),
-                  _RangeChip(
-                    label: '本周',
-                    active: _range == StatsRange.week,
-                    onTap: () => _onRangeChanged(StatsRange.week),
-                  ),
-                  const SizedBox(width: 4),
-                  _RangeChip(
-                    label: '本月',
-                    active: _range == StatsRange.month,
-                    onTap: () => _onRangeChanged(StatsRange.month),
-                  ),
-                ],
-              ),
-            ),
-            // Summary cards
-            BlocBuilder<RecordsBloc, RecordsState>(
-              builder: (context, state) {
-                if (state is RecordsLoaded) {
-                  return _buildSummaryCards(
-                    StatsMetrics.forRange(
-                      state.records,
-                      _range,
-                      DateTime.now(),
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-            const SizedBox(height: 12),
-            // Tab bar
-            Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: context.colorScheme.outline),
-                ),
-              ),
-              child: Row(
-                children: [
-                  _TabButton(
-                    label: '占比',
-                    active: _tab == 'pie',
-                    onTap: () => setState(() => _tab = 'pie'),
-                  ),
-                  _TabButton(
-                    label: '趋势',
-                    active: _tab == 'bar',
-                    onTap: () => setState(() => _tab = 'bar'),
-                  ),
-                  _TabButton(
-                    label: 'AI 建议',
-                    active: _tab == 'ai',
-                    onTap: () => setState(() => _tab = 'ai'),
-                  ),
-                ],
-              ),
-            ),
-            // Tab content
-            Expanded(
-              child: BlocBuilder<RecordsBloc, RecordsState>(
-                builder: (context, state) {
-                  final allRecords = state is RecordsLoaded
-                      ? state.records
-                      : <TimeRecord>[];
-                  final metrics = StatsMetrics.forRange(
-                    allRecords,
-                    _range,
-                    DateTime.now(),
-                  );
-
-                  switch (_tab) {
-                    case 'pie':
-                      return PieChartView(records: metrics.records);
-                    case 'bar':
-                      return BarChartView(points: metrics.trend);
-                    case 'ai':
-                      return BlocBuilder<SettingsBloc, SettingsState>(
-                        builder: (context, settingsState) => AiInsightView(
-                          records: metrics.records,
-                          settings: settingsState is SettingsLoaded
-                              ? settingsState.settings
-                              : const AppSettings(),
-                          periodLabel: _range == StatsRange.day
-                              ? '今日'
-                              : _range == StatsRange.week
-                              ? '本周'
-                              : '本月',
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                    child: Row(
+                      children: [
+                        _RangeChip(
+                          label: '本日',
+                          active: range == StatsRange.day,
+                          onTap: () => _onRangeChanged(StatsRange.day),
                         ),
-                      );
-                    default:
-                      return const SizedBox.shrink();
-                  }
-                },
+                        const SizedBox(width: 4),
+                        _RangeChip(
+                          label: '本周',
+                          active: range == StatsRange.week,
+                          onTap: () => _onRangeChanged(StatsRange.week),
+                        ),
+                        const SizedBox(width: 4),
+                        _RangeChip(
+                          label: '本月',
+                          active: range == StatsRange.month,
+                          onTap: () => _onRangeChanged(StatsRange.month),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (metrics != null) _buildSummaryCards(metrics),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: context.colorScheme.outline),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        _TabButton(
+                          label: '占比',
+                          active: _tab == 'pie',
+                          onTap: () => setState(() => _tab = 'pie'),
+                        ),
+                        _TabButton(
+                          label: '趋势',
+                          active: _tab == 'bar',
+                          onTap: () => setState(() => _tab = 'bar'),
+                        ),
+                        _TabButton(
+                          label: 'AI 建议',
+                          active: _tab == 'ai',
+                          onTap: () => setState(() => _tab = 'ai'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(child: _buildTabContent(metrics, range)),
+                ],
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
   void _onRangeChanged(StatsRange range) {
-    setState(() => _range = range);
-    context.read<RecordsBloc>().add(LoadRecords());
+    _statsBloc.add(StatsRangeChanged(range));
+  }
+
+  Widget _buildTabContent(StatsMetrics? metrics, StatsRange range) {
+    if (metrics == null) return const SizedBox.shrink();
+    switch (_tab) {
+      case 'pie':
+        return PieChartView(categoryDurations: metrics.byCategory);
+      case 'bar':
+        return BarChartView(points: metrics.trend);
+      case 'ai':
+        return BlocBuilder<SettingsBloc, SettingsState>(
+          builder: (context, settingsState) => AiInsightView(
+            metrics: metrics,
+            settings: settingsState is SettingsLoaded
+                ? settingsState.settings
+                : const AppSettings(),
+            periodLabel: range == StatsRange.day
+                ? '今日'
+                : range == StatsRange.week
+                ? '本周'
+                : '本月',
+          ),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   Widget _buildSummaryCards(StatsMetrics metrics) {
@@ -163,11 +150,11 @@ class _StatsPageState extends State<StatsPage> {
         : ((metrics.total.inMinutes - metrics.previousTotal.inMinutes) *
               100 ~/
               metrics.previousTotal.inMinutes);
-    final isDay = _range == StatsRange.day;
+    final isDay = metrics.range == StatsRange.day;
     return SummaryCards(
       label1: isDay
           ? '今日总时长'
-          : _range == StatsRange.week
+          : metrics.range == StatsRange.week
           ? '本周总时长'
           : '本月总时长',
       value1: format(metrics.total),

@@ -84,9 +84,9 @@ class StatsMetrics {
       average: days == 0
           ? Duration.zero
           : Duration(minutes: total.inMinutes ~/ days),
-      byCategory: categoryDurations,
-      categoryRecordCounts: categoryCounts,
-      trend: _trend(records, range, period),
+      byCategory: Map.unmodifiable(categoryDurations),
+      categoryRecordCounts: Map.unmodifiable(categoryCounts),
+      trend: List.unmodifiable(_trend(records, range, period)),
     );
   }
 

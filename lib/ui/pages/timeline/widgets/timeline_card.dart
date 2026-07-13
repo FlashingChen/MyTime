@@ -38,12 +38,22 @@ class TimelineCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         child: Row(
           children: [
-            Text(cat.name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: catColor)),
+            Text(
+              cat.name,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: catColor,
+              ),
+            ),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 '${_formatTime(record.startTime)} - ${_formatTime(record.endTime)} · ${_formatDuration(record.duration)}',
-                style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: AppColors.textSecondary,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),

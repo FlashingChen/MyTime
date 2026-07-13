@@ -15,30 +15,41 @@ class RecordManagementPage extends StatelessWidget {
       onPressed: () => _edit(context),
       child: const Icon(Icons.add),
     ),
-    body: BlocBuilder<RecordsBloc, RecordsState>(
-      builder: (context, state) {
-        final records = state is RecordsLoaded ? state.records : <TimeRecord>[];
-        if (records.isEmpty) return const Center(child: Text('暂无记录'));
-        return ListView.builder(
-          itemCount: records.length,
-          itemBuilder: (context, index) {
-            final record = records[index];
-            final category = CategoryLookup.byId(context, record.categoryId);
-            return ListTile(
-              title: Text(category.name),
-              subtitle: Text(
-                '${record.startTime} - ${record.endTime}${record.note == null ? '' : '\n${record.note}'}',
-              ),
-              isThreeLine: record.note != null,
-              onTap: () => _edit(context, record),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () => _delete(context, record),
-              ),
-            );
-          },
-        );
+    body: BlocListener<RecordsBloc, RecordsState>(
+      listenWhen: (_, state) => state is RecordsError,
+      listener: (context, state) {
+        final error = state as RecordsError;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('记录操作失败：${error.message}')));
       },
+      child: BlocBuilder<RecordsBloc, RecordsState>(
+        builder: (context, state) {
+          final records = state is RecordsLoaded
+              ? state.records
+              : <TimeRecord>[];
+          if (records.isEmpty) return const Center(child: Text('暂无记录'));
+          return ListView.builder(
+            itemCount: records.length,
+            itemBuilder: (context, index) {
+              final record = records[index];
+              final category = CategoryLookup.byId(context, record.categoryId);
+              return ListTile(
+                title: Text(category.name),
+                subtitle: Text(
+                  '${record.startTime} - ${record.endTime}${record.note == null ? '' : '\n${record.note}'}',
+                ),
+                isThreeLine: record.note != null,
+                onTap: () => _edit(context, record),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => _delete(context, record),
+                ),
+              );
+            },
+          );
+        },
+      ),
     ),
   );
 

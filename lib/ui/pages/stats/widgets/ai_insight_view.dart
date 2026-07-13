@@ -3,7 +3,6 @@ import 'package:mytime/core/constants/app_colors.dart';
 import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/core/utils/category_lookup.dart';
 import 'package:mytime/data/models/app_settings.dart';
-import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/services/ai_insight_service.dart';
 import 'package:mytime/ui/pages/stats/stats_metrics.dart';
 import 'package:mytime/widgets/svg_icons.dart';
@@ -12,13 +11,14 @@ import 'package:mytime/widgets/svg_icons.dart';
 class AiInsightView extends StatefulWidget {
   const AiInsightView({
     super.key,
-    required this.records,
+    required this.metrics,
     this.periodLabel = '本周',
     this.settings = const AppSettings(),
     this.service,
   });
 
-  final List<TimeRecord> records;
+  /// Precomputed range metrics from [StatsBloc].
+  final StatsMetrics metrics;
   final String periodLabel;
   final AppSettings settings;
   final AiInsightService? service;
@@ -42,7 +42,7 @@ class _AiInsightViewState extends State<AiInsightView> {
   @override
   void initState() {
     super.initState();
-    if (_configured && widget.records.isNotEmpty) _generate();
+    if (_configured && widget.metrics.records.isNotEmpty) _generate();
   }
 
   @override
@@ -50,28 +50,22 @@ class _AiInsightViewState extends State<AiInsightView> {
     super.didUpdateWidget(oldWidget);
     final selectionChanged =
         oldWidget.periodLabel != widget.periodLabel ||
-        oldWidget.records != widget.records ||
+        oldWidget.metrics != widget.metrics ||
         oldWidget.settings != widget.settings;
-    if (selectionChanged && _configured && widget.records.isNotEmpty) {
+    if (selectionChanged && _configured && widget.metrics.records.isNotEmpty) {
       _generated = null;
       _generate();
     }
   }
 
   Future<void> _generate() async {
-    if (!_configured || widget.records.isEmpty) return;
+    if (!_configured || widget.metrics.records.isEmpty) return;
     final requestId = ++_requestId;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final now = DateTime.now();
-      final metrics = StatsMetrics.forRange(
-        widget.records,
-        _rangeForLabel(widget.periodLabel),
-        now,
-      );
       final generated = await (widget.service ?? AiInsightService()).generate(
         configuration: AiConfiguration(
           baseUrl: widget.settings.aiBaseUrl,
@@ -79,7 +73,7 @@ class _AiInsightViewState extends State<AiInsightView> {
           model: widget.settings.aiModel!,
         ),
         periodLabel: widget.periodLabel,
-        metrics: metrics,
+        metrics: widget.metrics,
       );
       if (mounted && requestId == _requestId) {
         setState(() => _generated = generated);
@@ -95,18 +89,12 @@ class _AiInsightViewState extends State<AiInsightView> {
     }
   }
 
-  StatsRange _rangeForLabel(String label) => switch (label) {
-    '今日' => StatsRange.day,
-    '本月' => StatsRange.month,
-    _ => StatsRange.week,
-  };
-
   @override
   Widget build(BuildContext context) {
     final colors = context.isDark
         ? const [Color(0xFF313152), Color(0xFF1E1E32)]
         : const [AppColors.primaryDark, Color(0xFF2D2D44)];
-    if (widget.records.isEmpty) return _empty(colors);
+    if (widget.metrics.records.isEmpty) return _empty(colors);
 
     final local = _localSuggestions(context);
     final shown =
@@ -115,10 +103,6 @@ class _AiInsightViewState extends State<AiInsightView> {
           2,
           (index) => local[(_suggestionOffset + index) % local.length],
         );
-    final total = widget.records.fold<int>(
-      0,
-      (sum, record) => sum + record.duration.inMinutes,
-    );
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -145,7 +129,7 @@ class _AiInsightViewState extends State<AiInsightView> {
                 const SizedBox(height: 6),
                 Text(
                   _generated?.summary ??
-                      '${widget.periodLabel}你共记录 ${formatStatsDuration(Duration(minutes: total))} 的活动，共 ${widget.records.length} 条记录。',
+                      '${widget.periodLabel}你共记录 ${formatStatsDuration(widget.metrics.total)} 的活动，共 ${widget.metrics.records.length} 条记录。',
                   style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFFA5B4FC),
@@ -232,7 +216,7 @@ class _AiInsightViewState extends State<AiInsightView> {
     final categories = <String, int>{};
     var totalSeconds = 0;
     var longestSeconds = 0;
-    for (final record in widget.records) {
+    for (final record in widget.metrics.records) {
       final seconds = record.duration.inSeconds;
       totalSeconds += seconds;
       longestSeconds = seconds > longestSeconds ? seconds : longestSeconds;

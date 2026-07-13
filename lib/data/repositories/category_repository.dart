@@ -1,4 +1,3 @@
-import 'package:hive_ce/hive.dart';
 import 'package:uuid/uuid.dart';
 import 'package:mytime/core/constants/default_categories.dart';
 import 'package:mytime/data/models/category.dart';
@@ -13,14 +12,18 @@ abstract interface class CategoriesRepository {
   Future<void> delete(String id);
 }
 
-/// Hive-backed implementation of [CategoriesRepository].
-class CategoryRepository implements CategoriesRepository {
+/// Extends [CategoriesRepository] with complete-dataset replacement for imports.
+abstract interface class CategoriesSnapshotRepository
+    implements CategoriesRepository {
+  Future<void> replaceAll(Iterable<Category> categories);
+}
+
+/// DataStore-backed implementation of [CategoriesSnapshotRepository].
+class CategoryRepository implements CategoriesSnapshotRepository {
   final CategoryDataStore _store;
   final Uuid _uuid = const Uuid();
   bool _seeded = false;
 
-  CategoryRepository(Box<Category> box)
-    : this.withStore(HiveCategoryDataStore(box));
   CategoryRepository.withStore(this._store);
 
   @override
@@ -63,6 +66,7 @@ class CategoryRepository implements CategoriesRepository {
   }
 
   /// Replaces all categories, used only after a complete import was validated.
+  @override
   Future<void> replaceAll(Iterable<Category> categories) async {
     final values = <String, Category>{};
     for (final category in categories) {

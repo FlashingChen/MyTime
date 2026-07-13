@@ -1,22 +1,16 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:mytime/blocs/categories/categories.dart';
-import 'package:mytime/blocs/records/records.dart';
 import 'package:mytime/blocs/settings/settings_bloc.dart';
 import 'package:mytime/blocs/settings/settings_event.dart';
 import 'package:mytime/blocs/settings/settings_state.dart';
 import 'package:mytime/core/constants/app_colors.dart';
 import 'package:mytime/core/theme/app_theme_ext.dart';
-import 'package:mytime/data/models/category.dart';
-import 'package:mytime/data/models/time_record.dart';
-import 'package:mytime/data/services/data_transfer_service.dart';
 import 'package:mytime/ui/pages/settings/category_management_page.dart';
 import 'package:mytime/ui/pages/settings/record_management_page.dart';
 import 'package:mytime/ui/pages/settings/widgets/color_picker.dart';
 import 'package:mytime/ui/pages/settings/widgets/ai_model_config_sheet.dart';
+import 'package:mytime/ui/pages/settings/widgets/data_exchange_sheet.dart';
+import 'package:mytime/ui/pages/settings/widgets/webdav_sync_sheet.dart';
 import 'package:mytime/widgets/svg_icons.dart';
 
 /// Settings page with profile, dark mode toggle, and settings list.
@@ -33,7 +27,21 @@ class SettingsPage extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             }
             if (state is SettingsError) {
-              return Center(child: Text(state.message));
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(state.message),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () => context.read<SettingsBloc>().add(
+                        const LoadSettings(),
+                      ),
+                      child: const Text('重新加载'),
+                    ),
+                  ],
+                ),
+              );
             }
             return _buildContent(context, state as SettingsLoaded);
           },
@@ -200,6 +208,21 @@ class SettingsPage extends StatelessWidget {
                     onTap: () => _openDataExchange(context),
                   ),
                   _SettingsItem(
+                    icon: Icons.cloud_sync_outlined,
+                    iconColor: const Color(0xFF0EA5E9),
+                    label: 'WebDAV 同步',
+                    value: state.settings.hasWebDavConfiguration
+                        ? Text(
+                            '已配置',
+                            style: TextStyle(
+                              color: context.colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          )
+                        : null,
+                    onTap: () => WebDavSyncSheet.show(context, state.settings),
+                  ),
+                  _SettingsItem(
                     icon: Icons.info_outline,
                     iconColor: AppColors.textSecondary,
                     label: '关于 MyTime',
@@ -247,7 +270,7 @@ class SettingsPage extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const _DataExchangeSheet(),
+      builder: (_) => const DataExchangeSheet(),
     );
   }
 
@@ -317,183 +340,5 @@ class _SettingsItem extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _DataExchangeSheet extends StatefulWidget {
-  const _DataExchangeSheet();
-
-  @override
-  State<_DataExchangeSheet> createState() => _DataExchangeSheetState();
-}
-
-class _DataExchangeSheetState extends State<_DataExchangeSheet> {
-  bool _exportBusy = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.colorScheme.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: context.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '数据导入导出',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _exportBusy ? null : _exportJson,
-                icon: const Icon(Icons.download_outlined, size: 18),
-                label: Text(_exportBusy ? '导出中...' : '导出 JSON 到剪贴板'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _importJson,
-                icon: Icon(
-                  Icons.upload_outlined,
-                  size: 18,
-                  color: context.colorScheme.onSurface,
-                ),
-                label: Text(
-                  '从剪贴板导入 JSON',
-                  style: TextStyle(color: context.colorScheme.onSurface),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  side: BorderSide(color: context.colorScheme.outline),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _exportJson() async {
-    setState(() => _exportBusy = true);
-    final records = context.read<RecordsBloc>().state is RecordsLoaded
-        ? (context.read<RecordsBloc>().state as RecordsLoaded).records
-        : <TimeRecord>[];
-    final categories = context.read<CategoriesBloc>().state is CategoriesLoaded
-        ? (context.read<CategoriesBloc>().state as CategoriesLoaded).categories
-        : <Category>[];
-
-    final payload = <String, dynamic>{
-      'version': 1,
-      'exportedAt': DateTime.now().toIso8601String(),
-      'categories': categories.map((c) => _categoryToJson(c)).toList(),
-      'records': records.map((r) => _recordToJson(r)).toList(),
-    };
-
-    final jsonString = _formatJson(payload);
-    await Clipboard.setData(ClipboardData(text: jsonString));
-    if (mounted) {
-      setState(() => _exportBusy = false);
-      _showResultDialog(
-        '导出成功',
-        '已将数据以 JSON 格式复制到剪贴板，包含 ${records.length} 条记录、${categories.length} 个分类。',
-      );
-    }
-  }
-
-  Future<void> _importJson() async {
-    final dataTransferService = context.read<DataTransferService>();
-    final categoriesBloc = context.read<CategoriesBloc>();
-    final recordsBloc = context.read<RecordsBloc>();
-    final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
-    final text = clipboard?.text;
-    if (text == null || text.trim().isEmpty) {
-      if (mounted) {
-        _showResultDialog('无法导入', '剪贴板为空，请先复制 JSON 数据。', isError: true);
-      }
-      return;
-    }
-
-    try {
-      final result = await dataTransferService.importJson(text);
-      if (!mounted) return;
-      categoriesBloc.add(const LoadCategories());
-      recordsBloc.add(LoadRecords());
-
-      if (mounted) {
-        _showResultDialog(
-          '导入成功',
-          '成功导入 ${result.recordCount} 条记录、${result.categoryCount} 个分类。',
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        _showResultDialog('导入失败', e.toString(), isError: true);
-      }
-    }
-  }
-
-  void _showResultDialog(String title, String message, {bool isError = false}) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('知道了'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Map<String, dynamic> _categoryToJson(Category c) {
-    return {'id': c.id, 'name': c.name, 'color': c.color};
-  }
-
-  Map<String, dynamic> _recordToJson(TimeRecord r) {
-    return {
-      'id': r.id,
-      'categoryId': r.categoryId,
-      'startTime': r.startTime.toIso8601String(),
-      'endTime': r.endTime.toIso8601String(),
-      'note': r.note,
-    };
-  }
-
-  String _formatJson(Map<String, dynamic> payload) {
-    // ignore: avoid_dynamic_calls
-    return const JsonEncoder.withIndent('  ').convert(payload);
   }
 }

@@ -8,13 +8,15 @@ import 'package:mytime/blocs/settings/settings_bloc.dart';
 import 'package:mytime/blocs/settings/settings_event.dart';
 import 'package:mytime/blocs/timer/timer_bloc.dart';
 import 'package:mytime/blocs/timer/timer_event.dart';
+import 'package:mytime/data/dtos/hive_category.dart';
+import 'package:mytime/data/dtos/hive_time_record.dart';
 import 'package:mytime/data/models/app_settings.dart';
-import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/repositories/active_timer_repository.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/repositories/settings_repository.dart';
+import 'package:mytime/data/providers/hive_data_stores.dart';
 import 'package:mytime/ui/app_shell.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -43,8 +45,8 @@ Widget createApp({
 void main() {
   setUpAll(() {
     Hive.init('test_hive_integration');
-    Hive.registerAdapter(TimeRecordAdapter());
-    Hive.registerAdapter(CategoryAdapter());
+    Hive.registerAdapter(HiveTimeRecordAdapter());
+    Hive.registerAdapter(HiveCategoryAdapter());
     SharedPreferences.setMockInitialValues({});
   });
 
@@ -53,19 +55,21 @@ void main() {
     late CategoryRepository categoryRepo;
 
     setUp(() async {
-      final recordsBox = await Hive.openBox<TimeRecord>('test_integration');
-      final categoriesBox = await Hive.openBox<Category>(
+      final recordsBox = await Hive.openBox<HiveTimeRecord>('test_integration');
+      final categoriesBox = await Hive.openBox<HiveCategory>(
         'test_integration_categories',
       );
-      recordsRepo = RecordRepository(recordsBox);
-      categoryRepo = CategoryRepository(categoriesBox);
+      recordsRepo = RecordRepository.withStore(HiveRecordDataStore(recordsBox));
+      categoryRepo = CategoryRepository.withStore(
+        HiveCategoryDataStore(categoriesBox),
+      );
     });
 
     tearDown(() async {
-      await Hive.box<TimeRecord>('test_integration').clear();
-      await Hive.box<TimeRecord>('test_integration').close();
-      await Hive.box<Category>('test_integration_categories').clear();
-      await Hive.box<Category>('test_integration_categories').close();
+      await Hive.box<HiveTimeRecord>('test_integration').clear();
+      await Hive.box<HiveTimeRecord>('test_integration').close();
+      await Hive.box<HiveCategory>('test_integration_categories').clear();
+      await Hive.box<HiveCategory>('test_integration_categories').close();
     });
 
     testWidgets('home shows initial timer state', (tester) async {
@@ -99,6 +103,9 @@ void main() {
 
       expect(find.text('记录详情'), findsOneWidget);
       expect(find.text('确认保存'), findsOneWidget);
+
+      await tester.tap(find.text('放弃记录'));
+      await tester.pumpAndSettle();
     });
   });
 
@@ -107,12 +114,14 @@ void main() {
     late CategoryRepository categoryRepo;
 
     setUp(() async {
-      final recordsBox = await Hive.openBox<TimeRecord>('test_integration');
-      final categoriesBox = await Hive.openBox<Category>(
+      final recordsBox = await Hive.openBox<HiveTimeRecord>('test_integration');
+      final categoriesBox = await Hive.openBox<HiveCategory>(
         'test_integration_categories',
       );
-      recordsRepo = RecordRepository(recordsBox);
-      categoryRepo = CategoryRepository(categoriesBox);
+      recordsRepo = RecordRepository.withStore(HiveRecordDataStore(recordsBox));
+      categoryRepo = CategoryRepository.withStore(
+        HiveCategoryDataStore(categoriesBox),
+      );
       final now = DateTime.now();
       await recordsRepo.add(
         TimeRecord(
@@ -125,10 +134,10 @@ void main() {
     });
 
     tearDown(() async {
-      await Hive.box<TimeRecord>('test_integration').clear();
-      await Hive.box<TimeRecord>('test_integration').close();
-      await Hive.box<Category>('test_integration_categories').clear();
-      await Hive.box<Category>('test_integration_categories').close();
+      await Hive.box<HiveTimeRecord>('test_integration').clear();
+      await Hive.box<HiveTimeRecord>('test_integration').close();
+      await Hive.box<HiveCategory>('test_integration_categories').clear();
+      await Hive.box<HiveCategory>('test_integration_categories').close();
     });
 
     testWidgets('timeline tab shows saved records', (tester) async {

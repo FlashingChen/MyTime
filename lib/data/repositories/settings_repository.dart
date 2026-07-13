@@ -30,6 +30,9 @@ class FlutterSecureKeyValueStore implements SecureKeyValueStore {
 class SettingsRepository {
   static const _legacyAiApiKey = 'ai_api_key';
   static const _secureAiApiKey = 'secure_ai_api_key';
+  static const _webDavEndpoint = 'webdav_endpoint';
+  static const _webDavUsername = 'webdav_username';
+  static const _secureWebDavPassword = 'secure_webdav_password';
 
   SettingsRepository({
     SecureKeyValueStore? secureStorage,
@@ -42,6 +45,7 @@ class SettingsRepository {
 
   Future<AppSettings> load() async {
     var apiKey = await _secureStorage.read(_secureAiApiKey);
+    final webDavPassword = await _secureStorage.read(_secureWebDavPassword);
     final legacyApiKey = await _preferences.getString(_legacyAiApiKey);
     if (apiKey == null && legacyApiKey != null && legacyApiKey.isNotEmpty) {
       await _secureStorage.write(_secureAiApiKey, legacyApiKey);
@@ -54,10 +58,14 @@ class SettingsRepository {
       aiBaseUrl: await _preferences.getString('ai_base_url') ?? '',
       aiApiKey: apiKey,
       aiModel: await _preferences.getString('ai_model'),
+      webDavEndpoint: await _preferences.getString(_webDavEndpoint) ?? '',
+      webDavUsername: await _preferences.getString(_webDavUsername) ?? '',
+      webDavPassword: webDavPassword,
     );
   }
 
   Future<void> save(AppSettings settings) async {
+    _validateWebDavEndpoint(settings);
     await _preferences.setString('accent_color', settings.accentColor);
     await _preferences.setString('theme_mode', settings.themeMode);
     await _preferences.setString('ai_base_url', settings.aiBaseUrl);
@@ -71,6 +79,39 @@ class SettingsRepository {
       await _preferences.setString('ai_model', settings.aiModel!);
     } else {
       await _preferences.remove('ai_model');
+    }
+    await _preferences.setString(_webDavEndpoint, settings.webDavEndpoint);
+    await _preferences.setString(_webDavUsername, settings.webDavUsername);
+    if (settings.webDavPassword != null &&
+        settings.webDavPassword!.isNotEmpty) {
+      await _secureStorage.write(
+        _secureWebDavPassword,
+        settings.webDavPassword!,
+      );
+    } else {
+      await _secureStorage.delete(_secureWebDavPassword);
+    }
+  }
+
+  void _validateWebDavEndpoint(AppSettings settings) {
+    final endpoint = settings.webDavEndpoint.trim();
+    if (endpoint.isEmpty) {
+      if (settings.webDavUsername.isNotEmpty ||
+          (settings.webDavPassword?.isNotEmpty ?? false)) {
+        throw ArgumentError('WebDAV credentials require an HTTPS endpoint');
+      }
+      return;
+    }
+    final uri = Uri.tryParse(endpoint);
+    if (uri == null ||
+        uri.scheme != 'https' ||
+        !uri.hasAuthority ||
+        uri.userInfo.isNotEmpty) {
+      throw ArgumentError.value(
+        settings.webDavEndpoint,
+        'webDavEndpoint',
+        'must be an HTTPS URL without embedded credentials',
+      );
     }
   }
 }

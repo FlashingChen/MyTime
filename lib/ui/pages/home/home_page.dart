@@ -31,9 +31,19 @@ class _HomePageState extends State<HomePage> {
       listeners: [
         BlocListener<TimerBloc, TimerState>(
           listenWhen: (previous, current) =>
-              current is TimerRunComplete && previous != current,
+              current is TimerRunComplete && previous is! TimerRunComplete,
           listener: (context, state) {
             _showConfirmationSheet(context, state as TimerRunComplete);
+          },
+        ),
+        BlocListener<TimerBloc, TimerState>(
+          listenWhen: (previous, current) =>
+              previous.persistenceError != current.persistenceError &&
+              current.persistenceError != null,
+          listener: (context, state) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.persistenceError!)));
           },
         ),
         BlocListener<RecordsBloc, RecordsState>(
@@ -105,6 +115,8 @@ class _HomePageState extends State<HomePage> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (_) => ConfirmBottomSheet(
         startTime: state.startTime,

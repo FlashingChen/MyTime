@@ -8,7 +8,10 @@ class ColorPickerDialog extends StatelessWidget {
   const ColorPickerDialog({super.key, required this.initialColor});
 
   /// Shows the color picker and returns the selected hex color string.
-  static Future<String?> show(BuildContext context, {required String initialColor}) {
+  static Future<String?> show(
+    BuildContext context, {
+    required String initialColor,
+  }) {
     return showDialog<String>(
       context: context,
       builder: (_) => ColorPickerDialog(initialColor: initialColor),
@@ -80,7 +83,10 @@ class ColorPickerDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消', style: TextStyle(color: AppColors.textSecondary)),
+          child: const Text(
+            '取消',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
         ),
       ],
     );

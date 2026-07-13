@@ -10,7 +10,7 @@ import 'package:mytime/data/repositories/active_timer_repository.dart';
 /// that a running timer survives app kills and can be restored on next launch.
 class TimerBloc extends Bloc<TimerEvent, TimerState> {
   final ActiveTimerStore _activeTimerStore;
-  StreamSubscription<Duration>? _tickerSubscription;
+  Timer? _ticker;
   Future<void> _storageQueue = Future<void>.value();
   int _sessionVersion = 0;
 
@@ -20,11 +20,12 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
     on<TimerReset>(_onReset);
     on<TimerTicked>(_onTicked);
     on<RestoreTimer>(_onRestore);
+    on<TimerPersistenceFailed>(_onPersistenceFailed);
   }
 
   void _onStarted(TimerStarted event, Emitter<TimerState> emit) {
     _sessionVersion++;
-    _tickerSubscription?.cancel();
+    _cancelTicker();
     final start = DateTime.now();
     emit(TimerRunInProgress(start, Duration.zero));
     _startTicker(start);
@@ -32,6 +33,7 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
       () => _activeTimerStore.saveSession(
         PersistedTimerSession(startTime: start),
       ),
+      failureMessage: '计时会话未能保存；退出应用可能丢失本次计时。',
     );
   }
 
@@ -66,7 +68,7 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
 
   void _onStopped(TimerStopped event, Emitter<TimerState> emit) {
     _sessionVersion++;
-    _tickerSubscription?.cancel();
+    _cancelTicker();
     if (state is TimerRunInProgress) {
       final progress = state as TimerRunInProgress;
       final stoppedAt = DateTime.now();
@@ -79,49 +81,97 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
             stoppedAt: stoppedAt,
           ),
         ),
+        failureMessage: '待确认记录未能保存；请在退出前完成或重试。',
       );
     }
   }
 
   void _onReset(TimerReset event, Emitter<TimerState> emit) {
     _sessionVersion++;
-    _tickerSubscription?.cancel();
+    _cancelTicker();
     emit(const TimerInitial());
-    _enqueueStorage(_activeTimerStore.clear);
+    _enqueueStorage(
+      _activeTimerStore.clear,
+      failureMessage: '计时会话未能清除；下次启动可能需要再次确认。',
+    );
   }
 
   void _onTicked(TimerTicked event, Emitter<TimerState> emit) {
     final current = state;
     if (current is TimerRunInProgress) {
-      emit(TimerRunInProgress(current.startTime, event.duration));
+      emit(
+        TimerRunInProgress(
+          current.startTime,
+          event.duration,
+          error: current.persistenceError,
+        ),
+      );
+    }
+  }
+
+  void _onPersistenceFailed(
+    TimerPersistenceFailed event,
+    Emitter<TimerState> emit,
+  ) {
+    final current = state;
+    switch (current) {
+      case TimerInitial():
+        emit(TimerInitial(error: event.message));
+      case TimerRunInProgress():
+        emit(
+          TimerRunInProgress(
+            current.startTime,
+            current.duration,
+            error: event.message,
+          ),
+        );
+      case TimerRunComplete():
+        emit(
+          TimerRunComplete(
+            current.startTime,
+            current.duration,
+            current.stoppedAt,
+            error: event.message,
+          ),
+        );
     }
   }
 
   void _startTicker(DateTime start) {
-    _tickerSubscription =
-        Stream.periodic(
-          const Duration(milliseconds: 100),
-          (_) => DateTime.now().difference(start),
-        ).listen((duration) {
-          add(TimerTicked(duration));
-        });
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      add(TimerTicked(DateTime.now().difference(start)));
+    });
   }
 
-  void _enqueueStorage(Future<void> Function() action) {
-    _storageQueue = _storageQueue.then((_) => _runStorageAction(action));
+  void _cancelTicker() {
+    _ticker?.cancel();
+    _ticker = null;
   }
 
-  Future<void> _runStorageAction(Future<void> Function() action) async {
+  void _enqueueStorage(
+    Future<void> Function() action, {
+    required String failureMessage,
+  }) {
+    _storageQueue = _storageQueue.then(
+      (_) => _runStorageAction(action, failureMessage),
+      onError: (_, __) => _runStorageAction(action, failureMessage),
+    );
+  }
+
+  Future<void> _runStorageAction(
+    Future<void> Function() action,
+    String failureMessage,
+  ) async {
     try {
       await action();
     } catch (_) {
-      // Persistence failure must never interrupt foreground timing.
+      add(TimerPersistenceFailed(failureMessage));
     }
   }
 
   @override
   Future<void> close() {
-    _tickerSubscription?.cancel();
+    _cancelTicker();
     return super.close();
   }
 }

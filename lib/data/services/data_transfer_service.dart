@@ -4,21 +4,36 @@ import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
+import 'package:mytime/data/sync/sync_mutation_tracker.dart';
+import 'package:mytime/data/sync/sync_data_gate.dart';
 
 /// Validates and atomically imports a MyTime JSON backup.
 class DataTransferService {
-  DataTransferService(this._records, this._categories);
+  DataTransferService(
+    this._records,
+    this._categories, {
+    SyncMutationMarker? mutationMarker,
+    SyncDataGate? gate,
+  }) : _mutationMarker = mutationMarker,
+       _gate = gate ?? SyncDataGate();
 
-  final RecordRepository _records;
-  final CategoryRepository _categories;
+  final RecordsSnapshotRepository _records;
+  final CategoriesSnapshotRepository _categories;
+  final SyncMutationMarker? _mutationMarker;
+  final SyncDataGate _gate;
 
   Future<ImportResult> importJson(String source) async {
     final backup = _parse(source);
+    return _gate.run(() => _import(backup));
+  }
+
+  Future<ImportResult> _import(_Backup backup) async {
     final previousRecords = _records.getAll();
     final previousCategories = _categories.getAll();
     try {
       await _categories.replaceAll(backup.categories);
       await _records.replaceAll(backup.records);
+      await _mutationMarker?.markLocalChanged();
       return ImportResult(backup.records.length, backup.categories.length);
     } catch (_) {
       await _categories.replaceAll(previousCategories);
@@ -38,6 +53,9 @@ class DataTransferService {
       throw const FormatException('备份必须包含 categories 和 records 数组。');
     }
     final categories = rawCategories.map(_category).toList(growable: false);
+    if (categories.isEmpty) {
+      throw const FormatException('备份至少需要保留一个分类。');
+    }
     if (categories.map((item) => item.id).toSet().length != categories.length) {
       throw const FormatException('备份中存在重复的分类 ID。');
     }

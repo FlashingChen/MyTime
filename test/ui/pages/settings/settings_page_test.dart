@@ -6,7 +6,8 @@ import 'package:mytime/blocs/categories/categories_bloc.dart';
 import 'package:mytime/blocs/categories/categories_event.dart';
 import 'package:mytime/blocs/settings/settings_bloc.dart';
 import 'package:mytime/blocs/settings/settings_event.dart';
-import 'package:mytime/data/models/category.dart';
+import 'package:mytime/data/dtos/hive_category.dart';
+import 'package:mytime/data/providers/hive_data_stores.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/settings_repository.dart';
 import 'package:mytime/ui/pages/settings/settings_page.dart';
@@ -15,20 +16,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   setUpAll(() {
     Hive.init('test_hive_settings_page');
-    Hive.registerAdapter(CategoryAdapter());
+    Hive.registerAdapter(HiveCategoryAdapter());
   });
 
   group('SettingsPage', () {
     late CategoryRepository categoryRepo;
 
     setUp(() async {
-      final box = await Hive.openBox<Category>('settings_page_categories');
-      categoryRepo = CategoryRepository(box);
+      final box = await Hive.openBox<HiveCategory>('settings_page_categories');
+      categoryRepo = CategoryRepository.withStore(HiveCategoryDataStore(box));
     });
 
     tearDown(() async {
-      await Hive.box<Category>('settings_page_categories').clear();
-      await Hive.box<Category>('settings_page_categories').close();
+      await Hive.box<HiveCategory>('settings_page_categories').clear();
+      await Hive.box<HiveCategory>('settings_page_categories').close();
     });
 
     testWidgets('shows profile and dark mode toggle', (tester) async {
@@ -61,6 +62,7 @@ void main() {
       expect(find.text('默认主题色'), findsOneWidget);
       expect(find.text('AI 模型配置'), findsOneWidget);
       expect(find.text('数据导入导出'), findsOneWidget);
+      expect(find.text('WebDAV 同步'), findsOneWidget);
       expect(find.text('关于 MyTime'), findsOneWidget);
     });
 
@@ -94,6 +96,39 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('深色模式'), findsOneWidget);
+    });
+
+    testWidgets('opens the about dialog', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final settingsRepo = SettingsRepository(secureStorage: _MemoryStore());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider(
+                create: (_) =>
+                    SettingsBloc(settingsRepo)..add(const LoadSettings()),
+              ),
+              BlocProvider(
+                create: (_) =>
+                    CategoriesBloc(categoryRepo)..add(LoadCategories()),
+              ),
+            ],
+            child: const SettingsPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final aboutItem = find.text('关于 MyTime');
+      await tester.ensureVisible(aboutItem);
+      await tester.tap(aboutItem);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AboutDialog), findsOneWidget);
+      expect(find.text('1.0.0'), findsOneWidget);
+      expect(find.byType(CircleAvatar), findsNWidgets(2));
     });
 
     testWidgets('opens AI configuration sheet', (tester) async {

@@ -1,5 +1,7 @@
 # MyTime 第一阶段：记录完整性与状态一致性设计
 
+> 文档状态：本文件保留第一阶段的原始决策与验收范围。后续已在同一分支完成领域模型/Hive DTO 分离、Repository Port、DataStore Adapter、安全设置存储和同步 Port；这些后续边界以 [当前架构与存储边界](../../architecture.md) 为准。
+
 ## 目标
 
 消除当前计时确认、分类删除、跨午夜时间线和统计交互中的数据丢失、错误时长、过期状态与崩溃风险，同时建立最小的记录变更边界，为后续 Repository Port / Adapter 改造铺路。
@@ -122,3 +124,12 @@ Repository 的按日查询采用同一重叠语义。
 - 跨午夜记录在两天的时间线均正确显示。
 - 上述边界场景均有自动化测试。
 - `flutter analyze` 与 `flutter test` 通过。
+
+## 实施后的扩展
+
+第一阶段完成后，存储边界继续演进：
+
+- `TimeRecord` 与 `Category` 已成为不带 Hive 注解的领域模型；Hive 序列化移动到 DTO 和 DataStore Adapter。
+- `RecordsBloc` 与 `CategoriesBloc` 通过 Repository Port 访问数据，记录 Repository 的变更流继续驱动各消费者刷新。
+- 普通设置和活动计时通过 `PreferencesStore` 访问 SharedPreferences；AI API Key 通过平台安全存储保存并迁移旧明文值。
+- HTTPS WebDAV 已演进为显式手动同步：设置页保存配置，完整快照以确定性的最后写入优先策略同步；不提供后台自动同步。

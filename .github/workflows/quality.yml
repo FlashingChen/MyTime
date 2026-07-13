@@ -13,7 +13,7 @@ jobs:
         with:
           channel: stable
       - run: flutter pub get
-      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: dart format --output=none --set-exit-if-changed lib test integration_test test_driver
       - run: flutter analyze
       - run: flutter test
       - run: flutter build apk --debug

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
 
 /// Events for [SettingsBloc].
@@ -47,4 +49,22 @@ class AiSettingsChanged extends SettingsEvent {
 
   @override
   List<Object?> get props => [baseUrl, apiKey, model];
+}
+
+/// Changes the saved WebDAV endpoint and credentials.
+class WebDavSettingsChanged extends SettingsEvent {
+  const WebDavSettingsChanged({
+    required this.endpoint,
+    required this.username,
+    required this.password,
+    this.completion,
+  });
+
+  final String endpoint;
+  final String username;
+  final String password;
+  final Completer<void>? completion;
+
+  @override
+  List<Object?> get props => [endpoint, username, password];
 }

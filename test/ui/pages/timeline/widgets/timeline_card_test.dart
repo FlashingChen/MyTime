@@ -13,9 +13,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: TimelineCard(record: record),
-        ),
+        home: Scaffold(body: TimelineCard(record: record)),
       ),
     );
     await tester.pumpAndSettle();

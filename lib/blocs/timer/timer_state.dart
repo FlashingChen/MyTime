@@ -3,13 +3,25 @@ import 'package:equatable/equatable.dart';
 /// States for the TimerBloc.
 abstract class TimerState extends Equatable {
   const TimerState();
+
+  /// A user-visible warning when the current session was not persisted.
+  String? get persistenceError => null;
+
   @override
   List<Object?> get props => [];
 }
 
 /// Timer has not been started.
 class TimerInitial extends TimerState {
-  const TimerInitial();
+  const TimerInitial({this.error});
+
+  final String? error;
+
+  @override
+  String? get persistenceError => error;
+
+  @override
+  List<Object?> get props => [error];
 }
 
 /// Timer is currently running.
@@ -20,11 +32,15 @@ class TimerInitial extends TimerState {
 class TimerRunInProgress extends TimerState {
   final DateTime startTime;
   final Duration duration;
+  final String? error;
 
-  const TimerRunInProgress(this.startTime, this.duration);
+  const TimerRunInProgress(this.startTime, this.duration, {this.error});
 
   @override
-  List<Object?> get props => [startTime, duration];
+  String? get persistenceError => error;
+
+  @override
+  List<Object?> get props => [startTime, duration, error];
 }
 
 /// Timer has been stopped and is awaiting confirmation.
@@ -32,9 +48,18 @@ class TimerRunComplete extends TimerState {
   final DateTime startTime;
   final Duration duration;
   final DateTime stoppedAt;
+  final String? error;
 
-  const TimerRunComplete(this.startTime, this.duration, this.stoppedAt);
+  const TimerRunComplete(
+    this.startTime,
+    this.duration,
+    this.stoppedAt, {
+    this.error,
+  });
 
   @override
-  List<Object?> get props => [startTime, duration, stoppedAt];
+  String? get persistenceError => error;
+
+  @override
+  List<Object?> get props => [startTime, duration, stoppedAt, error];
 }

@@ -5,25 +5,24 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:mytime/blocs/records/records_bloc.dart';
-import 'package:mytime/data/models/time_record.dart';
-import 'package:mytime/data/models/category.dart';
+import 'package:mytime/data/dtos/hive_time_record.dart';
+import 'package:mytime/data/providers/hive_data_stores.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/ui/pages/timeline/timeline_page.dart';
 
 void main() {
   late RecordRepository repo;
   late Directory hiveDirectory;
-  late Box<TimeRecord> box;
+  late Box<HiveTimeRecord> box;
 
   setUpAll(() async {
     hiveDirectory = await Directory.systemTemp.createTemp(
       'mytime_timeline_test_',
     );
     Hive.init(hiveDirectory.path);
-    Hive.registerAdapter(TimeRecordAdapter());
-    Hive.registerAdapter(CategoryAdapter());
-    box = await Hive.openBox<TimeRecord>('test_timeline');
-    repo = RecordRepository(box);
+    Hive.registerAdapter(HiveTimeRecordAdapter());
+    box = await Hive.openBox<HiveTimeRecord>('test_timeline');
+    repo = RecordRepository.withStore(HiveRecordDataStore(box));
   });
 
   tearDown(() async {

@@ -7,13 +7,13 @@ import 'package:mytime/blocs/categories/categories_bloc.dart';
 import 'package:mytime/blocs/categories/categories_state.dart';
 import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/core/utils/category_lookup.dart';
-import 'package:mytime/data/models/time_record.dart';
 
 /// Pie chart showing category time proportions and the selected category.
 class PieChartView extends StatefulWidget {
-  final List<TimeRecord> records;
+  /// Category totals precomputed by [StatsBloc].
+  final Map<String, Duration> categoryDurations;
 
-  const PieChartView({super.key, required this.records});
+  const PieChartView({super.key, required this.categoryDurations});
 
   @override
   State<PieChartView> createState() => _PieChartViewState();
@@ -21,15 +21,6 @@ class PieChartView extends StatefulWidget {
 
 class _PieChartViewState extends State<PieChartView> {
   String? _selectedCategory;
-
-  Map<String, Duration> _aggregateByCategory() {
-    final map = <String, Duration>{};
-    for (final record in widget.records) {
-      final key = record.categoryId ?? 'uncategorized';
-      map[key] = (map[key] ?? Duration.zero) + record.duration;
-    }
-    return map;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +44,7 @@ class _PieChartViewState extends State<PieChartView> {
   }
 
   Widget _buildContent(BuildContext context) {
-    final aggregated = _aggregateByCategory();
+    final aggregated = widget.categoryDurations;
     final totalSeconds = aggregated.values.fold<int>(
       0,
       (sum, duration) => sum + duration.inSeconds,

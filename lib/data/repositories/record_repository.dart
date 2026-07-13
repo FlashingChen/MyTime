@@ -1,4 +1,3 @@
-import 'package:hive_ce/hive.dart';
 import 'package:uuid/uuid.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/providers/hive_data_stores.dart';
@@ -16,13 +15,17 @@ abstract interface class RecordsRepository {
   Future<void> clearCategory(String categoryId);
 }
 
-/// Hive-backed implementation of [RecordsRepository].
-class RecordRepository implements RecordsRepository {
+/// Extends [RecordsRepository] with complete-dataset replacement for imports.
+abstract interface class RecordsSnapshotRepository
+    implements RecordsRepository {
+  Future<void> replaceAll(Iterable<TimeRecord> records);
+}
+
+/// DataStore-backed implementation of [RecordsSnapshotRepository].
+class RecordRepository implements RecordsSnapshotRepository {
   final RecordDataStore _store;
   final Uuid _uuid = const Uuid();
 
-  RecordRepository(Box<TimeRecord> box)
-    : this.withStore(HiveRecordDataStore(box));
   RecordRepository.withStore(this._store);
 
   /// Emits whenever a persisted record is added, changed, or deleted.
@@ -106,6 +109,7 @@ class RecordRepository implements RecordsRepository {
   }
 
   /// Replaces all records, used only after a complete import was validated.
+  @override
   Future<void> replaceAll(Iterable<TimeRecord> records) async {
     final values = <String, TimeRecord>{};
     for (final record in records) {

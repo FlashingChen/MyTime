@@ -4,11 +4,7 @@ import 'package:mytime/data/models/category.dart';
 void main() {
   group('Category', () {
     test('creates with required fields', () {
-      final category = Category(
-        id: 'work',
-        name: 'Work',
-        color: '#6366F1',
-      );
+      final category = Category(id: 'work', name: 'Work', color: '#6366F1');
       expect(category.id, 'work');
       expect(category.name, 'Work');
       expect(category.color, '#6366F1');
