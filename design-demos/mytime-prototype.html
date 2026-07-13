@@ -234,6 +234,7 @@ function HomeScreen() {
   const [state, setState] = React.useState('idle');
   const [elapsed, setElapsed] = React.useState(0);
   const [startTime, setStartTime] = React.useState(null);
+  const [stoppedAt, setStoppedAt] = React.useState(null);
   const [animPhase, setAnimPhase] = React.useState(0);
   const [selectedCategory, setSelectedCategory] = React.useState(CATEGORIES[0]);
   const [note, setNote] = React.useState('');
@@ -243,13 +244,15 @@ function HomeScreen() {
     if (state === 'running') {
       interval = setInterval(() => {
         setElapsed(Date.now() - startTime);
-      }, 100);
+      }, 1000);
     }
     return () => clearInterval(interval);
   }, [state, startTime]);
 
   const handleStart = () => {
-    setStartTime(Date.now());
+    const startedAt = Date.now();
+    setStartTime(startedAt);
+    setStoppedAt(null);
     setElapsed(0);
     setAnimPhase(1);
     setTimeout(() => {
@@ -259,15 +262,23 @@ function HomeScreen() {
   };
 
   const handleStop = () => {
+    const fixedStoppedAt = Date.now();
+    setStoppedAt(fixedStoppedAt);
+    setElapsed(fixedStoppedAt - startTime);
     setState('confirm');
   };
 
-  const handleConfirm = () => {
+  const clearSession = () => {
     setState('idle');
     setAnimPhase(0);
     setElapsed(0);
+    setStartTime(null);
+    setStoppedAt(null);
     setNote('');
   };
+
+  const handleConfirm = () => clearSession();
+  const handleDiscard = () => clearSession();
 
   const formatTimeShort = (ms) => {
     const totalSec = Math.floor(ms / 1000);
@@ -283,6 +294,12 @@ function HomeScreen() {
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  };
+
+  const formatClock = (timestamp) => {
+    if (timestamp == null) return '--:--';
+    const date = new Date(timestamp);
+    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
   };
 
   const now = new Date();
@@ -472,16 +489,16 @@ function HomeScreen() {
               }}>
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 10, color: '#86868B', marginBottom: 2 }}>开始</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1D1D1F' }}>{formatTime(0)}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1D1D1F' }}>{formatClock(startTime)}</div>
                 </div>
                 <div style={{ color: '#C7C7CC', fontSize: 14 }}>→</div>
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 10, color: '#86868B', marginBottom: 2 }}>结束</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1D1D1F' }}>{formatTime(elapsed)}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1D1D1F' }}>{formatClock(stoppedAt)}</div>
                 </div>
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 10, color: '#86868B', marginBottom: 2 }}>时长</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#6366F1' }}>{formatTimeShort(elapsed)}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#6366F1' }}>{formatTime(elapsed)}</div>
                 </div>
               </div>
             </div>
@@ -531,6 +548,17 @@ function HomeScreen() {
               <Icons.Check />
               确认保存
             </button>
+            <div style={{ textAlign: 'center', marginTop: 8 }}>
+              <button
+                onClick={handleDiscard}
+                style={{
+                  border: 'none', background: 'transparent', color: '#86868B',
+                  fontSize: 13, fontWeight: 500, cursor: 'pointer', padding: '8px 12px',
+                }}
+              >
+                放弃记录
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -540,9 +568,8 @@ function HomeScreen() {
 
 // ===== Timeline Screen =====
 function TimelineScreen() {
-  const [view, setView] = React.useState('day');
-
   const records = [
+    { cat: CATEGORIES[5], start: 0,        end: 60,         note: '跨日记录（当日片段）' },
     { cat: CATEGORIES[0], start: 8*60+30, end: 9*60+50, note: 'App 设计' },
     { cat: CATEGORIES[3], start: 10*60,   end: 10*60+45, note: 'Flutter 教程' },
     { cat: CATEGORIES[2], start: 11*60,   end: 11*60+30, note: '晨跑' },
@@ -551,8 +578,8 @@ function TimelineScreen() {
     { cat: CATEGORIES[4], start: 19*60,   end: 20*60+30, note: '聚餐' },
   ];
 
-  const rangeStart = 8 * 60;
-  const rangeEnd = 22 * 60;
+  const rangeStart = 0;
+  const rangeEnd = 24 * 60;
   const totalMinutes = rangeEnd - rangeStart;
   const hourHeight = 60;
 
@@ -576,27 +603,6 @@ function TimelineScreen() {
           <div style={{ fontSize: 12, color: '#86868B', marginTop: 1 }}>星期四</div>
         </div>
         <button style={{ background: 'none', border: 'none', fontSize: 18, color: '#1D1D1F', cursor: 'pointer', padding: 4, fontWeight: 300 }}>›</button>
-      </div>
-
-      <div style={{ display: 'flex', padding: '0 20px', gap: 4, marginBottom: 8 }}>
-        {[
-          { key: 'day', label: '日' },
-          { key: 'week', label: '周' },
-        ].map(v => (
-          <button
-            key={v.key}
-            onClick={() => setView(v.key)}
-            style={{
-              padding: '4px 14px', borderRadius: 6,
-              border: 'none', fontSize: 12, fontWeight: 500,
-              cursor: 'pointer',
-              background: view === v.key ? '#1a1a2e' : '#F5F5F7',
-              color: view === v.key ? '#fff' : '#86868B',
-            }}
-          >
-            {v.label}视图
-          </button>
-        ))}
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '8px 20px 80px' }}>
@@ -899,11 +905,23 @@ function StatsScreen() {
 }
 
 // ===== Profile Screen =====
-function ProfileScreen({ onOpenCategoryManagement }) {
+function ProfileScreen({ onOpenCategoryManagement, onOpenRecordManagement }) {
   const [darkMode, setDarkMode] = React.useState(false);
   const [showAiConfig, setShowAiConfig] = React.useState(false);
+  const [showDataExchange, setShowDataExchange] = React.useState(false);
+  const [showWebDavSync, setShowWebDavSync] = React.useState(false);
 
   const menuItems = [
+    {
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#1a1a2e" strokeWidth="1.5">
+          <rect x="3" y="3" width="14" height="14" rx="2" />
+          <path d="M7 7h6M7 10h6M7 13h4" />
+        </svg>
+      ),
+      label: '记录管理',
+      onClick: onOpenRecordManagement,
+    },
     {
       icon: (
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#6366F1" strokeWidth="1.5">
@@ -942,6 +960,17 @@ function ProfileScreen({ onOpenCategoryManagement }) {
         </svg>
       ),
       label: '数据导入导出',
+      onClick: () => setShowDataExchange(true),
+    },
+    {
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#0EA5E9" strokeWidth="1.5">
+          <path d="M4 10a6 6 0 0111.2-3A4 4 0 0115 15H5.5A3.5 3.5 0 014 10z" />
+          <path d="M7 12h6M10 9l3 3-3 3" />
+        </svg>
+      ),
+      label: 'WebDAV 同步',
+      onClick: () => setShowWebDavSync(true),
     },
     {
       icon: (
@@ -1045,6 +1074,72 @@ function ProfileScreen({ onOpenCategoryManagement }) {
           </div>
         </div>
       )}
+      {showDataExchange && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.25)', display: 'flex', alignItems: 'flex-end' }}>
+          <div style={{ width: '100%', background: '#fff', borderRadius: '24px 24px 0 0', padding: '20px 24px 32px' }}>
+            <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 16 }}>数据导入导出</div>
+            <button
+              onClick={() => alert('已将 JSON 数据复制到剪贴板。')}
+              style={{ width: '100%', padding: 12, border: 'none', borderRadius: 12, background: '#1a1a2e', color: '#fff', fontSize: 14, fontWeight: 600, marginBottom: 12 }}
+            >
+              导出 JSON 到剪贴板
+            </button>
+            <button
+              onClick={() => alert('导入前会完整校验 JSON；失败时保留当前本地数据。')}
+              style={{ width: '100%', padding: 12, border: '1px solid #E8E8ED', borderRadius: 12, background: '#fff', color: '#1D1D1F', fontSize: 14, fontWeight: 600 }}
+            >
+              从剪贴板导入 JSON
+            </button>
+            <button onClick={() => setShowDataExchange(false)} style={{ width: '100%', border: 'none', background: 'transparent', color: '#86868B', marginTop: 10, padding: 8, cursor: 'pointer' }}>关闭</button>
+          </div>
+        </div>
+      )}
+      {showWebDavSync && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.25)', display: 'flex', alignItems: 'flex-end' }}>
+          <div style={{ width: '100%', background: '#fff', borderRadius: '24px 24px 0 0', padding: '20px 24px 32px' }}>
+            <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 6 }}>WebDAV 同步</div>
+            <div style={{ fontSize: 12, color: '#86868B', lineHeight: 1.5, marginBottom: 16 }}>
+              仅在点击“立即同步”时连接。较新的完整数据集优先；密码仅保存到系统安全存储。
+            </div>
+            <input placeholder="文档地址，例如 https://dav.example.com/mytime.json" style={{ width: '100%', boxSizing: 'border-box', padding: 12, marginBottom: 10, border: '1px solid #E8E8ED', borderRadius: 10 }} />
+            <input placeholder="用户名" style={{ width: '100%', boxSizing: 'border-box', padding: 12, marginBottom: 10, border: '1px solid #E8E8ED', borderRadius: 10 }} />
+            <input type="password" placeholder="密码" style={{ width: '100%', boxSizing: 'border-box', padding: 12, marginBottom: 16, border: '1px solid #E8E8ED', borderRadius: 10 }} />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => alert('配置已保存到本机；密码使用系统安全存储。')} style={{ flex: 1, padding: 11, border: '1px solid #E8E8ED', borderRadius: 10, background: '#fff' }}>保存配置</button>
+              <button onClick={() => alert('同步完成：远端较新时下载，否则上传本机数据。')} style={{ flex: 1, padding: 11, border: 'none', borderRadius: 10, background: '#1a1a2e', color: '#fff' }}>立即同步</button>
+            </div>
+            <button onClick={() => setShowWebDavSync(false)} style={{ width: '100%', border: 'none', background: 'transparent', color: '#86868B', marginTop: 10, padding: 8, cursor: 'pointer' }}>关闭</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== Record Management Screen =====
+function RecordManagementScreen({ onBack }) {
+  const records = [
+    { category: '工作', time: '08:30 - 09:50', note: 'App 设计' },
+    { category: '学习', time: '10:00 - 10:45', note: 'Flutter 教程' },
+    { category: '运动', time: '11:00 - 11:30', note: '晨跑' },
+  ];
+
+  return (
+    <div style={{ height: '100%', background: '#F8F9FA', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ height: 56, display: 'flex', alignItems: 'center', padding: '0 12px', background: '#fff', borderBottom: '1px solid #F0F0F0' }}>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 26, color: '#1D1D1F', cursor: 'pointer', padding: '4px 8px', lineHeight: 1 }}>‹</button>
+        <span style={{ flex: 1, fontSize: 17, fontWeight: 600, color: '#1D1D1F', textAlign: 'center' }}>记录管理</span>
+        <button onClick={() => alert('此处可新增记录。')} style={{ background: 'none', border: 'none', color: '#1a1a2e', fontSize: 24, cursor: 'pointer', padding: '4px 8px' }}>＋</button>
+      </div>
+      <div style={{ flex: 1, overflow: 'auto', padding: '12px 20px 80px' }}>
+        {records.map((record, index) => (
+          <button key={index} onClick={() => alert('此处可编辑或删除记录。')} style={{ width: '100%', textAlign: 'left', border: 'none', background: '#fff', borderRadius: 12, padding: '14px 16px', marginBottom: 8, cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#1D1D1F' }}>{record.category}</div>
+            <div style={{ fontSize: 12, color: '#86868B', marginTop: 3 }}>{record.time}</div>
+            <div style={{ fontSize: 12, color: '#86868B', marginTop: 3 }}>{record.note}</div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1162,7 +1257,7 @@ function CategoryManagementScreen({ onBack }) {
               fontSize: 14, color: '#666', lineHeight: 1.5,
               marginBottom: 20,
             }}>
-              删除后，该分类下的记录将变为未分类。
+              删除后，该分类下的记录将变为未分类。应用至少保留一个分类。
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button
@@ -1205,7 +1300,8 @@ function AppPhone({ initialScreen, phoneTime }) {
       case 'home': return <HomeScreen />;
       case 'timeline': return <TimelineScreen />;
       case 'stats': return <StatsScreen />;
-      case 'profile': return <ProfileScreen onOpenCategoryManagement={() => setScreen('category')} />;
+      case 'profile': return <ProfileScreen onOpenCategoryManagement={() => setScreen('category')} onOpenRecordManagement={() => setScreen('records')} />;
+      case 'records': return <RecordManagementScreen onBack={() => setScreen('profile')} />;
       case 'category': return <CategoryManagementScreen onBack={() => setScreen('profile')} />;
       default: return <HomeScreen />;
     }

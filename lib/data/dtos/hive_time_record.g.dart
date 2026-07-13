@@ -1,22 +1,22 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'time_record.dart';
+part of 'hive_time_record.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
 // **************************************************************************
 
-class TimeRecordAdapter extends TypeAdapter<TimeRecord> {
+class HiveTimeRecordAdapter extends TypeAdapter<HiveTimeRecord> {
   @override
   final typeId = 0;
 
   @override
-  TimeRecord read(BinaryReader reader) {
+  HiveTimeRecord read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return TimeRecord(
+    return HiveTimeRecord(
       id: fields[0] as String,
       categoryId: fields[1] as String?,
       startTime: fields[2] as DateTime,
@@ -27,7 +27,7 @@ class TimeRecordAdapter extends TypeAdapter<TimeRecord> {
   }
 
   @override
-  void write(BinaryWriter writer, TimeRecord obj) {
+  void write(BinaryWriter writer, HiveTimeRecord obj) {
     writer
       ..writeByte(6)
       ..writeByte(0)
@@ -50,7 +50,7 @@ class TimeRecordAdapter extends TypeAdapter<TimeRecord> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is TimeRecordAdapter &&
+      other is HiveTimeRecordAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

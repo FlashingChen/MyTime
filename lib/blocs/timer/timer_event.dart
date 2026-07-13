@@ -29,3 +29,13 @@ class TimerTicked extends TimerEvent {
 /// Dispatched on app launch to resume a timer that was running when
 /// the app was killed.
 class RestoreTimer extends TimerEvent {}
+
+/// Signals that an asynchronous session persistence operation failed.
+class TimerPersistenceFailed extends TimerEvent {
+  const TimerPersistenceFailed(this.message);
+
+  final String message;
+
+  @override
+  List<Object?> get props => [message];
+}

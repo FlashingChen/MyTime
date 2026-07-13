@@ -1,44 +1,45 @@
-# MyTime — 设计规格文档
+# MyTime — MVP 设计规格文档
+
+**文档状态：** 已按当前实现同步。本文描述当前 MVP 的产品行为和技术边界；未来能力会明确标为“计划中”，不应被视为已发布功能。
 
 ## 1. 项目概述
 
-MyTime 是一个开源免费的多端时间记录 APP，通过点击"开始/结束"按钮记录时间使用情况，并提供丰富的统计分析和 AI 建议。MVP 阶段专注于 Android 端（Flutter 构建），后期计划支持 iOS 以及 WebDAV 云端同步。
+MyTime 是开源免费、纯本地优先的时间记录应用。用户通过开始/停止记录一段时间，随后补充分类和备注；应用以时间线和统计帮助用户回顾时间分配。
 
-## 2. 技术栈
+当前重点是 Android MVP。iOS 工程使用本地私有签名配置并已通过无签名构建；真机部署仍取决于已连接、解锁的设备。WebDAV 提供显式手动同步，不提供后台自动同步。
 
-| 层面 | 选型 | 理由 |
-|------|------|------|
-| 框架 | Flutter (Dart) | 单代码库原生编译到 Android/iOS，UI 灵活，动画能力强 |
-| 状态管理 | BLoC | 清晰的单向数据流，适合计时器 / 时间线等复杂状态场景 |
-| 本地存储 | Hive + SharedPreferences | 轻量、快速，适合纯本地 MVP；Hive 存记录，SharedPreferences 存配置 |
-| 导航 | GoRouter | 声明式路由，支持底部导航嵌套 |
-| 图表 | fl_chart | 原生 Flutter 图表库，饼图、柱状图支持好 |
-| AI 建议 | 预留接口，MVP 阶段提供模拟数据 | 后期接入 OpenAI-compatible API |
+## 2. 技术栈与边界
+
+| 层面 | 当前选型 | 说明 |
+| --- | --- | --- |
+| 框架 | Flutter / Dart | 单代码库面向 Android 与 iOS。 |
+| 状态管理 | BLoC (`flutter_bloc`) | 计时、记录、分类和设置分别管理。 |
+| 领域模型 | Equatable 纯 Dart 值对象 | `TimeRecord` / `Category` 不依赖 Hive。 |
+| 本地记录 | Hive CE DTO + DataStore Adapter | Hive 仅位于 DTO/Adapter 层。 |
+| 普通设置 | SharedPreferences + `PreferencesStore` | 用于主题、非敏感 AI 配置和活动会话。 |
+| 敏感设置 | `flutter_secure_storage` | 用于 AI API Key 与 WebDAV 密码。 |
+| 导航 | `IndexedStack` + Material Navigator | 当前未使用 GoRouter。 |
+| 图表 | fl_chart | 饼图和趋势图。 |
+| AI | HTTPS OpenAI-compatible API | 只在用户完成配置后请求；本地规则建议兜底。 |
+
+完整架构见 [当前架构与存储边界](../../architecture.md)。
 
 ## 3. 项目结构
 
-```
+```text
 lib/
-├── core/
-│   ├── theme/              # 深色/浅色主题
-│   ├── constants/          # 默认分类、颜色配置
-│   └── utils/              # 工具函数
+├── blocs/                  # timer / records / categories / settings
+├── core/                   # 主题、默认分类、工具
 ├── data/
-│   ├── models/             # 数据模型（TimeRecord, Category, AppSettings）
-│   ├── repositories/       # 数据仓库（Hive 封装）
-│   └── providers/          # 后期 WebDAV 预留
-├── blocs/
-│   ├── timer/              # 计时器状态管理
-│   ├── records/            # 时间记录增删改查
-│   └── settings/           # 设置状态
-├── ui/
-│   └── pages/              # 四个主页面
-│       ├── home/           # 首页 — 计时器
-│       ├── timeline/       # 时间线 — 日/周视图
-│       ├── stats/          # 统计 — 饼图/柱状图/AI
-│       └── settings/       # 设置页面
-├── widgets/                # 公共组件（SVG图标、时间卡片等）
-└── main.dart
+│   ├── models/             # 纯 Dart 领域模型
+│   ├── dtos/               # Hive DTO 与生成的 Adapter
+│   ├── providers/          # DataStore / PreferencesStore Port 与实现
+│   ├── repositories/       # Repository Port 与业务校验
+│   ├── services/           # AI 与导入/导出
+│   └── sync/               # SyncPort、WebDAV Adapter、版本与冲突编排
+├── ui/pages/               # home / timeline / stats / settings / splash
+├── widgets/                # 公共 SVG 图标
+└── main.dart               # 依赖组装与应用启动
 ```
 
 ## 4. 数据模型
@@ -46,149 +47,109 @@ lib/
 ### TimeRecord
 
 | 字段 | 类型 | 说明 |
-|------|------|------|
-| id | String | UUID |
-| categoryId | String | 所属分类 ID |
-| startTime | DateTime | 开始时间 |
-| endTime | DateTime | 结束时间 |
-| note | String? | 可选备注 |
-| createdAt | DateTime | 记录创建时间 |
+| --- | --- | --- |
+| `id` | `String` | UUID；导入时必须唯一。 |
+| `categoryId` | `String?` | 可为空；分类删除后会清空。 |
+| `startTime` | `DateTime` | 开始时间。 |
+| `endTime` | `DateTime` | 结束时间，必须晚于开始时间。 |
+| `note` | `String?` | 可选备注。 |
+| `createdAt` | `DateTime` | 记录创建时间。 |
 
 ### Category
 
 | 字段 | 类型 | 说明 |
-|------|------|------|
-| id | String | 唯一标识 |
-| name | String | 名称 |
-| color | String | 十六进制颜色 |
-| isSystem | bool | 是否系统预置 |
+| --- | --- | --- |
+| `id` | `String` | 唯一标识。 |
+| `name` | `String` | 非空名称。 |
+| `color` | `String` | `#RRGGBB` 颜色值。 |
+
+首次启动会写入工作、阅读、运动、学习、社交、休息、创作、其他八个默认分类。所有分类都可编辑或删除，但系统必须始终保留至少一个分类；删除分类后，其历史记录显示为“未分类”。
 
 ### AppSettings
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| accentColor | String | 主题色 |
-| themeMode | String | system / light / dark |
-| aiApiKey | String? | AI API Key |
-| aiModel | String? | AI 模型名称 |
+| 字段 | 类型 | 存储位置 |
+| --- | --- | --- |
+| `accentColor` | `String` | SharedPreferences |
+| `themeMode` | `String` | SharedPreferences |
+| `aiBaseUrl` | `String` | SharedPreferences |
+| `aiModel` | `String?` | SharedPreferences |
+| `aiApiKey` | `String?` | 平台安全存储 |
+| `webDavEndpoint` | `String` | SharedPreferences |
+| `webDavUsername` | `String` | SharedPreferences |
+| `webDavPassword` | `String?` | 平台安全存储 |
 
-### 默认分类（8 种，不可删除，可修改名称/颜色）
+## 5. 页面与交互
 
-| 分类 | 默认颜色 |
-|------|---------|
-| 工作 | `#6366F1` 靛蓝 |
-| 阅读 | `#8B5CF6` 紫色 |
-| 运动 | `#10B981` 翠绿 |
-| 学习 | `#F59E0B` 琥珀 |
-| 社交 | `#EC4899` 粉红 |
-| 休息 | `#6B7280` 灰色 |
-| 创作 | `#3B82F6` 蓝色 |
-| 其他 | `#9CA3AF` 浅灰 |
+### 5.1 首页 — 计时器
 
-## 5. 页面设计
+- 空闲状态显示当前日期、`00:00`、开始按钮和最近记录。
+- 运行状态显示渐变圆环、秒级更新的计时数字和红色停止按钮；开始时间会立即异步持久化。
+- 停止时捕获固定的结束时间，进入待确认状态。确认页展示该固定的开始/结束/时长，用户可选择分类、填写备注、确认保存或放弃记录。
+- 运行中或待确认会话会在应用重启后恢复；记录成功保存才清除会话。
 
-### 5.1 首页 — 计时器核心
+### 5.2 时间线 — 全天日视图
 
-**未开始状态：**
-- 当前日期显示
-- 大字 "00:00" 显示
-- "点击开始按钮开始计时" 文字提示
-- 圆形 START 按钮（深色背景）
-- 底部最近记录列表
+- 日期导航、0:00–24:00 的纵向时间轴和按时间定位的事件卡片。
+- 支持双指缩放、双击恢复默认比例和滚动浏览全天。
+- 记录按时间区间与所选日期是否重叠来显示；跨午夜记录会裁剪为当日可见片段。
 
-**计时状态：**
-- 日期淡出消失
-- 圆环 + 中央计时数字通过缩放动画展开
-- 圆环使用蓝紫渐变进度条（`#6366F1` → `#8B5CF6`）
-- 数字显示格式为 `MM:SS`（或 `H:MM:SS`）
-- 按钮变为红色 STOP（带脉冲动画）
-- 下方显示"正在计时"
-
-**结束确认弹窗（Bottom Sheet）：**
-- 背景模糊遮罩
-- 拖动条
-- 标题："记录详情"
-- 时间范围：开始 / 结束 / 时长三段展示
-- 分类选择：8 个分类按钮（选中态高亮配色）
-- 备注：可选输入框
-- 确认保存按钮
-
-### 5.2 时间线 — 日/周视图
-
-**日视图（默认）：**
-- 日期导航（`‹ 7月9日 星期四 ›`）
-- 日/周视图切换按钮
-- 左侧纵向时间刻度（08:00 - 22:00）
-- 右侧事件卡片，按时间定位
-  - 左侧 3px 彩色色条（分类颜色）
-  - 标题：分类名称
-  - 副标题：时间段 + 时长
-  - 背景使用分类色低透明度
-
-**交互：**
-- 点击事件卡片弹出详情 Bottom Sheet
-- 支持滚动浏览全天
+周视图与记录详情 Sheet 仍是计划项，不应在原型或功能说明中标为已完成。
 
 ### 5.3 统计
 
-**顶部：**
-- 时间段选择器（本日 / 本周 / 本月）
-- 三个摘要卡片：今日 / 本周 / 日均（含趋势箭头）
+- 支持本日 / 本周 / 本月范围。
+- 三张摘要卡、分类占比饼图、趋势图和 AI 建议。
+- 饼图的选中项由分类 ID 追踪，数据变更后安全清除无效选中态。
+- AI 未配置、网络失败或服务返回异常时，仍显示本地规则建议。
 
-**标签页（3 个）：**
-1. **占比**：环形饼图 + 分类列表（名称 / 时长 / 百分比）
-2. **趋势**：柱状图 + 分类筛选标签（默认本周 7 天），柱状蓝紫渐变
-3. **AI 建议**：深色卡片组件，包含 Sparkle 图标 + 本周总结 + 改进建议
+### 5.4 我的与设置
 
-### 5.4 我的（设置）
+- 深色/浅色模式和自定义主题色。
+- 记录管理：新增、编辑和删除本地记录。
+- 分类管理：新增、编辑和删除分类。
+- AI 模型配置：服务地址、API Key、模型名称和连接测试；实际请求仅允许 HTTPS。
+- 数据导入导出：JSON 剪贴板导出，或从剪贴板导入经过完整校验的 JSON。
+- WebDAV 同步：保存 HTTPS 文档地址、用户名和密码后可手动同步。远端快照严格较新时应用远端，否则上传本机；同一时间戳以本机为准。
+- 关于页面显示应用版本与项目说明。
 
-**顶部：**
-- 渐变圆形头像（字母 M）
-- 名称 + 本地账户标签
+### 5.5 底部导航
 
-**深色模式：**
-- 列表式开关组件
-
-**设置列表：**
-- 分类管理（进入子页面，新增/编辑/删除分类）
-- 默认主题色（调色板选择器）
-- AI 模型配置（API Key + 模型选择）
-- 数据导入导出
-- 关于 MyTime
-
-### 5.5 底部导航栏
-
-4 个 tab：首页 / 时间线 / 统计 / 我的
-毛玻璃背景，选中态高亮，未选中态半透明。
+首页 / 时间线 / 统计 / 我的四个 Tab，通过 `IndexedStack` 保留页面状态。
 
 ## 6. 设计风格
 
-- **配色**：主色 `#1a1a2e` 深色 + `#6366F1`→`#8B5CF6` 蓝紫渐变 accent
-- **字体**：系统无衬线（PingFang SC / Roboto）
-- **风格**：简洁、大气、留白充足、磨砂玻璃质感
-- **图标**：全部使用 SVG，不使用 emoji
-- **动画**：计时器圆环流畅缩放进场，脉冲按钮，Bottom Sheet 弹性曲线
+- 主深色：`#1A1A2E`；强调渐变：`#6366F1` → `#8B5CF6`。
+- 背景：`#F8F9FA`；卡片：`#FFFFFF`。
+- 卡片圆角 12px，弹窗和 Bottom Sheet 顶部圆角 24px，主按钮为圆形或 12px 圆角。
+- 使用 SVG 图标或 Flutter 图标，不使用 emoji。
+- 支持深浅色主题；关键点击区域需保持至少 44 × 44 的命中面积。
 
-## 7. MVP 范围
+## 7. MVP 状态
 
-| 功能 | MVP | 后期 |
-|------|-----|------|
-| 开始/结束计时 | ✓ | |
-| 分类选择 | ✓ | |
-| 备注 | ✓ | |
-| 时间线日视图 | ✓ | |
-| 时间线周视图 | ✓ | |
-| 饼图统计 | ✓ | |
-| 柱状趋势图 | ✓ | |
-| AI 建议 | ✓（模拟数据） | 真实 API |
-| 深色模式 | ✓ | |
-| 分类管理 | ✓ | |
-| 主题色配置 | ✓ | |
-| 数据导入导出 | ✓（JSON） | WebDAV |
-| AI 模型配置 | | ✓ |
-| iOS 端 | | ✓ |
-| WebDAV 同步 | | ✓ |
+| 功能 | 状态 |
+| --- | --- |
+| 开始/停止/确认计时与会话恢复 | 已实现 |
+| 分类、备注、记录管理 | 已实现 |
+| 全天日时间线与跨午夜显示 | 已实现 |
+| 统计、趋势、AI 本地兜底 | 已实现 |
+| HTTPS OpenAI-compatible AI 请求 | 已实现（用户自行配置） |
+| JSON 导入导出与回滚 | 已实现 |
+| HTTPS WebDAV 手动同步与完整快照冲突策略 | 已实现（用户自行配置） |
+| Android 本地 Release 签名配置 | 已实现（私有 keystore） |
+| iOS 无签名构建 | 已验证（Swift Package Manager） |
+| iOS 真机/发布验证 | 取决于已连接、解锁设备 |
+| 周视图、记录详情 Sheet | 计划中 |
+| WebDAV 后台同步、ETag/锁与逐记录合并 | 计划中 |
+| 设备级持久化端到端测试 | 已提供隔离数据测试；真机执行取决于设备连接 |
 
-## 8. 关于 Demo 原型
+## 8. 原型与验证
 
-高保真 HTML 原型位于 `design-demos/mytime-prototype.html`，交互式还原了全部 4 个页面的核心交互流程，已通过 Playwright 截图验证。
+交互原型位于 `design-demos/mytime-prototype.html`。原型需要与用户可见的计时确认、时间线、设置入口和手动 WebDAV 同步保持一致；Hive DTO、Keychain 和具体冲突编排仍只在文档中说明。
+
+自动化验证基线：
+
+```bash
+dart format --output=none --set-exit-if-changed lib test
+flutter analyze
+flutter test
+```

@@ -26,13 +26,23 @@ class RecentRecordsList extends StatelessWidget {
       children: [
         const Padding(
           padding: EdgeInsets.only(bottom: 8),
-          child: Text('最近记录', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary, letterSpacing: 0.5)),
+          child: Text(
+            '最近记录',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+              letterSpacing: 0.5,
+            ),
+          ),
         ),
         ...recent.asMap().entries.map((entry) {
           final i = entry.key;
           final record = entry.value;
           final cat = CategoryLookup.byId(context, record.categoryId);
-          final catColor = Color(int.parse(cat.color.replaceFirst('#', '0xFF')));
+          final catColor = Color(
+            int.parse(cat.color.replaceFirst('#', '0xFF')),
+          );
           return Column(
             children: [
               Padding(
@@ -40,25 +50,49 @@ class RecentRecordsList extends StatelessWidget {
                 child: Row(
                   children: [
                     Container(
-                      width: 4, height: 28,
-                      decoration: BoxDecoration(color: catColor, borderRadius: BorderRadius.circular(2)),
+                      width: 4,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: catColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(cat.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                          Text(
+                            cat.name,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           if (record.note != null)
-                            Text(record.note!, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                            Text(
+                              record.note!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
                         ],
                       ),
                     ),
-                    Text(_formatDuration(record.duration), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                    Text(
+                      _formatDuration(record.duration),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              if (i < recent.length - 1) const Divider(height: 1, color: AppColors.divider),
+              if (i < recent.length - 1)
+                const Divider(height: 1, color: AppColors.divider),
             ],
           );
         }),

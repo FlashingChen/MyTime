@@ -126,10 +126,28 @@ class _TimelinePageState extends State<TimelinePage> {
   }
 
   bool _isSelectedDate(TimeRecord record) {
-    final start = record.startTime;
-    return start.year == _selectedDate.year &&
-        start.month == _selectedDate.month &&
-        start.day == _selectedDate.day;
+    final dayStart = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+    );
+    return record.startTime.isBefore(dayStart.add(const Duration(days: 1))) &&
+        record.endTime.isAfter(dayStart);
+  }
+
+  TimeRecord _clipToSelectedDate(TimeRecord record) {
+    final dayStart = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+    );
+    final dayEnd = dayStart.add(const Duration(days: 1));
+    return record.copyWith(
+      startTime: record.startTime.isAfter(dayStart)
+          ? record.startTime
+          : dayStart,
+      endTime: record.endTime.isBefore(dayEnd) ? record.endTime : dayEnd,
+    );
   }
 
   @override
@@ -152,7 +170,10 @@ class _TimelinePageState extends State<TimelinePage> {
                   }
                   if (state is RecordsLoaded) {
                     return _buildTimeline(
-                      state.records.where(_isSelectedDate).toList(),
+                      state.records
+                          .where(_isSelectedDate)
+                          .map(_clipToSelectedDate)
+                          .toList(),
                     );
                   }
                   return Center(

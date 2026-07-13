@@ -14,55 +14,127 @@ import 'package:mytime/ui/pages/home/widgets/timer_circle.dart';
 import 'package:mytime/widgets/svg_icons.dart';
 
 /// Home page with the core timer functionality.
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  bool _isConfirmationSheetOpen = false;
+  bool _isSavingRecord = false;
+
+  @override
   Widget build(BuildContext context) {
-    return BlocBuilder<TimerBloc, TimerState>(
-      builder: (context, timerState) {
-        return Scaffold(
-          body: SafeArea(
-            child: Column(
-              children: [
-                AnimatedOpacity(
-                  opacity: timerState is TimerRunInProgress ? 0 : 1,
-                  duration: const Duration(milliseconds: 400),
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 32),
-                    child: Text(
-                      _formatDate(DateTime.now()),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: context.colorScheme.onSurfaceVariant,
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<TimerBloc, TimerState>(
+          listenWhen: (previous, current) =>
+              current is TimerRunComplete && previous is! TimerRunComplete,
+          listener: (context, state) {
+            _showConfirmationSheet(context, state as TimerRunComplete);
+          },
+        ),
+        BlocListener<TimerBloc, TimerState>(
+          listenWhen: (previous, current) =>
+              previous.persistenceError != current.persistenceError &&
+              current.persistenceError != null,
+          listener: (context, state) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.persistenceError!)));
+          },
+        ),
+        BlocListener<RecordsBloc, RecordsState>(
+          listener: (context, state) {
+            if (!_isSavingRecord) return;
+            if (state is RecordsLoaded) {
+              _isSavingRecord = false;
+              context.read<TimerBloc>().add(TimerReset());
+              if (_isConfirmationSheetOpen) Navigator.of(context).pop();
+            } else if (state is RecordsError) {
+              _isSavingRecord = false;
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('保存失败，请重试')));
+            }
+          },
+        ),
+      ],
+      child: BlocBuilder<TimerBloc, TimerState>(
+        builder: (context, timerState) {
+          return Scaffold(
+            body: SafeArea(
+              child: Column(
+                children: [
+                  AnimatedOpacity(
+                    opacity: timerState is TimerRunInProgress ? 0 : 1,
+                    duration: const Duration(milliseconds: 400),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 32),
+                      child: Text(
+                        _formatDate(DateTime.now()),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: context.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: Center(child: _buildTimerArea(context, timerState)),
-                ),
-                if (timerState is TimerInitial)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 80),
-                    child: BlocBuilder<RecordsBloc, RecordsState>(
-                      builder: (context, recordsState) {
-                        if (recordsState is RecordsLoaded) {
-                          return RecentRecordsList(
-                            records: recordsState.records,
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
+                  Expanded(
+                    child: Center(child: _buildTimerArea(context, timerState)),
                   ),
-              ],
+                  if (timerState is TimerInitial)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 80),
+                      child: BlocBuilder<RecordsBloc, RecordsState>(
+                        builder: (context, recordsState) {
+                          if (recordsState is RecordsLoaded) {
+                            return RecentRecordsList(
+                              records: recordsState.records,
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
+  }
+
+  void _showConfirmationSheet(BuildContext context, TimerRunComplete state) {
+    if (_isConfirmationSheetOpen) return;
+    _isConfirmationSheetOpen = true;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ConfirmBottomSheet(
+        startTime: state.startTime,
+        duration: state.duration,
+        stoppedAt: state.stoppedAt,
+        onConfirm: (record) {
+          if (_isSavingRecord) return;
+          _isSavingRecord = true;
+          context.read<RecordsBloc>().add(RecordAdded(record));
+        },
+        onDiscard: () {
+          context.read<TimerBloc>().add(TimerReset());
+          Navigator.of(context).pop();
+        },
+      ),
+    ).whenComplete(() {
+      _isConfirmationSheetOpen = false;
+    });
   }
 
   Widget _buildTimerArea(BuildContext context, TimerState state) {
@@ -119,22 +191,6 @@ class HomePage extends StatelessWidget {
     }
 
     if (state is TimerRunComplete) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => ConfirmBottomSheet(
-            startTime: state.startTime,
-            duration: state.duration,
-            onConfirm: (record) {
-              context.read<RecordsBloc>().add(RecordAdded(record));
-              context.read<TimerBloc>().add(TimerReset());
-              Navigator.pop(context);
-            },
-          ),
-        );
-      });
       return const SizedBox.shrink();
     }
 

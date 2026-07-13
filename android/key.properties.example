@@ -1,0 +1,2 @@
+keyAlias=replace-with-key-alias
+storeFile=/absolute/path/to/upload-keystore.jks

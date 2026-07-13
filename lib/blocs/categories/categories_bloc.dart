@@ -6,8 +6,8 @@ import 'package:mytime/data/repositories/record_repository.dart';
 
 /// BLoC for managing categories.
 class CategoriesBloc extends Bloc<CategoriesEvent, CategoriesState> {
-  final CategoryRepository _repository;
-  final RecordRepository? _recordRepository;
+  final CategoriesRepository _repository;
+  final RecordsRepository? _recordRepository;
 
   CategoriesBloc(this._repository, [this._recordRepository])
     : super(const CategoriesInitial()) {

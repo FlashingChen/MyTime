@@ -65,4 +65,29 @@ void main() {
       ),
     );
   });
+
+  test(
+    'rejects an insecure HTTP endpoint before sending credentials',
+    () async {
+      final service = AiInsightService(
+        request: (_, __, ___) async => throw StateError('must not be called'),
+      );
+      const insecure = AiConfiguration(
+        baseUrl: 'http://api.example.com/v1',
+        apiKey: 'secret',
+        model: 'test-model',
+      );
+
+      expect(
+        () => service.testConnection(insecure),
+        throwsA(
+          isA<AiInsightException>().having(
+            (error) => error.message,
+            'message',
+            '请填写有效的 AI 配置',
+          ),
+        ),
+      );
+    },
+  );
 }

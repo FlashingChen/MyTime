@@ -1,6 +1,6 @@
 import 'package:hive_ce_flutter/hive_flutter.dart';
-import 'package:mytime/data/models/time_record.dart';
-import 'package:mytime/data/models/category.dart';
+import 'package:mytime/data/dtos/hive_time_record.dart';
+import 'package:mytime/data/dtos/hive_category.dart';
 
 class HiveHelper {
   HiveHelper._();
@@ -10,15 +10,15 @@ class HiveHelper {
 
   static Future<void> init() async {
     await Hive.initFlutter();
-    Hive.registerAdapter(TimeRecordAdapter());
-    Hive.registerAdapter(CategoryAdapter());
+    Hive.registerAdapter(HiveTimeRecordAdapter());
+    Hive.registerAdapter(HiveCategoryAdapter());
   }
 
-  static Future<Box<TimeRecord>> openRecordsBox() async {
-    return await Hive.openBox<TimeRecord>(recordsBox);
+  static Future<Box<HiveTimeRecord>> openRecordsBox() async {
+    return Hive.openBox<HiveTimeRecord>(recordsBox);
   }
 
-  static Future<Box<Category>> openCategoriesBox() async {
-    return await Hive.openBox<Category>(categoriesBox);
+  static Future<Box<HiveCategory>> openCategoriesBox() async {
+    return Hive.openBox<HiveCategory>(categoriesBox);
   }
 }

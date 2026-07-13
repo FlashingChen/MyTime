@@ -41,10 +41,7 @@ class StatsMetrics {
     DateTime now,
   ) {
     final period = _periodFor(range, now);
-    final previous = _DateRange(
-      period.start.subtract(period.end.difference(period.start)),
-      period.start,
-    );
+    final previous = _previousPeriodFor(range, period);
     final categoryDurations = <String, Duration>{};
     final categoryCounts = <String, int>{};
     final periodRecords = <TimeRecord>[];
@@ -59,7 +56,14 @@ class StatsMetrics {
           ? record.endTime
           : period.end;
       periodRecords.add(
-        record.copyWith(startTime: startTime, endTime: endTime),
+        TimeRecord(
+          id: record.id,
+          categoryId: record.categoryId,
+          startTime: startTime,
+          endTime: endTime,
+          note: record.note,
+          createdAt: record.createdAt,
+        ),
       );
       total += duration;
       final key = record.categoryId ?? 'uncategorized';
@@ -80,9 +84,9 @@ class StatsMetrics {
       average: days == 0
           ? Duration.zero
           : Duration(minutes: total.inMinutes ~/ days),
-      byCategory: categoryDurations,
-      categoryRecordCounts: categoryCounts,
-      trend: _trend(records, range, period),
+      byCategory: Map.unmodifiable(categoryDurations),
+      categoryRecordCounts: Map.unmodifiable(categoryCounts),
+      trend: List.unmodifiable(_trend(records, range, period)),
     );
   }
 
@@ -100,6 +104,18 @@ class StatsMetrics {
           DateTime(now.year, now.month + 1),
         );
     }
+  }
+
+  static _DateRange _previousPeriodFor(StatsRange range, _DateRange period) {
+    if (range != StatsRange.month) {
+      final duration = period.end.difference(period.start);
+      return _DateRange(period.start.subtract(duration), period.start);
+    }
+    final previousMonthStart = DateTime(
+      period.start.year,
+      period.start.month - 1,
+    );
+    return _DateRange(previousMonthStart, period.start);
   }
 
   static Duration _overlap(TimeRecord record, _DateRange range) {

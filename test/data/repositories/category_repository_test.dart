@@ -3,20 +3,22 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:mytime/core/constants/default_categories.dart';
+import 'package:mytime/data/dtos/hive_category.dart';
 import 'package:mytime/data/models/category.dart';
+import 'package:mytime/data/providers/hive_data_stores.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 
 void main() {
-  late Box<Category> box;
+  late Box<HiveCategory> box;
   late CategoryRepository repo;
 
   setUp(() async {
     Hive.init('test_hive_category_repo');
     if (!Hive.isAdapterRegistered(1)) {
-      Hive.registerAdapter(CategoryAdapter());
+      Hive.registerAdapter(HiveCategoryAdapter());
     }
-    box = await Hive.openBox<Category>('test_categories');
-    repo = CategoryRepository(box);
+    box = await Hive.openBox<HiveCategory>('test_categories');
+    repo = CategoryRepository.withStore(HiveCategoryDataStore(box));
   });
 
   tearDown(() async {
@@ -55,11 +57,30 @@ void main() {
     expect(result.name, 'Test');
   });
 
+  test('add persists a Hive DTO that maps back to the category', () async {
+    final result = await repo.add(
+      Category(id: 'category-id', name: 'Test', color: '#000000'),
+    );
+
+    final stored = box.get(result.id);
+    expect(stored, isA<HiveCategory>());
+    expect(stored?.toDomain(), result);
+  });
+
+  test('add rejects a blank name or invalid color', () async {
+    await expectLater(
+      repo.add(Category(id: '', name: '   ', color: '#000000')),
+      throwsArgumentError,
+    );
+    await expectLater(
+      repo.add(Category(id: '', name: 'Test', color: 'black')),
+      throwsArgumentError,
+    );
+  });
+
   test('update changes category fields', () async {
     await repo.add(Category(id: 'test', name: 'Test', color: '#000000'));
-    await repo.update(
-      Category(id: 'test', name: 'Updated', color: '#FFFFFF'),
-    );
+    await repo.update(Category(id: 'test', name: 'Updated', color: '#FFFFFF'));
     final updated = repo.getById('test');
     expect(updated?.name, 'Updated');
     expect(updated?.color, '#FFFFFF');

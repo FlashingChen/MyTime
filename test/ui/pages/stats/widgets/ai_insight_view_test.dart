@@ -1,30 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mytime/data/models/time_record.dart';
+import 'package:mytime/ui/pages/stats/stats_metrics.dart';
 import 'package:mytime/ui/pages/stats/widgets/ai_insight_view.dart';
 
 void main() {
   testWidgets('regenerates a different simulated suggestion', (tester) async {
     final start = DateTime(2026, 7, 10, 9);
+    final records = [
+      TimeRecord(
+        id: 'work',
+        categoryId: 'work',
+        startTime: start,
+        endTime: start.add(const Duration(hours: 3)),
+      ),
+      TimeRecord(
+        id: 'break',
+        categoryId: 'rest',
+        startTime: start.add(const Duration(hours: 4)),
+        endTime: start.add(const Duration(minutes: 30)),
+      ),
+    ];
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: AiInsightView(
             periodLabel: '本周',
-            records: [
-              TimeRecord(
-                id: 'work',
-                categoryId: 'work',
-                startTime: start,
-                endTime: start.add(const Duration(hours: 3)),
-              ),
-              TimeRecord(
-                id: 'break',
-                categoryId: 'rest',
-                startTime: start.add(const Duration(hours: 4)),
-                endTime: start.add(const Duration(minutes: 30)),
-              ),
-            ],
+            metrics: StatsMetrics.forRange(records, StatsRange.week, start),
           ),
         ),
       ),
@@ -43,5 +45,31 @@ void main() {
       tester.widget<Text>(find.byKey(const ValueKey('ai-suggestion-0'))).data,
       isNot(firstSuggestion),
     );
+  });
+
+  testWidgets('handles a sub-minute record without an arithmetic error', (
+    tester,
+  ) async {
+    final start = DateTime(2026, 7, 10, 9);
+    final records = [
+      TimeRecord(
+        id: 'short',
+        categoryId: 'work',
+        startTime: start,
+        endTime: start.add(const Duration(seconds: 30)),
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiInsightView(
+            metrics: StatsMetrics.forRange(records, StatsRange.week, start),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('ai-suggestion-0')), findsOneWidget);
   });
 }

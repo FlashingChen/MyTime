@@ -26,18 +26,36 @@ class DateNavigator extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onPrev,
-            icon: const Text('‹', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w300)),
+            icon: const Text(
+              '‹',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w300),
+            ),
             color: AppColors.textPrimary,
           ),
           Column(
             children: [
-              Text('${date.month}月${date.day}日', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              Text(dayName, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              Text(
+                '${date.month}月${date.day}日',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                dayName,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ],
           ),
           IconButton(
             onPressed: onNext,
-            icon: const Text('›', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w300)),
+            icon: const Text(
+              '›',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w300),
+            ),
             color: AppColors.textPrimary,
           ),
         ],

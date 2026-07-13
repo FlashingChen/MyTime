@@ -89,6 +89,7 @@ class _PlayPainter extends CustomPainter {
     path.close();
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
@@ -102,12 +103,18 @@ class _StopPainter extends CustomPainter {
     final r = size.width * 0.15;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(size.width * 0.25, size.height * 0.25, size.width * 0.5, size.height * 0.5),
+        Rect.fromLTWH(
+          size.width * 0.25,
+          size.height * 0.25,
+          size.width * 0.5,
+          size.height * 0.5,
+        ),
         Radius.circular(r),
       ),
       paint,
     );
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
@@ -128,6 +135,7 @@ class _CheckPainter extends CustomPainter {
     path.lineTo(size.width * 0.8, size.height * 0.3);
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
@@ -155,6 +163,7 @@ class _HomePainter extends CustomPainter {
     path.lineTo(size.width * 0.8, size.height * 0.9);
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
@@ -171,11 +180,28 @@ class _TimelinePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     canvas.drawCircle(center, size.width * 0.15, paint);
     final linePaint = paint..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(center.dx, 0), Offset(center.dx, size.height * 0.3), linePaint);
-    canvas.drawLine(Offset(center.dx, size.height * 0.7), Offset(center.dx, size.height), linePaint);
-    canvas.drawLine(Offset(0, center.dy), Offset(size.width * 0.3, center.dy), linePaint);
-    canvas.drawLine(Offset(size.width * 0.7, center.dy), Offset(size.width, center.dy), linePaint);
+    canvas.drawLine(
+      Offset(center.dx, 0),
+      Offset(center.dx, size.height * 0.3),
+      linePaint,
+    );
+    canvas.drawLine(
+      Offset(center.dx, size.height * 0.7),
+      Offset(center.dx, size.height),
+      linePaint,
+    );
+    canvas.drawLine(
+      Offset(0, center.dy),
+      Offset(size.width * 0.3, center.dy),
+      linePaint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.7, center.dy),
+      Offset(size.width, center.dy),
+      linePaint,
+    );
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
@@ -191,8 +217,16 @@ class _StatsPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
-    canvas.drawLine(Offset(size.width * 0.15, size.height * 0.15), Offset(size.width * 0.15, size.height * 0.85), paint);
-    canvas.drawLine(Offset(size.width * 0.15, size.height * 0.85), Offset(size.width * 0.85, size.height * 0.85), paint);
+    canvas.drawLine(
+      Offset(size.width * 0.15, size.height * 0.15),
+      Offset(size.width * 0.15, size.height * 0.85),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.15, size.height * 0.85),
+      Offset(size.width * 0.85, size.height * 0.85),
+      paint,
+    );
     final linePaint = paint..strokeWidth = 2;
     final path = Path();
     path.moveTo(size.width * 0.25, size.height * 0.65);
@@ -201,6 +235,7 @@ class _StatsPainter extends CustomPainter {
     path.lineTo(size.width * 0.75, size.height * 0.25);
     canvas.drawPath(path, linePaint);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
@@ -214,13 +249,28 @@ class _ProfilePainter extends CustomPainter {
       ..color = color
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
-    canvas.drawCircle(Offset(size.width / 2, size.height * 0.35), size.width * 0.2, paint);
+    canvas.drawCircle(
+      Offset(size.width / 2, size.height * 0.35),
+      size.width * 0.2,
+      paint,
+    );
     final path = Path();
     path.moveTo(size.width * 0.15, size.height * 0.9);
-    path.quadraticBezierTo(size.width * 0.15, size.height * 0.6, size.width * 0.5, size.height * 0.6);
-    path.quadraticBezierTo(size.width * 0.85, size.height * 0.6, size.width * 0.85, size.height * 0.9);
+    path.quadraticBezierTo(
+      size.width * 0.15,
+      size.height * 0.6,
+      size.width * 0.5,
+      size.height * 0.6,
+    );
+    path.quadraticBezierTo(
+      size.width * 0.85,
+      size.height * 0.6,
+      size.width * 0.85,
+      size.height * 0.9,
+    );
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
@@ -245,6 +295,7 @@ class _SparklePainter extends CustomPainter {
     path.close();
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
@@ -266,6 +317,7 @@ class _ChevronRightPainter extends CustomPainter {
     path.lineTo(size.width * 0.35, size.height * 0.8);
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
@@ -287,6 +339,7 @@ class _ChevronLeftPainter extends CustomPainter {
     path.lineTo(size.width * 0.65, size.height * 0.8);
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

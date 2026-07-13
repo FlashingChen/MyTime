@@ -3,8 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:mytime/blocs/records/records_bloc.dart';
-import 'package:mytime/data/models/time_record.dart';
-import 'package:mytime/data/models/category.dart';
+import 'package:mytime/data/dtos/hive_time_record.dart';
+import 'package:mytime/data/providers/hive_data_stores.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/ui/pages/stats/stats_page.dart';
 
@@ -13,14 +13,13 @@ void main() {
 
   setUp(() async {
     Hive.init('test_hive_stats');
-    Hive.registerAdapter(TimeRecordAdapter());
-    Hive.registerAdapter(CategoryAdapter());
-    final box = await Hive.openBox<TimeRecord>('test_stats');
-    repo = RecordRepository(box);
+    Hive.registerAdapter(HiveTimeRecordAdapter());
+    final box = await Hive.openBox<HiveTimeRecord>('test_stats');
+    repo = RecordRepository.withStore(HiveRecordDataStore(box));
   });
 
   tearDown(() async {
-    await Hive.box<TimeRecord>('test_stats').deleteFromDisk();
+    await Hive.box<HiveTimeRecord>('test_stats').deleteFromDisk();
   });
 
   testWidgets('shows range selector and tab bar', (tester) async {

@@ -20,81 +20,90 @@ class CategoryManagementPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: SafeArea(
-        child: BlocBuilder<CategoriesBloc, CategoriesState>(
-          builder: (context, state) {
-            final categories = state is CategoriesLoaded
-                ? state.categories
-                : <Category>[];
-            return CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                    child: Row(
-                      children: [
-                        GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: Padding(
-                            padding: const EdgeInsets.all(13),
-                            child: SvgIcons.chevronLeft(),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Text(
-                            '分类管理',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w600,
+        child: BlocListener<CategoriesBloc, CategoriesState>(
+          listenWhen: (_, state) => state is CategoriesError,
+          listener: (context, state) {
+            final error = state as CategoriesError;
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('分类操作失败：${error.message}')));
+          },
+          child: BlocBuilder<CategoriesBloc, CategoriesState>(
+            builder: (context, state) {
+              final categories = state is CategoriesLoaded
+                  ? state.categories
+                  : <Category>[];
+              return CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Padding(
+                              padding: const EdgeInsets.all(13),
+                              child: SvgIcons.chevronLeft(),
                             ),
-                            textAlign: TextAlign.center,
                           ),
-                        ),
-                        const SizedBox(width: 30),
-                      ],
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              '分类管理',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(width: 30),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final category = categories[index];
-                      return _CategoryListTile(
-                        category: category,
-                        onEdit: () => _showEditDialog(context, category),
-                        onDelete: categories.length <= 1
-                            ? null
-                            : () => _confirmDelete(context, category),
-                      );
-                    }, childCount: categories.length),
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final category = categories[index];
+                        return _CategoryListTile(
+                          category: category,
+                          onEdit: () => _showEditDialog(context, category),
+                          onDelete: categories.length <= 1
+                              ? null
+                              : () => _confirmDelete(context, category),
+                        );
+                      }, childCount: categories.length),
+                    ),
                   ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () => _showAddDialog(context),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('新增分类'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryDark,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showAddDialog(context),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('新增分类'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryDark,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
                           ),
-                          elevation: 0,
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

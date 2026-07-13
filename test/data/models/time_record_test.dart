@@ -53,6 +53,7 @@ void main() {
       expect(updated.id, '1');
       expect(updated.note, 'Updated note');
       expect(updated.startTime, record.startTime);
+      expect(updated.categoryId, 'work');
     });
 
     test('allows nullable categoryId for uncategorized records', () {
@@ -74,6 +75,35 @@ void main() {
       );
       final updated = record.copyWith(categoryId: null);
       expect(updated.categoryId, isNull);
+    });
+
+    test('copyWith preserves nullable fields when they are omitted', () {
+      final record = TimeRecord(
+        id: '1',
+        categoryId: null,
+        startTime: DateTime(2026, 7, 9, 8, 0),
+        endTime: DateTime(2026, 7, 9, 9, 0),
+        note: 'Keep this note',
+      );
+
+      final updated = record.copyWith(endTime: DateTime(2026, 7, 9, 10));
+
+      expect(updated.categoryId, isNull);
+      expect(updated.note, 'Keep this note');
+    });
+
+    test('copyWith can explicitly clear note', () {
+      final record = TimeRecord(
+        id: '1',
+        categoryId: 'work',
+        startTime: DateTime(2026, 7, 9, 8, 0),
+        endTime: DateTime(2026, 7, 9, 9, 0),
+        note: 'Temporary note',
+      );
+
+      final updated = record.copyWith(note: null);
+
+      expect(updated.note, isNull);
     });
   });
 }

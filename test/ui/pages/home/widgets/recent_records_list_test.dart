@@ -15,9 +15,7 @@ void main() {
     ];
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: RecentRecordsList(records: records),
-        ),
+        home: Scaffold(body: RecentRecordsList(records: records)),
       ),
     );
     await tester.pumpAndSettle();

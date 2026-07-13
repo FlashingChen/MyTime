@@ -1,5 +1,7 @@
 # 恢复被 `git clean -fd` 删除的文件
 
+> 文档状态：历史事故恢复记录，不是当前架构或功能的来源。当前实现请参阅 [MVP 设计规格](2026-07-09-mytime-design.md) 与 [当前架构与存储边界](../../architecture.md)。
+
 ## 背景
 
 在合并 GitHub PR 并拉取最新 `main` 后，执行 `git clean -fd` 误删了一批未跟踪文件，导致当前暂存区中的代码（`main.dart`、`settings_page.dart`、测试文件等）引用失效，`flutter analyze` 报 45 个错误。

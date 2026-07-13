@@ -22,11 +22,12 @@ class SettingsLoading extends SettingsState {
 /// Settings loaded successfully.
 class SettingsLoaded extends SettingsState {
   final AppSettings settings;
+  final String? saveErrorMessage;
 
-  const SettingsLoaded(this.settings);
+  const SettingsLoaded(this.settings, {this.saveErrorMessage});
 
   @override
-  List<Object?> get props => [settings];
+  List<Object?> get props => [settings, saveErrorMessage];
 }
 
 /// Error loading settings.

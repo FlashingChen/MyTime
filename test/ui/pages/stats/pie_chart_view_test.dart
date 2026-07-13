@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:mytime/blocs/categories/categories_bloc.dart';
 import 'package:mytime/blocs/categories/categories_event.dart';
 import 'package:mytime/data/models/category.dart';
-import 'package:mytime/data/models/time_record.dart';
+import 'package:mytime/data/providers/hive_data_stores.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/ui/pages/stats/widgets/pie_chart_view.dart';
 
@@ -13,20 +12,11 @@ void main() {
   testWidgets('renders default categories without a CategoriesBloc provider', (
     tester,
   ) async {
-    final start = DateTime(2026, 7, 10, 9);
-
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: PieChartView(
-            records: [
-              TimeRecord(
-                id: 'record-1',
-                categoryId: 'work',
-                startTime: start,
-                endTime: start.add(const Duration(hours: 2)),
-              ),
-            ],
+            categoryDurations: const {'work': Duration(hours: 2)},
           ),
         ),
       ),
@@ -41,21 +31,13 @@ void main() {
   ) async {
     final categoriesBloc = CategoriesBloc(_TestCategoryRepository([]));
     addTearDown(categoriesBloc.close);
-    final start = DateTime(2026, 7, 10, 9);
     await tester.pumpWidget(
       MaterialApp(
         home: BlocProvider.value(
           value: categoriesBloc,
           child: Scaffold(
             body: PieChartView(
-              records: [
-                TimeRecord(
-                  id: 'record-1',
-                  categoryId: 'work',
-                  startTime: start,
-                  endTime: start.add(const Duration(hours: 2)),
-                ),
-              ],
+              categoryDurations: const {'work': Duration(hours: 2)},
             ),
           ),
         ),
@@ -87,7 +69,6 @@ void main() {
       ]),
     );
     addTearDown(categoriesBloc.close);
-    final start = DateTime(2026, 7, 10, 9);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -95,21 +76,14 @@ void main() {
           value: categoriesBloc,
           child: Scaffold(
             body: PieChartView(
-              records: [
-                TimeRecord(
-                  id: 'record-1',
-                  categoryId: 'custom-id',
-                  startTime: start,
-                  endTime: start.add(const Duration(hours: 2)),
-                ),
-              ],
+              categoryDurations: const {'custom-id': Duration(hours: 2)},
             ),
           ),
         ),
       ),
     );
 
-    expect(find.text('其他'), findsOneWidget);
+    expect(find.text('未分类'), findsOneWidget);
 
     categoriesBloc.add(const LoadCategories());
     await tester.pump(const Duration(milliseconds: 1));
@@ -121,13 +95,14 @@ void main() {
 class _TestCategoryRepository extends CategoryRepository {
   final List<Category> categories;
 
-  _TestCategoryRepository(this.categories) : super(_TestCategoryBox());
+  _TestCategoryRepository(this.categories)
+    : super.withStore(_TestCategoryStore());
 
   @override
   List<Category> getAll() => categories;
 }
 
-class _TestCategoryBox implements Box<Category> {
+class _TestCategoryStore implements CategoryDataStore {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

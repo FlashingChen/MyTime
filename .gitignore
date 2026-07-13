@@ -3,6 +3,8 @@
 .flutter-plugins
 .flutter-plugins-dependencies
 build/
+.build/
+.swiftpm/
 .packages
 .pub-cache/
 .pub/
@@ -27,3 +29,6 @@ test_hive_*/
 
 # Superpowers SDD scratch
 .superpowers/
+android/key.properties
+ios/Flutter/Private.xcconfig
+AGENTS.md

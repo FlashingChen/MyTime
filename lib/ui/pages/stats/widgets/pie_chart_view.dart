@@ -7,29 +7,20 @@ import 'package:mytime/blocs/categories/categories_bloc.dart';
 import 'package:mytime/blocs/categories/categories_state.dart';
 import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/core/utils/category_lookup.dart';
-import 'package:mytime/data/models/time_record.dart';
 
 /// Pie chart showing category time proportions and the selected category.
 class PieChartView extends StatefulWidget {
-  final List<TimeRecord> records;
+  /// Category totals precomputed by [StatsBloc].
+  final Map<String, Duration> categoryDurations;
 
-  const PieChartView({super.key, required this.records});
+  const PieChartView({super.key, required this.categoryDurations});
 
   @override
   State<PieChartView> createState() => _PieChartViewState();
 }
 
 class _PieChartViewState extends State<PieChartView> {
-  int? _selectedIndex;
-
-  Map<String, Duration> _aggregateByCategory() {
-    final map = <String, Duration>{};
-    for (final record in widget.records) {
-      final key = record.categoryId ?? 'uncategorized';
-      map[key] = (map[key] ?? Duration.zero) + record.duration;
-    }
-    return map;
-  }
+  String? _selectedCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +44,7 @@ class _PieChartViewState extends State<PieChartView> {
   }
 
   Widget _buildContent(BuildContext context) {
-    final aggregated = _aggregateByCategory();
+    final aggregated = widget.categoryDurations;
     final totalSeconds = aggregated.values.fold<int>(
       0,
       (sum, duration) => sum + duration.inSeconds,
@@ -72,6 +63,7 @@ class _PieChartViewState extends State<PieChartView> {
         .map((entry) {
           final category = CategoryLookup.byId(context, entry.key);
           return _PieItem(
+            categoryId: entry.key,
             category: category.name,
             color: Color(int.parse(category.color.replaceFirst('#', '0xFF'))),
             duration: entry.value,
@@ -79,7 +71,10 @@ class _PieChartViewState extends State<PieChartView> {
           );
         })
         .toList(growable: false);
-    final selectedItem = _selectedIndex == null ? null : items[_selectedIndex!];
+    final selectedIndex = items.indexWhere(
+      (item) => item.categoryId == _selectedCategory,
+    );
+    final selectedItem = selectedIndex == -1 ? null : items[selectedIndex];
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -118,13 +113,14 @@ class _PieChartViewState extends State<PieChartView> {
                             final index =
                                 response?.touchedSection?.touchedSectionIndex;
                             setState(() {
-                              _selectedIndex =
+                              _selectedCategory =
                                   index == null ||
                                       index < 0 ||
                                       index >= items.length ||
-                                      index == _selectedIndex
+                                      items[index].categoryId ==
+                                          _selectedCategory
                                   ? null
-                                  : index;
+                                  : items[index].categoryId;
                             });
                           },
                         ),
@@ -147,8 +143,11 @@ class _PieChartViewState extends State<PieChartView> {
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             child: Column(
               children: [
-                for (final (index, item) in items.indexed)
-                  _LegendItem(item: item, selected: index == _selectedIndex),
+                for (final item in items)
+                  _LegendItem(
+                    item: item,
+                    selected: item.categoryId == _selectedCategory,
+                  ),
               ],
             ),
           ),
@@ -159,15 +158,15 @@ class _PieChartViewState extends State<PieChartView> {
 
   List<PieChartSectionData> _sections(List<_PieItem> items) {
     return [
-      for (final (index, item) in items.indexed)
+      for (final item in items)
         PieChartSectionData(
           value: item.duration.inSeconds.toDouble(),
-          color: _selectedIndex == null
+          color: _selectedCategory == null
               ? item.color.withValues(alpha: 0.9)
-              : index == _selectedIndex
+              : item.categoryId == _selectedCategory
               ? item.color
               : item.color.withValues(alpha: 0.5),
-          radius: index == _selectedIndex ? 82 : 70,
+          radius: item.categoryId == _selectedCategory ? 82 : 70,
           showTitle: false,
         ),
     ];
@@ -175,12 +174,14 @@ class _PieChartViewState extends State<PieChartView> {
 }
 
 class _PieItem {
+  final String categoryId;
   final String category;
   final Color color;
   final Duration duration;
   final int percentage;
 
   const _PieItem({
+    required this.categoryId,
     required this.category,
     required this.color,
     required this.duration,

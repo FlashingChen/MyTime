@@ -28,15 +28,9 @@ class CategoryLookup {
   static Category byId(BuildContext context, String? id) {
     if (id == null) return _uncategorized();
     final allCategories = all(context);
-    return allCategories.firstWhere(
-      (c) => c.id == id,
-      orElse: () => DefaultCategories.byId(id),
-    );
+    return allCategories.firstWhere((c) => c.id == id, orElse: _uncategorized);
   }
 
-  static Category _uncategorized() => Category(
-        id: '',
-        name: '未分类',
-        color: '#9CA3AF',
-      );
+  static Category _uncategorized() =>
+      Category(id: '', name: '未分类', color: '#9CA3AF');
 }
