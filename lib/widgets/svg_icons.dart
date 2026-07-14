@@ -74,6 +74,27 @@ class SvgIcons {
       painter: _ChevronLeftPainter(color: color ?? const Color(0xFFC7C7CC)),
     );
   }
+
+  static Widget add({double size = 24, Color? color}) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: _AddPainter(color: color ?? const Color(0xFF1A1A2E)),
+    );
+  }
+
+  static Widget edit({double size = 18, Color? color}) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: _EditPainter(color: color ?? const Color(0xFF86868B)),
+    );
+  }
+
+  static Widget delete({double size = 18, Color? color}) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: _DeletePainter(color: color ?? const Color(0xFFEF4444)),
+    );
+  }
 }
 
 class _PlayPainter extends CustomPainter {
@@ -343,3 +364,117 @@ class _ChevronLeftPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+class _AddPainter extends CustomPainter {
+  final Color color;
+  _AddPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = _iconStroke(color);
+    canvas.drawLine(
+      Offset(size.width * 0.2, size.height * 0.5),
+      Offset(size.width * 0.8, size.height * 0.5),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.5, size.height * 0.2),
+      Offset(size.width * 0.5, size.height * 0.8),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _EditPainter extends CustomPainter {
+  final Color color;
+  _EditPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = _iconStroke(color);
+    final pencil = Path()
+      ..moveTo(size.width * 0.22, size.height * 0.7)
+      ..lineTo(size.width * 0.28, size.height * 0.48)
+      ..lineTo(size.width * 0.67, size.height * 0.09)
+      ..quadraticBezierTo(
+        size.width * 0.74,
+        size.height * 0.02,
+        size.width * 0.81,
+        size.height * 0.09,
+      )
+      ..lineTo(size.width * 0.91, size.height * 0.19)
+      ..quadraticBezierTo(
+        size.width * 0.98,
+        size.height * 0.26,
+        size.width * 0.91,
+        size.height * 0.33,
+      )
+      ..lineTo(size.width * 0.52, size.height * 0.72)
+      ..lineTo(size.width * 0.3, size.height * 0.78)
+      ..close();
+    canvas.drawPath(pencil, paint);
+    canvas.drawLine(
+      Offset(size.width * 0.13, size.height * 0.9),
+      Offset(size.width * 0.75, size.height * 0.9),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _DeletePainter extends CustomPainter {
+  final Color color;
+  _DeletePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = _iconStroke(color);
+    canvas.drawLine(
+      Offset(size.width * 0.18, size.height * 0.27),
+      Offset(size.width * 0.82, size.height * 0.27),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.38, size.height * 0.14),
+      Offset(size.width * 0.62, size.height * 0.14),
+      paint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(
+          size.width * 0.26,
+          size.height * 0.35,
+          size.width * 0.74,
+          size.height * 0.88,
+        ),
+        Radius.circular(size.width * 0.06),
+      ),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.42, size.height * 0.47),
+      Offset(size.width * 0.42, size.height * 0.75),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.58, size.height * 0.47),
+      Offset(size.width * 0.58, size.height * 0.75),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+Paint _iconStroke(Color color) => Paint()
+  ..color = color
+  ..strokeWidth = 1.5
+  ..style = PaintingStyle.stroke
+  ..strokeCap = StrokeCap.round
+  ..strokeJoin = StrokeJoin.round;
