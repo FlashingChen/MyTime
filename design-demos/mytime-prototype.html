@@ -1118,28 +1118,112 @@ function ProfileScreen({ onOpenCategoryManagement, onOpenRecordManagement }) {
 
 // ===== Record Management Screen =====
 function RecordManagementScreen({ onBack }) {
-  const records = [
-    { category: '工作', time: '08:30 - 09:50', note: 'App 设计' },
-    { category: '学习', time: '10:00 - 10:45', note: 'Flutter 教程' },
-    { category: '运动', time: '11:00 - 11:30', note: '晨跑' },
-  ];
+  const [records, setRecords] = React.useState([
+    { id: 'record-1', categoryId: 'work', startDate: '2026-07-14', startTime: '08:30', endDate: '2026-07-14', endTime: '09:50', note: 'App 设计' },
+    { id: 'record-2', categoryId: 'study', startDate: '2026-07-14', startTime: '10:00', endDate: '2026-07-14', endTime: '10:45', note: 'Flutter 教程' },
+    { id: 'record-3', categoryId: 'sport', startDate: '2026-07-14', startTime: '23:30', endDate: '2026-07-15', endTime: '00:30', note: '夜跑' },
+  ]);
+  const [editor, setEditor] = React.useState(null);
+  const [deleteTarget, setDeleteTarget] = React.useState(null);
+
+  const openNew = () => setEditor({
+    id: null,
+    categoryId: 'work',
+    startDate: '2026-07-14',
+    startTime: '08:30',
+    endDate: '2026-07-14',
+    endTime: '09:30',
+    note: '',
+  });
+  const startInstant = editor ? new Date(`${editor.startDate}T${editor.startTime}`) : null;
+  const endInstant = editor ? new Date(`${editor.endDate}T${editor.endTime}`) : null;
+  const invalidRange = editor && endInstant <= startInstant;
+  const saveRecord = () => {
+    if (!editor || invalidRange) return;
+    const saved = editor.id ? editor : { ...editor, id: `record-${Date.now()}` };
+    setRecords((items) => editor.id
+      ? items.map((item) => item.id === editor.id ? saved : item)
+      : [saved, ...items]);
+    setEditor(null);
+  };
+  const formatRange = (record) => record.startDate === record.endDate
+    ? `${record.startDate} ${record.startTime}–${record.endTime}`
+    : `${record.startDate} ${record.startTime} – ${record.endDate} ${record.endTime}`;
 
   return (
-    <div style={{ height: '100%', background: '#F8F9FA', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ height: 56, display: 'flex', alignItems: 'center', padding: '0 12px', background: '#fff', borderBottom: '1px solid #F0F0F0' }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 26, color: '#1D1D1F', cursor: 'pointer', padding: '4px 8px', lineHeight: 1 }}>‹</button>
+    <div style={{ height: '100%', position: 'relative', background: '#F8F9FA', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ height: 56, flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 12px', background: '#fff', borderBottom: '1px solid #F0F0F0' }}>
+        <button aria-label="返回" onClick={onBack} style={{ width: 44, height: 44, background: 'none', border: 'none', fontSize: 26, color: '#1D1D1F', cursor: 'pointer', lineHeight: 1 }}>‹</button>
         <span style={{ flex: 1, fontSize: 17, fontWeight: 600, color: '#1D1D1F', textAlign: 'center' }}>记录管理</span>
-        <button onClick={() => alert('此处可新增记录。')} style={{ background: 'none', border: 'none', color: '#1a1a2e', fontSize: 24, cursor: 'pointer', padding: '4px 8px' }}>＋</button>
+        <button aria-label="新增记录" onClick={openNew} style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: '#1a1a2e', cursor: 'pointer' }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
       </div>
-      <div style={{ flex: 1, overflow: 'auto', padding: '12px 20px 80px' }}>
-        {records.map((record, index) => (
-          <button key={index} onClick={() => alert('此处可编辑或删除记录。')} style={{ width: '100%', textAlign: 'left', border: 'none', background: '#fff', borderRadius: 12, padding: '14px 16px', marginBottom: 8, cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#1D1D1F' }}>{record.category}</div>
-            <div style={{ fontSize: 12, color: '#86868B', marginTop: 3 }}>{record.time}</div>
-            <div style={{ fontSize: 12, color: '#86868B', marginTop: 3 }}>{record.note}</div>
-          </button>
-        ))}
+      <div style={{ flex: 1, overflow: 'auto', padding: '12px 20px 24px' }}>
+        {records.map((record) => {
+          const category = CATEGORIES.find((item) => item.id === record.categoryId) || CATEGORIES[7];
+          return (
+            <div key={record.id} style={{ display: 'flex', alignItems: 'center', width: '100%', background: '#fff', borderRadius: 12, marginBottom: 8, overflow: 'hidden' }}>
+              <button onClick={() => setEditor({ ...record })} style={{ flex: 1, minWidth: 0, textAlign: 'left', border: 'none', background: 'transparent', padding: '14px 8px 14px 16px', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 8, height: 8, flexShrink: 0, borderRadius: '50%', background: category.color }} />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: '#1D1D1F' }}>{category.name}</span>
+                </div>
+                <div style={{ fontSize: 12, color: '#86868B', marginTop: 5, lineHeight: 1.4 }}>{formatRange(record)}</div>
+                {record.note && <div style={{ fontSize: 12, color: '#86868B', marginTop: 3 }}>{record.note}</div>}
+              </button>
+              <div style={{ display: 'flex', paddingRight: 8 }}>
+                <button aria-label="编辑记录" onClick={() => setEditor({ ...record })} style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', color: '#86868B', cursor: 'pointer' }}><Icons.Edit /></button>
+                <button aria-label="删除记录" onClick={() => setDeleteTarget(record)} style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', color: '#EF4444', cursor: 'pointer' }}><Icons.Trash /></button>
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      {editor && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 40, background: 'rgba(0,0,0,.25)', display: 'flex', alignItems: 'flex-end', animation: 'fadeIn .2s ease' }}>
+          <div style={{ width: '100%', maxHeight: '92%', overflow: 'auto', background: '#fff', borderRadius: '24px 24px 0 0', padding: '24px 24px 32px', animation: 'slideUp .25s ease' }}>
+            <div style={{ fontSize: 17, fontWeight: 600, color: '#1D1D1F', textAlign: 'center', marginBottom: 20 }}>{editor.id ? '编辑记录' : '新增记录'}</div>
+            <label style={{ display: 'block', fontSize: 12, color: '#86868B', marginBottom: 6 }}>分类</label>
+            <select value={editor.categoryId} onChange={(event) => setEditor({ ...editor, categoryId: event.target.value })} style={{ width: '100%', height: 48, padding: '0 12px', border: '1px solid #E8E8ED', borderRadius: 12, background: '#F8F9FA', color: '#1D1D1F', fontSize: 14, marginBottom: 16 }}>
+              {CATEGORIES.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            </select>
+            <label style={{ display: 'block', fontSize: 12, color: '#86868B', marginBottom: 6 }}>备注（可选）</label>
+            <input value={editor.note} onChange={(event) => setEditor({ ...editor, note: event.target.value })} placeholder="记录内容" style={{ width: '100%', height: 48, padding: '0 12px', border: '1px solid #E8E8ED', borderRadius: 12, background: '#F8F9FA', color: '#1D1D1F', fontSize: 14, marginBottom: 20 }} />
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#1D1D1F', marginBottom: 8 }}>开始时间</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 10, marginBottom: 18 }}>
+              <input aria-label="开始日期" type="date" value={editor.startDate} onChange={(event) => setEditor({ ...editor, startDate: event.target.value })} style={{ width: '100%', height: 48, padding: '0 10px', border: 'none', borderRadius: 12, background: '#F0F0F0', color: '#1D1D1F', fontSize: 13 }} />
+              <input aria-label="开始时间" type="time" value={editor.startTime} onChange={(event) => setEditor({ ...editor, startTime: event.target.value })} style={{ width: '100%', height: 48, padding: '0 10px', border: 'none', borderRadius: 12, background: '#F0F0F0', color: '#1D1D1F', fontSize: 13 }} />
+            </div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#1D1D1F', marginBottom: 8 }}>结束时间</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 10 }}>
+              <input aria-label="结束日期" type="date" value={editor.endDate} onChange={(event) => setEditor({ ...editor, endDate: event.target.value })} style={{ width: '100%', height: 48, padding: '0 10px', border: 'none', borderRadius: 12, background: '#F0F0F0', color: '#1D1D1F', fontSize: 13 }} />
+              <input aria-label="结束时间" type="time" value={editor.endTime} onChange={(event) => setEditor({ ...editor, endTime: event.target.value })} style={{ width: '100%', height: 48, padding: '0 10px', border: 'none', borderRadius: 12, background: '#F0F0F0', color: '#1D1D1F', fontSize: 13 }} />
+            </div>
+            {invalidRange && <div style={{ color: '#EF4444', fontSize: 12, marginTop: 10 }}>结束时间必须晚于开始时间</div>}
+            <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+              <button onClick={() => setEditor(null)} style={{ flex: 1, height: 48, border: '1px solid #E8E8ED', borderRadius: 12, background: '#fff', color: '#1D1D1F', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>取消</button>
+              <button disabled={invalidRange} onClick={saveRecord} style={{ flex: 1, height: 48, border: 'none', borderRadius: 12, background: invalidRange ? '#C7C7CC' : '#1a1a2e', color: '#fff', fontSize: 15, fontWeight: 600, cursor: invalidRange ? 'default' : 'pointer' }}>保存记录</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 40, background: 'rgba(0,0,0,.25)', display: 'flex', alignItems: 'flex-end', animation: 'fadeIn .2s ease' }}>
+          <div style={{ width: '100%', background: '#fff', borderRadius: '24px 24px 0 0', padding: '24px 20px 32px', animation: 'slideUp .25s ease' }}>
+            <div style={{ fontSize: 17, fontWeight: 600, color: '#1D1D1F', marginBottom: 8 }}>删除记录</div>
+            <div style={{ fontSize: 14, color: '#666', lineHeight: 1.5, marginBottom: 20 }}>删除后无法恢复。</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setDeleteTarget(null)} style={{ flex: 1, height: 48, border: '1px solid #E8E8ED', borderRadius: 12, background: '#fff', color: '#1D1D1F', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>取消</button>
+              <button onClick={() => { setRecords((items) => items.filter((item) => item.id !== deleteTarget.id)); setDeleteTarget(null); }} style={{ flex: 1, height: 48, border: 'none', borderRadius: 12, background: '#EF4444', color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>确认删除</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
