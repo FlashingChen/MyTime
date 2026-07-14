@@ -6,7 +6,7 @@ import 'package:mytime/blocs/settings/settings_state.dart';
 import 'package:mytime/core/constants/app_colors.dart';
 import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/ui/pages/settings/category_management_page.dart';
-import 'package:mytime/ui/pages/settings/record_management_page.dart';
+import 'package:mytime/ui/pages/settings/record_management/record_management_page.dart';
 import 'package:mytime/ui/pages/settings/widgets/color_picker.dart';
 import 'package:mytime/ui/pages/settings/widgets/ai_model_config_sheet.dart';
 import 'package:mytime/ui/pages/settings/widgets/data_exchange_sheet.dart';
