@@ -129,4 +129,45 @@ void main() {
 
     expect(metrics.previousTotal, const Duration(hours: 1));
   });
+
+  test('trend points include per-category durations', () {
+    final records = [
+      TimeRecord(
+        id: 'r1',
+        categoryId: 'work',
+        startTime: DateTime(2026, 7, 10, 9),
+        endTime: DateTime(2026, 7, 10, 11),
+      ),
+      TimeRecord(
+        id: 'r2',
+        categoryId: 'read',
+        startTime: DateTime(2026, 7, 10, 14),
+        endTime: DateTime(2026, 7, 10, 15, 30),
+      ),
+    ];
+    final metrics = StatsMetrics.forRange(
+      records,
+      StatsRange.day,
+      DateTime(2026, 7, 10, 16),
+    );
+
+    expect(metrics.trend, hasLength(24));
+    // hour 9 (9:00-10:00) should have 1h of work
+    expect(
+      metrics.trend[9].categoryDurations['work'],
+      const Duration(hours: 1),
+    );
+    // hour 10 (10:00-11:00) should have 1h of work
+    expect(
+      metrics.trend[10].categoryDurations['work'],
+      const Duration(hours: 1),
+    );
+    // hour 14 (14:00-15:00) should have 1h of read
+    expect(
+      metrics.trend[14].categoryDurations['read'],
+      const Duration(hours: 1),
+    );
+    // hour 14 should have no work
+    expect(metrics.trend[14].categoryDurations['work'], isNull);
+  });
 }
