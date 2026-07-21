@@ -26,13 +26,19 @@ class StatsPage extends StatefulWidget {
 
 class _StatsPageState extends State<StatsPage> {
   late final StatsBloc _statsBloc;
-  final List<String> _selectedCategoryIds = [];
+  List<String> _selectedCategoryIds = [];
   String _tab = 'pie';
 
   @override
   void initState() {
     super.initState();
     _statsBloc = StatsBloc(context.read<RecordsBloc>());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _initSelectedCategories();
   }
 
   @override
@@ -44,7 +50,7 @@ class _StatsPageState extends State<StatsPage> {
   void _initSelectedCategories() {
     if (_selectedCategoryIds.isNotEmpty) return;
     final cats = CategoryLookup.all(context);
-    _selectedCategoryIds.addAll(cats.map((c) => c.id));
+    _selectedCategoryIds = cats.map((c) => c.id).toList();
   }
 
   @override
@@ -162,7 +168,6 @@ class _StatsPageState extends State<StatsPage> {
       case 'pie':
         return PieChartView(categoryDurations: metrics.byCategory);
       case 'bar':
-          _initSelectedCategories();
           return Column(
             children: [
               _buildFilterButton(context),
