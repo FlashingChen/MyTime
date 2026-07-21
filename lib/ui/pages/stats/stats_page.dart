@@ -12,6 +12,8 @@ import 'package:mytime/ui/pages/stats/widgets/ai_insight_view.dart';
 import 'package:mytime/ui/pages/stats/widgets/bar_chart_view.dart';
 import 'package:mytime/ui/pages/stats/widgets/pie_chart_view.dart';
 import 'package:mytime/ui/pages/stats/widgets/summary_cards.dart';
+import 'package:mytime/core/utils/category_lookup.dart';
+import 'package:mytime/ui/pages/stats/widgets/category_filter_sheet.dart';
 import 'package:mytime/ui/pages/stats/stats_metrics.dart';
 
 /// Statistics page with proportion, trend, and AI insight tabs.
@@ -24,6 +26,7 @@ class StatsPage extends StatefulWidget {
 
 class _StatsPageState extends State<StatsPage> {
   late final StatsBloc _statsBloc;
+  List<String> _selectedCategoryIds = [];
   String _tab = 'pie';
 
   @override
@@ -33,9 +36,21 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _initSelectedCategories();
+  }
+
+  @override
   void dispose() {
     unawaited(_statsBloc.close());
     super.dispose();
+  }
+
+  void _initSelectedCategories() {
+    if (_selectedCategoryIds.isNotEmpty) return;
+    final cats = CategoryLookup.all(context);
+    _selectedCategoryIds = cats.map((c) => c.id).toList();
   }
 
   @override
@@ -116,13 +131,54 @@ class _StatsPageState extends State<StatsPage> {
     _statsBloc.add(StatsRangeChanged(range));
   }
 
+  Widget _buildFilterButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () => _showFilterSheet(context),
+          icon: const Icon(Icons.tune, size: 16),
+          label: Text('已选 ${_selectedCategoryIds.length} 个分类'),
+        ),
+      ),
+    );
+  }
+
+  void _showFilterSheet(BuildContext context) async {
+    final cats = CategoryLookup.all(context);
+    final result = await showModalBottomSheet<List<String>>(
+      context: context,
+      builder: (_) => CategoryFilterSheet(
+        categories: cats,
+        selectedIds: _selectedCategoryIds,
+        onChanged: (v) => Navigator.of(context).pop(v),
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() => _selectedCategoryIds
+        ..clear()
+        ..addAll(result));
+    }
+  }
+
   Widget _buildTabContent(StatsMetrics? metrics, StatsRange range) {
     if (metrics == null) return const SizedBox.shrink();
     switch (_tab) {
       case 'pie':
         return PieChartView(categoryDurations: metrics.byCategory);
       case 'bar':
-        return BarChartView(points: metrics.trend);
+          return Column(
+            children: [
+              _buildFilterButton(context),
+              Expanded(
+                child: BarChartView(
+                  points: metrics.trend,
+                  selectedCategoryIds: _selectedCategoryIds,
+                ),
+              ),
+            ],
+          );
       case 'ai':
         return BlocBuilder<SettingsBloc, SettingsState>(
           builder: (context, settingsState) => AiInsightView(
@@ -151,6 +207,7 @@ class _StatsPageState extends State<StatsPage> {
               100 ~/
               metrics.previousTotal.inMinutes);
     final isDay = metrics.range == StatsRange.day;
+    final changeStr = '${change >= 0 ? '+' : ''}$change%';
     return SummaryCards(
       label1: isDay
           ? '今日总时长'
@@ -158,13 +215,13 @@ class _StatsPageState extends State<StatsPage> {
           ? '本周总时长'
           : '本月总时长',
       value1: format(metrics.total),
-      change1: '${change >= 0 ? '+' : ''}$change%',
+      change1: changeStr,
       label2: isDay ? '昨日总时长' : '日均',
       value2: format(isDay ? metrics.previousTotal : metrics.average),
-      change2: '',
+      change2: changeStr,
       label3: isDay ? '较昨日变化' : '较上一周期',
       value3: format(metrics.previousTotal),
-      change3: '',
+      change3: changeStr,
     );
   }
 }

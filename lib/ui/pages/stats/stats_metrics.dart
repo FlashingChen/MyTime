@@ -5,10 +5,15 @@ enum StatsRange { day, week, month }
 
 /// One labelled duration bucket in the trend chart.
 class StatsTrendPoint {
-  const StatsTrendPoint({required this.label, required this.duration});
+  const StatsTrendPoint({
+    required this.label,
+    required this.duration,
+    this.categoryDurations = const {},
+  });
 
   final String label;
   final Duration duration;
+  final Map<String, Duration> categoryDurations;
 }
 
 /// Pure, range-aware metrics consumed by the statistics widgets.
@@ -147,16 +152,27 @@ class StatsMetrics {
       final end = range == StatsRange.day
           ? start.add(const Duration(hours: 1))
           : start.add(const Duration(days: 1));
-      final duration = records.fold<Duration>(
-        Duration.zero,
-        (sum, record) => sum + _overlap(record, _DateRange(start, end)),
-      );
+      final slot = _DateRange(start, end);
+      Duration total = Duration.zero;
+      final categoryDurations = <String, Duration>{};
+      for (final record in records) {
+        final d = _overlap(record, slot);
+        if (d == Duration.zero) continue;
+        total += d;
+        final key = record.categoryId ?? 'uncategorized';
+        categoryDurations[key] =
+            (categoryDurations[key] ?? Duration.zero) + d;
+      }
       final label = switch (range) {
         StatsRange.day => index.toString().padLeft(2, '0'),
         StatsRange.week => const ['一', '二', '三', '四', '五', '六', '日'][index],
         StatsRange.month => '${index + 1}',
       };
-      return StatsTrendPoint(label: label, duration: duration);
+      return StatsTrendPoint(
+        label: label,
+        duration: total,
+        categoryDurations: categoryDurations,
+      );
     });
   }
 }

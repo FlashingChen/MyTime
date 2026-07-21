@@ -10,6 +10,9 @@ import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/ui/pages/timeline/timeline_layout.dart';
 import 'package:mytime/ui/pages/timeline/widgets/date_navigator.dart';
 import 'package:mytime/ui/pages/timeline/widgets/timeline_card.dart';
+import 'package:mytime/ui/pages/timeline/widgets/week_view.dart';
+
+enum _TimelineViewMode { day, week }
 
 /// Timeline page showing a selected day's records on a 24-hour vertical axis.
 class TimelinePage extends StatefulWidget {
@@ -29,6 +32,7 @@ class _TimelinePageState extends State<TimelinePage> {
   final ScrollController _scrollController = ScrollController();
   final Map<int, Offset> _activePointers = <int, Offset>{};
   DateTime _selectedDate = DateTime.now();
+  _TimelineViewMode _viewMode = _TimelineViewMode.day;
   double _hourHeight = _defaultHourHeight;
   double _renderedHourHeight = _defaultHourHeight;
   double? _pinchDistance;
@@ -150,6 +154,70 @@ class _TimelinePageState extends State<TimelinePage> {
     );
   }
 
+  Widget _buildViewToggle() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+      decoration: BoxDecoration(
+        color: context.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _viewMode = _TimelineViewMode.day),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  color: _viewMode == _TimelineViewMode.day
+                      ? context.colorScheme.primary
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '日',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _viewMode == _TimelineViewMode.day
+                        ? context.colorScheme.onPrimary
+                        : context.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _viewMode = _TimelineViewMode.week),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  color: _viewMode == _TimelineViewMode.week
+                      ? context.colorScheme.primary
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '周',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _viewMode == _TimelineViewMode.week
+                        ? context.colorScheme.onPrimary
+                        : context.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     _renderedHourHeight = _hourHeight;
@@ -162,6 +230,7 @@ class _TimelinePageState extends State<TimelinePage> {
               onPrev: () => _onDateChanged(-1),
               onNext: () => _onDateChanged(1),
             ),
+            _buildViewToggle(),
             Expanded(
               child: BlocBuilder<RecordsBloc, RecordsState>(
                 builder: (context, state) {
@@ -169,6 +238,18 @@ class _TimelinePageState extends State<TimelinePage> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (state is RecordsLoaded) {
+                    if (_viewMode == _TimelineViewMode.week) {
+                      return WeekView(
+                        selectedDate: _selectedDate,
+                        records: state.records,
+                        onDayTap: (date) {
+                          setState(() {
+                            _selectedDate = date;
+                            _viewMode = _TimelineViewMode.day;
+                          });
+                        },
+                      );
+                    }
                     return _buildTimeline(
                       state.records
                           .where(_isSelectedDate)
