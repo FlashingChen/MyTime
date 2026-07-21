@@ -23,7 +23,7 @@ void main() {
     );
 
     expect(find.text('工作'), findsOneWidget);
-    expect(find.text('2h 00m'), findsOneWidget);
+    expect(find.text('2h 00m'), findsNWidgets(2));
   });
 
   testWidgets('tapping a pie section shows and toggles its tooltip', (
@@ -89,6 +89,20 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
 
     expect(find.text('自定义分类'), findsOneWidget);
+  });
+testWidgets('shows center total when no category is selected', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PieChartView(
+            categoryDurations: const {'work': Duration(hours: 2)},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('2h 00m'), findsNWidgets(2));
+    expect(find.text('总计'), findsOneWidget);
   });
 }
 

@@ -105,7 +105,7 @@ class _PieChartViewState extends State<PieChartView> {
                     child: PieChart(
                       PieChartData(
                         sections: _sections(items),
-                        centerSpaceRadius: 38,
+                        centerSpaceRadius: 44,
                         sectionsSpace: 2,
                         pieTouchData: PieTouchData(
                           touchCallback: (event, response) {
@@ -129,7 +129,10 @@ class _PieChartViewState extends State<PieChartView> {
                       curve: Curves.easeOut,
                     ),
                   ),
-                  if (selectedItem != null) _Tooltip(item: selectedItem),
+                  if (selectedItem != null)
+                      _Tooltip(item: selectedItem)
+                    else
+                      _CenterTotal(total: totalSeconds),
                 ],
               ),
             ),
@@ -290,6 +293,40 @@ class _LegendItem extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CenterTotal extends StatelessWidget {
+  final int total;
+  const _CenterTotal({required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final hours = total ~/ 3600;
+    final minutes = (total % 3600) ~/ 60;
+    final label = hours > 0
+        ? '${hours}h ${minutes.toString().padLeft(2, '0')}m'
+        : '${minutes}m';
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: context.colorScheme.onSurface,
+          ),
+        ),
+        Text(
+          '总计',
+          style: TextStyle(
+            fontSize: 10,
+            color: context.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
