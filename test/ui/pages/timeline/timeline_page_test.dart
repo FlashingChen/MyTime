@@ -115,4 +115,20 @@ void main() {
       scrollable.position.removeListener(countPositionChange);
     },
   );
+
+  testWidgets('shows day/week toggle tabs', (tester) async {
+    await pumpTimeline(tester);
+
+    expect(find.text('日'), findsOneWidget);
+    expect(find.text('周'), findsOneWidget);
+  });
+
+  testWidgets('tapping week tab shows week view', (tester) async {
+    await pumpTimeline(tester);
+
+    await tester.tap(find.text('周'));
+    await tester.pump();
+
+    expect(find.text('一'), findsOneWidget);
+  });
 }
