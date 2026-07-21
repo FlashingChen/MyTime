@@ -202,6 +202,7 @@ class _StatsPageState extends State<StatsPage> {
               100 ~/
               metrics.previousTotal.inMinutes);
     final isDay = metrics.range == StatsRange.day;
+    final changeStr = '${change >= 0 ? '+' : ''}$change%';
     return SummaryCards(
       label1: isDay
           ? '今日总时长'
@@ -209,13 +210,13 @@ class _StatsPageState extends State<StatsPage> {
           ? '本周总时长'
           : '本月总时长',
       value1: format(metrics.total),
-      change1: '${change >= 0 ? '+' : ''}$change%',
+      change1: changeStr,
       label2: isDay ? '昨日总时长' : '日均',
       value2: format(isDay ? metrics.previousTotal : metrics.average),
-      change2: '',
+      change2: changeStr,
       label3: isDay ? '较昨日变化' : '较上一周期',
       value3: format(metrics.previousTotal),
-      change3: '',
+      change3: changeStr,
     );
   }
 }
