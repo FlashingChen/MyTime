@@ -12,6 +12,8 @@ import 'package:mytime/ui/pages/stats/widgets/ai_insight_view.dart';
 import 'package:mytime/ui/pages/stats/widgets/bar_chart_view.dart';
 import 'package:mytime/ui/pages/stats/widgets/pie_chart_view.dart';
 import 'package:mytime/ui/pages/stats/widgets/summary_cards.dart';
+import 'package:mytime/core/utils/category_lookup.dart';
+import 'package:mytime/ui/pages/stats/widgets/category_filter_sheet.dart';
 import 'package:mytime/ui/pages/stats/stats_metrics.dart';
 
 /// Statistics page with proportion, trend, and AI insight tabs.
@@ -24,6 +26,7 @@ class StatsPage extends StatefulWidget {
 
 class _StatsPageState extends State<StatsPage> {
   late final StatsBloc _statsBloc;
+  final List<String> _selectedCategoryIds = [];
   String _tab = 'pie';
 
   @override
@@ -36,6 +39,12 @@ class _StatsPageState extends State<StatsPage> {
   void dispose() {
     unawaited(_statsBloc.close());
     super.dispose();
+  }
+
+  void _initSelectedCategories() {
+    if (_selectedCategoryIds.isNotEmpty) return;
+    final cats = CategoryLookup.all(context);
+    _selectedCategoryIds.addAll(cats.map((c) => c.id));
   }
 
   @override
@@ -116,13 +125,55 @@ class _StatsPageState extends State<StatsPage> {
     _statsBloc.add(StatsRangeChanged(range));
   }
 
+  Widget _buildFilterButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () => _showFilterSheet(context),
+          icon: const Icon(Icons.tune, size: 16),
+          label: Text('已选 ${_selectedCategoryIds.length} 个分类'),
+        ),
+      ),
+    );
+  }
+
+  void _showFilterSheet(BuildContext context) async {
+    final cats = CategoryLookup.all(context);
+    final result = await showModalBottomSheet<List<String>>(
+      context: context,
+      builder: (_) => CategoryFilterSheet(
+        categories: cats,
+        selectedIds: _selectedCategoryIds,
+        onChanged: (v) => Navigator.of(context).pop(v),
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() => _selectedCategoryIds
+        ..clear()
+        ..addAll(result));
+    }
+  }
+
   Widget _buildTabContent(StatsMetrics? metrics, StatsRange range) {
     if (metrics == null) return const SizedBox.shrink();
     switch (_tab) {
       case 'pie':
         return PieChartView(categoryDurations: metrics.byCategory);
       case 'bar':
-        return BarChartView(points: metrics.trend);
+          _initSelectedCategories();
+          return Column(
+            children: [
+              _buildFilterButton(context),
+              Expanded(
+                child: BarChartView(
+                  points: metrics.trend,
+                  selectedCategoryIds: _selectedCategoryIds,
+                ),
+              ),
+            ],
+          );
       case 'ai':
         return BlocBuilder<SettingsBloc, SettingsState>(
           builder: (context, settingsState) => AiInsightView(
