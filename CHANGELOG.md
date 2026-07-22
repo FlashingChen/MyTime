@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- WebDAV 同步支持编辑后网络约束后台任务、ETag 条件写入、可选文件锁、记录/分类逐 ID 合并和保留 90 天的删除墓碑；同一记录冲突时保留本机版本。
+
 ### Added
 - 领域模型与 Hive DTO 分离；记录和分类通过 DataStore Adapter 持久化，BLoC 通过 Repository Port 访问数据。
 - `PreferencesStore` 抽象普通设置与活动计时的 SharedPreferences 访问；为后续替换存储实现保留边界。

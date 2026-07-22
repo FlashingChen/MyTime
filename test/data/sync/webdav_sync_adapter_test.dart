@@ -54,8 +54,10 @@ void main() {
           ),
         ],
       ),
+      ifMatch: null,
+      ifNoneMatch: true,
     );
-    expect(jsonDecode(body)['version'], 1);
+    expect(jsonDecode(body)['version'], 2);
   });
 
   test('rejects an invalid snapshot before sending a WebDAV request', () async {
@@ -82,7 +84,10 @@ void main() {
       ],
     );
 
-    await expectLater(adapter.push(invalidSnapshot), throwsArgumentError);
+    await expectLater(
+      adapter.push(invalidSnapshot, ifMatch: null, ifNoneMatch: true),
+      throwsArgumentError,
+    );
 
     expect(requests, 0);
   });

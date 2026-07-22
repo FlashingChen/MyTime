@@ -1,14 +1,16 @@
 import 'package:mytime/data/sync/sync_local_store.dart';
 import 'package:mytime/data/sync/sync_port.dart';
+import 'package:mytime/data/sync/sync_merge_service.dart';
 
 /// The direction selected by one synchronization attempt.
-enum SyncResolution { appliedRemote, pushedLocal }
+enum SyncResolution { merged }
 
 /// Immutable outcome of a successful synchronization attempt.
 class SyncResult {
-  const SyncResult(this.resolution);
+  const SyncResult(this.resolution, {this.retryCount = 0});
 
   final SyncResolution resolution;
+  final int retryCount;
 }
 
 /// Coordinates one remote target and one local snapshot store.
@@ -17,12 +19,17 @@ class SyncResult {
 /// `updatedAt` wins. Equal timestamps intentionally prefer local data, making
 /// the outcome deterministic and avoiding a destructive remote overwrite.
 class SyncService {
-  SyncService({required SyncLocalStore local, required SyncPort remote})
-    : _local = local,
-      _remote = remote;
+  SyncService({
+    required SyncLocalStore local,
+    required SyncPort remote,
+    SyncMergeService? merger,
+  }) : _local = local,
+       _remote = remote,
+       _merger = merger ?? SyncMergeService();
 
   final SyncLocalStore _local;
   final SyncPort _remote;
+  final SyncMergeService _merger;
   Future<SyncResult>? _inFlight;
 
   /// Performs one pull/compare/apply-or-push cycle.
@@ -43,29 +50,47 @@ class SyncService {
   }
 
   Future<SyncResult> _synchronize() async {
-    final local = await _local.read();
-    local.validate();
-
-    final remote = await _remote.pull();
-    if (remote == null) {
-      await _remote.push(await _currentLocal());
-      return const SyncResult(SyncResolution.pushedLocal);
+    SyncLock? lock;
+    try {
+      for (var attempt = 0; attempt < 3; attempt++) {
+        final local = await _local.read();
+        local.validate();
+        final remote = await _remote.pull();
+        if (remote != null) lock ??= await _remote.lock();
+        final merged = remote == null
+            ? local
+            : _merger.merge(local: local, remote: remote.snapshot);
+        try {
+          final eTag = await _remote.push(
+            merged,
+            ifMatch: remote?.eTag,
+            ifNoneMatch: remote == null,
+          );
+          final applied = await _local.replaceIfCurrent(
+            local.updatedAt,
+            SyncSnapshot(
+              records: merged.records,
+              categories: merged.categories,
+              updatedAt: merged.updatedAt,
+              metadata: merged.metadata.copyWith(
+                eTag: eTag ?? remote?.eTag,
+                lastSuccessAt: DateTime.now().toUtc(),
+              ),
+            ),
+          );
+          if (!applied) {
+            continue;
+          }
+        } on SyncPreconditionFailed {
+          if (attempt == 2) rethrow;
+          continue;
+        }
+        return SyncResult(SyncResolution.merged, retryCount: attempt);
+      }
+    } finally {
+      if (lock != null) await _remote.unlock(lock);
     }
-
-    remote.validate();
-    if (remote.updatedAt.isAfter(local.updatedAt)) {
-      final applied = await _local.replaceIfCurrent(local.updatedAt, remote);
-      if (applied) return const SyncResult(SyncResolution.appliedRemote);
-    }
-
-    await _remote.push(await _currentLocal());
-    return const SyncResult(SyncResolution.pushedLocal);
-  }
-
-  Future<SyncSnapshot> _currentLocal() async {
-    final snapshot = await _local.read();
-    snapshot.validate();
-    return snapshot;
+    throw StateError('unreachable');
   }
 
   void _clearInFlight(Future<SyncResult> completed) {

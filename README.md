@@ -12,7 +12,7 @@
 - 本日/本周/本月的占比、趋势和 AI 建议；无 AI 配置或请求失败时保留本地建议。
 - 记录管理、分类新增/编辑/删除、主题色与深浅色模式。
 - JSON 剪贴板导入/导出；导入会先验证版本、字段、ID、分类引用和时间范围，失败时恢复导入前的数据。
-- 手动 WebDAV 同步：HTTPS 文档地址、用户名和密码可在设置中保存；密码使用系统安全存储。同步按整个快照的更新时间进行确定性的最后写入优先处理。
+- WebDAV 同步：HTTPS 文档地址、用户名和密码可在设置中保存；密码使用系统安全存储。记录或分类变更会在网络可用时提交唯一后台同步任务，同一记录冲突时保留本机版本。
 
 ## 隐私与安全
 
@@ -36,7 +36,7 @@ RecordDataStore / CategoryDataStore / PreferencesStore
 Hive DTO + Hive Adapter / SharedPreferences
 ```
 
-WebDAV 通过 `SyncPort`、`WebDavSyncCoordinator` 和 Repository 变更追踪接入。它只在用户点按“立即同步”时访问远端：远端快照严格较新时覆盖本机，否则上传本机；同一更新时间时本机胜出。当前不提供后台自动同步、ETag/文件锁或逐记录合并，使用多设备时应避免并发编辑。详细说明见 [架构说明](docs/architecture.md)。
+WebDAV 通过 `SyncPort`、`WebDavSyncCoordinator`、Repository 变更追踪和 Android WorkManager 接入。每次本地变更会合并为一次网络约束的后台同步；远端以记录、分类和 90 天删除墓碑逐 ID 合并，同 ID 内容冲突时本机优先。同步使用 ETag 条件写入，并在服务支持时使用短时 WebDAV 锁。详细说明见 [架构说明](docs/architecture.md)。
 
 ## 开始开发
 

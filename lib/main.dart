@@ -17,13 +17,18 @@ import 'package:mytime/data/sync/sync_local_store.dart';
 import 'package:mytime/data/sync/sync_mutation_tracker.dart';
 import 'package:mytime/data/sync/sync_data_gate.dart';
 import 'package:mytime/data/sync/sync_revision_store.dart';
+import 'package:mytime/data/sync/sync_metadata_store.dart';
+import 'package:mytime/data/sync/sync_scheduler.dart';
+import 'package:mytime/data/sync/webdav_background_task.dart';
 import 'package:mytime/data/sync/webdav_sync_coordinator.dart';
 import 'package:mytime/ui/app_shell.dart';
+import 'package:workmanager/workmanager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await HiveHelper.init();
+  await Workmanager().initialize(callbackDispatcher);
 
   final recordsBox = await HiveHelper.openRecordsBox();
   final categoriesBox = await HiveHelper.openCategoriesBox();
@@ -35,7 +40,12 @@ void main() async {
     HiveCategoryDataStore(categoriesBox),
   );
   final revisionStore = PreferencesSyncRevisionStore(preferences);
-  final mutationTracker = SyncMutationTracker(revision: revisionStore);
+  final metadataStore = PreferencesSyncMetadataStore(preferences);
+  final mutationTracker = SyncMutationTracker(
+    revision: revisionStore,
+    metadata: metadataStore,
+    scheduler: const WorkmanagerSyncScheduler(),
+  );
   final syncDataGate = SyncDataGate();
 
   // User-originated writes use the decorators. Sync replacement deliberately
@@ -54,6 +64,7 @@ void main() async {
     records: rawRecordRepository,
     categories: rawCategoryRepository,
     revision: revisionStore,
+    metadata: metadataStore,
     gate: syncDataGate,
   );
   final settingsRepo = SettingsRepository(preferences: preferences);

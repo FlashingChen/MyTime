@@ -6,6 +6,7 @@ import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/sync/sync_mutation_tracker.dart';
 import 'package:mytime/data/sync/sync_data_gate.dart';
+import 'package:mytime/data/sync/sync_metadata.dart';
 
 /// Validates and atomically imports a MyTime JSON backup.
 class DataTransferService {
@@ -33,12 +34,48 @@ class DataTransferService {
     try {
       await _categories.replaceAll(backup.categories);
       await _records.replaceAll(backup.records);
-      await _mutationMarker?.markLocalChanged();
+      await _markImportedChanges(
+        previousRecords: previousRecords,
+        previousCategories: previousCategories,
+        records: backup.records,
+        categories: backup.categories,
+      );
       return ImportResult(backup.records.length, backup.categories.length);
     } catch (_) {
       await _categories.replaceAll(previousCategories);
       await _records.replaceAll(previousRecords);
       rethrow;
+    }
+  }
+
+  Future<void> _markImportedChanges({
+    required List<TimeRecord> previousRecords,
+    required List<Category> previousCategories,
+    required List<TimeRecord> records,
+    required List<Category> categories,
+  }) async {
+    final marker = _mutationMarker;
+    if (marker is! SyncEntityMutationMarker) {
+      await marker?.markLocalChanged();
+      return;
+    }
+    final previousRecordIds = previousRecords.map((item) => item.id).toSet();
+    final previousCategoryIds = previousCategories
+        .map((item) => item.id)
+        .toSet();
+    final recordIds = records.map((item) => item.id).toSet();
+    final categoryIds = categories.map((item) => item.id).toSet();
+    for (final id in previousRecordIds.difference(recordIds)) {
+      await marker.markDeleted(SyncEntityKind.record, id);
+    }
+    for (final id in previousCategoryIds.difference(categoryIds)) {
+      await marker.markDeleted(SyncEntityKind.category, id);
+    }
+    for (final id in recordIds) {
+      await marker.markChanged(SyncEntityKind.record, id);
+    }
+    for (final id in categoryIds) {
+      await marker.markChanged(SyncEntityKind.category, id);
     }
   }
 

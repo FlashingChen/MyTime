@@ -4,6 +4,8 @@ import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/sync/sync_port.dart';
 import 'package:mytime/data/sync/sync_data_gate.dart';
 import 'package:mytime/data/sync/sync_revision_store.dart';
+import 'package:mytime/data/sync/sync_metadata_store.dart';
+import 'package:mytime/data/sync/sync_metadata.dart';
 
 /// Storage-agnostic boundary for reading and failure-safely replacing local data.
 abstract interface class SyncLocalStore {
@@ -33,15 +35,18 @@ class RepositorySyncLocalStore implements SyncLocalStore {
     required RecordsRepository records,
     required CategoriesRepository categories,
     required SyncRevisionStore revision,
+    SyncMetadataStore? metadata,
     SyncDataGate? gate,
   }) : _records = records,
        _categories = categories,
        _revision = revision,
+       _metadata = metadata,
        _gate = gate ?? SyncDataGate();
 
   final RecordsRepository _records;
   final CategoriesRepository _categories;
   final SyncRevisionStore _revision;
+  final SyncMetadataStore? _metadata;
   final SyncDataGate _gate;
 
   @override
@@ -50,6 +55,7 @@ class RepositorySyncLocalStore implements SyncLocalStore {
       records: _records.getAll(),
       categories: _categories.getAll(),
       updatedAt: await _revision.readUpdatedAt(),
+      metadata: await _metadata?.read() ?? const SyncMetadata(),
     );
     snapshot.validate();
     return snapshot;
@@ -79,10 +85,12 @@ class RepositorySyncLocalStore implements SyncLocalStore {
     try {
       await _writeSnapshot(snapshot);
       await _revision.writeUpdatedAt(snapshot.updatedAt);
+      await _metadata?.write(snapshot.metadata);
     } catch (error, stackTrace) {
       try {
         await _writeSnapshot(previous);
         await _revision.writeUpdatedAt(previous.updatedAt);
+        await _metadata?.write(previous.metadata);
       } catch (rollbackError, rollbackStackTrace) {
         throw SyncRollbackException(
           cause: error,

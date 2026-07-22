@@ -4,12 +4,14 @@ import 'dart:io';
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/sync/sync_port.dart';
+import 'package:mytime/data/sync/sync_metadata.dart';
 
 /// Normalized response returned by an injectable WebDAV transport.
 class WebDavResponse {
-  const WebDavResponse(this.statusCode, this.body);
+  const WebDavResponse(this.statusCode, this.body, [this.headers = const {}]);
   final int statusCode;
   final String body;
+  final Map<String, String> headers;
 }
 
 /// Injectable HTTP transport used to isolate WebDAV protocol tests.
@@ -35,9 +37,10 @@ class WebDavSyncAdapter implements SyncPort {
   final Uri _endpoint;
   final String _authorization;
   final WebDavRequest _request;
+  String? _activeLockToken;
 
   @override
-  Future<SyncSnapshot?> pull() async {
+  Future<RemoteSyncDocument?> pull() async {
     final response = await _request('GET', _endpoint, _headers, null);
     if (response.statusCode == HttpStatus.notFound) {
       return null;
@@ -45,20 +48,70 @@ class WebDavSyncAdapter implements SyncPort {
     if (response.statusCode != HttpStatus.ok) {
       throw HttpException('WebDAV GET failed: ${response.statusCode}');
     }
-    return _decode(response.body);
+    return RemoteSyncDocument(
+      snapshot: _decode(response.body),
+      eTag: response.headers['etag'],
+    );
   }
 
   @override
-  Future<void> push(SyncSnapshot snapshot) async {
+  Future<String?> push(
+    SyncSnapshot snapshot, {
+    required String? ifMatch,
+    required bool ifNoneMatch,
+  }) async {
     snapshot.validate();
-    final response = await _request(
-      'PUT',
-      _endpoint,
-      _headers,
-      jsonEncode(_encode(snapshot)),
-    );
+    final response = await _request('PUT', _endpoint, {
+      ..._headers,
+      if (ifMatch != null) 'If-Match': ifMatch,
+      if (ifNoneMatch) 'If-None-Match': '*',
+      if (_activeLockToken != null) 'If': '(<$_activeLockToken>)',
+    }, jsonEncode(_encode(snapshot)));
+    if (response.statusCode == HttpStatus.preconditionFailed) {
+      throw const SyncPreconditionFailed();
+    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw HttpException('WebDAV PUT failed: ${response.statusCode}');
+    }
+    return response.headers['etag'];
+  }
+
+  @override
+  Future<SyncLock?> lock() async {
+    final response = await _request(
+      'LOCK',
+      _endpoint,
+      {..._headers, 'Timeout': 'Second-30'},
+      '''<?xml version="1.0" encoding="utf-8"?><D:lockinfo xmlns:D="DAV:"><D:lockscope><D:exclusive/></D:lockscope><D:locktype><D:write/></D:locktype><D:owner>MyTime</D:owner></D:lockinfo>''',
+    );
+    if (response.statusCode == HttpStatus.notImplemented ||
+        response.statusCode == HttpStatus.methodNotAllowed) {
+      return null;
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw HttpException('WebDAV LOCK failed: ${response.statusCode}');
+    }
+    final token = response.headers['lock-token'];
+    if (token == null || token.isEmpty) {
+      throw const FormatException(
+        'WebDAV LOCK response did not include Lock-Token',
+      );
+    }
+    _activeLockToken = token;
+    return SyncLock(token);
+  }
+
+  @override
+  Future<void> unlock(SyncLock lock) async {
+    final response = await _request('UNLOCK', _endpoint, {
+      ..._headers,
+      'Lock-Token': lock.token,
+    }, null);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw HttpException('WebDAV UNLOCK failed: ${response.statusCode}');
+    }
+    if (_activeLockToken == lock.token) {
+      _activeLockToken = null;
     }
   }
 
@@ -83,10 +136,19 @@ class WebDavSyncAdapter implements SyncPort {
       return WebDavResponse(
         response.statusCode,
         await utf8.decoder.bind(response).join(),
+        _responseHeaders(response.headers),
       );
     } finally {
       client.close(force: true);
     }
+  }
+
+  static Map<String, String> _responseHeaders(HttpHeaders headers) {
+    final values = <String, String>{};
+    headers.forEach((name, entries) {
+      values[name.toLowerCase()] = entries.join(',');
+    });
+    return values;
   }
 
   static Uri _validateEndpoint(Uri endpoint) {
@@ -113,7 +175,7 @@ class WebDavSyncAdapter implements SyncPort {
   }
 
   static Map<String, Object?> _encode(SyncSnapshot snapshot) => {
-    'version': 1,
+    'version': 2,
     'updatedAt': snapshot.updatedAt.toIso8601String(),
     'categories': snapshot.categories
         .map((item) => {'id': item.id, 'name': item.name, 'color': item.color})
@@ -130,18 +192,56 @@ class WebDavSyncAdapter implements SyncPort {
           },
         )
         .toList(),
+    'metadata': {
+      'records': _metadata(snapshot.metadata.records),
+      'categories': _metadata(snapshot.metadata.categories),
+    },
+  };
+
+  static Map<String, Object?> _metadata(
+    Map<String, SyncEntityMetadata> values,
+  ) => {
+    for (final entry in values.entries)
+      entry.key: {
+        'updatedAt': entry.value.updatedAt?.toUtc().toIso8601String(),
+        'deletedAt': entry.value.deletedAt?.toUtc().toIso8601String(),
+      },
   };
 
   static SyncSnapshot _decode(String source) {
     try {
       final root = _map(jsonDecode(source), 'document');
-      if (root['version'] != 1) {
+      final version = root['version'];
+      if (version != 1 && version != 2) {
         throw const FormatException('Unsupported MyTime sync document version');
       }
+      final updatedAt = _date(root, 'updatedAt');
+      final records = _list(root, 'records').map(_record).toList();
+      final categories = _list(root, 'categories').map(_category).toList();
       final snapshot = SyncSnapshot(
-        updatedAt: _date(root, 'updatedAt'),
-        categories: _list(root, 'categories').map(_category).toList(),
-        records: _list(root, 'records').map(_record).toList(),
+        updatedAt: updatedAt,
+        categories: categories,
+        records: records,
+        metadata: version == 1
+            ? SyncMetadata(
+                records: {
+                  for (final item in records)
+                    item.id: SyncEntityMetadata(
+                      kind: SyncEntityKind.record,
+                      id: item.id,
+                      updatedAt: updatedAt,
+                    ),
+                },
+                categories: {
+                  for (final item in categories)
+                    item.id: SyncEntityMetadata(
+                      kind: SyncEntityKind.category,
+                      id: item.id,
+                      updatedAt: updatedAt,
+                    ),
+                },
+              )
+            : _decodeMetadata(_map(root['metadata'], 'metadata')),
       );
       snapshot.validate();
       return snapshot;
@@ -150,6 +250,44 @@ class WebDavSyncAdapter implements SyncPort {
     } catch (_) {
       throw const FormatException('Invalid MyTime sync document');
     }
+  }
+
+  static SyncMetadata _decodeMetadata(Map<String, Object?> root) =>
+      SyncMetadata(
+        records: _decodeMetadataEntries(
+          _map(root['records'], 'metadata.records'),
+          SyncEntityKind.record,
+        ),
+        categories: _decodeMetadataEntries(
+          _map(root['categories'], 'metadata.categories'),
+          SyncEntityKind.category,
+        ),
+      );
+
+  static Map<String, SyncEntityMetadata> _decodeMetadataEntries(
+    Map<String, Object?> root,
+    SyncEntityKind kind,
+  ) => {
+    for (final entry in root.entries)
+      entry.key: SyncEntityMetadata(
+        kind: kind,
+        id: entry.key,
+        updatedAt: entry.value == null
+            ? null
+            : _nullableDate(_map(entry.value, 'metadata entry'), 'updatedAt'),
+        deletedAt: entry.value == null
+            ? null
+            : _nullableDate(_map(entry.value, 'metadata entry'), 'deletedAt'),
+      ),
+  };
+
+  static DateTime? _nullableDate(Map<String, Object?> source, String name) {
+    final value = source[name];
+    if (value == null) return null;
+    if (value is! String) {
+      throw FormatException('$name must be a string or null');
+    }
+    return DateTime.parse(value).toUtc();
   }
 
   static Map<String, Object?> _map(Object? value, String name) {
