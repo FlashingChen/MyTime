@@ -58,13 +58,27 @@ class WeekView extends StatelessWidget {
                 touchTooltipData: BarTouchTooltipData(
                   getTooltipItem: (group, groupIndex, rod, rodIndex) {
                     final day = weekData[groupIndex];
+                    if (rod.rodStackItems.isEmpty) {
+                      return BarTooltipItem(
+                        '${day.label}\n${formatStatsDuration(day.total)}',
+                        TextStyle(
+                          color: context.colorScheme.onPrimary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      );
+                    }
                     final catId = _categoryAtRod(day, rodIndex);
                     final catName = catId != null
                         ? CategoryLookup.byId(context, catId).name
                         : '';
+                    final stackItem = rod.rodStackItems[rodIndex];
                     return BarTooltipItem(
                       '${day.label}\n$catName ${formatStatsDuration(
-                        Duration(minutes: (rod.toY - rod.fromY).round() * 60),
+                        Duration(
+                          minutes: ((stackItem.toY - stackItem.fromY) * 60)
+                              .round(),
+                        ),
                       )}',
                       TextStyle(
                         color: context.colorScheme.onPrimary,
@@ -171,38 +185,43 @@ class WeekView extends StatelessWidget {
   }
 
   List<BarChartRodData> _buildRods(BuildContext context, _DayData day) {
-    final rods = <BarChartRodData>[];
-    double cumulative = 0;
     final ids = day.categoryDurations.keys.toList();
-    for (var i = 0; i < ids.length; i++) {
-      final catId = ids[i];
+    double total = 0;
+    final stackItems = <BarChartRodStackItem>[];
+    double cumulative = 0;
+    for (final catId in ids) {
       final value = (day.categoryDurations[catId]?.inMinutes ?? 0) / 60;
       if (value <= 0) continue;
+      total += value;
       final cat = CategoryLookup.byId(context, catId);
       final color = Color(int.parse(cat.color.replaceFirst('#', '0xFF')));
-      rods.add(
-        BarChartRodData(
-          fromY: cumulative,
-          toY: cumulative + value,
-          color: color.withValues(alpha: 0.85),
-          width: 24,
-          borderRadius: i == ids.length - 1
-              ? const BorderRadius.vertical(top: Radius.circular(4))
-              : BorderRadius.zero,
+      stackItems.add(
+        BarChartRodStackItem(
+          cumulative,
+          cumulative + value,
+          color.withValues(alpha: 0.85),
         ),
       );
       cumulative += value;
     }
-    if (rods.isEmpty) {
-      rods.add(
+    if (stackItems.isEmpty) {
+      return [
         BarChartRodData(
           toY: 0.01,
           color: Colors.transparent,
           width: 24,
         ),
-      );
+      ];
     }
-    return rods;
+    return [
+      BarChartRodData(
+        toY: total,
+        color: Colors.transparent,
+        width: 24,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+        rodStackItems: stackItems,
+      ),
+    ];
   }
 
   String? _categoryAtRod(_DayData day, int rodIndex) {
