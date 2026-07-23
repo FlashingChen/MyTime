@@ -10,6 +10,7 @@ class SyncDataGate {
   Future<void> _tail = Future<void>.value();
   static final String _lockPath =
       '${Directory.systemTemp.path}${Platform.pathSeparator}mytime_sync.mutex';
+  static const _staleLockAge = Duration(minutes: 10);
 
   /// Runs [operation] after earlier guarded data mutations have finished.
   Future<T> run<T>(Future<T> Function() operation) {
@@ -27,8 +28,15 @@ class SyncDataGate {
           // Exclusive file creation is atomic across isolates in the same
           // process, unlike POSIX advisory file locks, which are process-scoped.
           await lock.create(exclusive: true);
+          await lock.writeAsString(DateTime.now().toUtc().toIso8601String());
           break;
         } on FileSystemException {
+          final modified = await lock.lastModified();
+          if (DateTime.now().toUtc().difference(modified.toUtc()) >
+              _staleLockAge) {
+            await lock.delete();
+            continue;
+          }
           await Future<void>.delayed(const Duration(milliseconds: 10));
         }
       }

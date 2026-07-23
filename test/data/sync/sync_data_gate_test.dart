@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mytime/data/sync/sync_data_gate.dart';
@@ -29,4 +30,19 @@ void main() {
       expect(secondStarted, isTrue);
     },
   );
+
+  test('reclaims a lock left by a terminated synchronization', () async {
+    final lock = File(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}mytime_sync.mutex',
+    );
+    await lock.writeAsString('stale');
+    await lock.setLastModified(
+      DateTime.now().subtract(const Duration(minutes: 11)),
+    );
+
+    var ran = false;
+    await SyncDataGate().run(() async => ran = true);
+
+    expect(ran, isTrue);
+  });
 }

@@ -132,7 +132,9 @@ class WebDavSyncAdapter implements SyncPort {
       request.followRedirects = false;
       headers.forEach(request.headers.set);
       if (body != null) request.write(body);
-      final response = await request.close();
+      final response = await request.close().timeout(
+        const Duration(minutes: 2),
+      );
       return WebDavResponse(
         response.statusCode,
         await utf8.decoder.bind(response).join(),
