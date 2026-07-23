@@ -9,7 +9,7 @@ class SyncDataGate {
   static final Object _zoneKey = Object();
   Future<void> _tail = Future<void>.value();
   static final String _lockPath =
-      '${Directory.systemTemp.path}${Platform.pathSeparator}mytime_sync.lock';
+      '${Directory.systemTemp.path}${Platform.pathSeparator}mytime_sync.mutex';
 
   /// Runs [operation] after earlier guarded data mutations have finished.
   Future<T> run<T>(Future<T> Function() operation) {
@@ -20,11 +20,13 @@ class SyncDataGate {
   }
 
   Future<T> _runLocked<T>(Future<T> Function() operation) async {
-    final lock = await File(_lockPath).open(mode: FileMode.append);
+    final lock = File(_lockPath);
     try {
       while (true) {
         try {
-          await lock.lock(FileLock.exclusive);
+          // Exclusive file creation is atomic across isolates in the same
+          // process, unlike POSIX advisory file locks, which are process-scoped.
+          await lock.create(exclusive: true);
           break;
         } on FileSystemException {
           await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -35,8 +37,7 @@ class SyncDataGate {
         zoneValues: <Object, Object>{_zoneKey: this},
       );
     } finally {
-      await lock.unlock();
-      await lock.close();
+      if (await lock.exists()) await lock.delete();
     }
   }
 }
