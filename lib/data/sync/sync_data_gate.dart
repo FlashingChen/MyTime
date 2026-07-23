@@ -22,16 +22,22 @@ class SyncDataGate {
 
   Future<T> _runLocked<T>(Future<T> Function() operation) async {
     final lock = File(_lockPath);
+    final token = '$pid-${DateTime.now().microsecondsSinceEpoch}';
     try {
       while (true) {
         try {
           // Exclusive file creation is atomic across isolates in the same
           // process, unlike POSIX advisory file locks, which are process-scoped.
           await lock.create(exclusive: true);
-          await lock.writeAsString(DateTime.now().toUtc().toIso8601String());
+          await lock.writeAsString(token);
           break;
         } on FileSystemException {
-          final modified = await lock.lastModified();
+          DateTime modified;
+          try {
+            modified = await lock.lastModified();
+          } on FileSystemException {
+            continue;
+          }
           if (DateTime.now().toUtc().difference(modified.toUtc()) >
               _staleLockAge) {
             await lock.delete();
@@ -45,7 +51,9 @@ class SyncDataGate {
         zoneValues: <Object, Object>{_zoneKey: this},
       );
     } finally {
-      if (await lock.exists()) await lock.delete();
+      if (await lock.exists() && await lock.readAsString() == token) {
+        await lock.delete();
+      }
     }
   }
 }

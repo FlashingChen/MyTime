@@ -72,9 +72,7 @@ class SyncMergeService {
     }) {
       final localMeta = localMetadata[id];
       final remoteMeta = remoteMetadata[id];
-      final deleted = localMeta != null
-          ? _effectiveDeletion(localMeta, null)
-          : _effectiveDeletion(null, remoteMeta);
+      final deleted = _effectiveDeletion(localMeta, remoteMeta);
       if (deleted != null) {
         metadata[id] = deleted;
         continue;
@@ -109,17 +107,7 @@ class SyncMergeService {
     candidates.sort(
       (left, right) => left.deletedAt!.compareTo(right.deletedAt!),
     );
-    final deletion = candidates.last;
-    final latestUpdate = [a?.updatedAt, b?.updatedAt]
-        .whereType<DateTime>()
-        .fold<DateTime?>(
-          null,
-          (latest, value) =>
-              latest == null || value.isAfter(latest) ? value : latest,
-        );
-    return latestUpdate == null || deletion.deletedAt!.isAfter(latestUpdate)
-        ? deletion
-        : null;
+    return candidates.last;
   }
 
   Map<String, SyncEntityMetadata> _prune(

@@ -73,7 +73,16 @@ class WebDavSyncAdapter implements SyncPort {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw HttpException('WebDAV PUT failed: ${response.statusCode}');
     }
-    return response.headers['etag'];
+    final eTag = response.headers['etag'];
+    if (eTag != null) return eTag;
+    final confirmation = await _request('GET', _endpoint, _headers, null);
+    if (confirmation.statusCode != HttpStatus.ok ||
+        confirmation.headers['etag'] == null) {
+      throw const FormatException(
+        'WebDAV PUT did not yield a confirmable ETag',
+      );
+    }
+    return confirmation.headers['etag'];
   }
 
   @override

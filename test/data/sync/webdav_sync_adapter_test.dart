@@ -36,10 +36,12 @@ void main() {
       username: 'user',
       password: 'secret',
       request: (method, _, headers, requestBody) async {
-        expect(method, 'PUT');
-        expect(headers['authorization'], startsWith('Basic '));
-        body = requestBody!;
-        return const WebDavResponse(201, '');
+        if (method == 'PUT') {
+          expect(headers['authorization'], startsWith('Basic '));
+          body = requestBody!;
+          return const WebDavResponse(201, '');
+        }
+        return const WebDavResponse(200, '{}', {'etag': '"v1"'});
       },
     );
     await adapter.push(
@@ -113,9 +115,11 @@ void main() {
       endpoint: Uri.parse('https://example.com/mytime.json'),
       username: 'user',
       password: 'secret',
-      request: (_, __, requestHeaders, ___) async {
-        headers = requestHeaders;
-        return const WebDavResponse(201, '');
+      request: (method, _, requestHeaders, ___) async {
+        if (method == 'PUT') headers = requestHeaders;
+        return method == 'PUT'
+            ? const WebDavResponse(201, '')
+            : const WebDavResponse(200, '{}', {'etag': '"v1"'});
       },
     );
 
@@ -150,6 +154,7 @@ void main() {
           'LOCK' => const WebDavResponse(200, '', {
             'lock-token': 'opaquelocktoken:token',
           }),
+          'PUT' => const WebDavResponse(204, '', {'etag': '"v2"'}),
           _ => const WebDavResponse(204, ''),
         };
       },

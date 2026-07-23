@@ -67,7 +67,7 @@ void main() {
     expect(merged.records.single.categoryId, isNull);
   });
 
-  test('keeps an entity updated after an older remote tombstone', () {
+  test('keeps a valid remote tombstone over a locally recreated entity', () {
     final local = _snapshot(
       record: _record('a', '重新创建'),
       metadata: SyncMetadata(
@@ -94,8 +94,8 @@ void main() {
 
     final merged = service.merge(local: local, remote: remote);
 
-    expect(merged.records.single.id, 'a');
-    expect(merged.metadata.records['a']!.deletedAt, isNull);
+    expect(merged.records, isEmpty);
+    expect(merged.metadata.records['a']!.deletedAt, DateTime.utc(2026, 7, 20));
   });
 
   test('allows an entity when its tombstone expired more than 90 days ago', () {
