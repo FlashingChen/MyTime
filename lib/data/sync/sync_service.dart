@@ -23,6 +23,7 @@ class SyncService {
     required SyncLocalStore local,
     required SyncPort remote,
     SyncMergeService? merger,
+    this.applyMergedLocal = true,
   }) : _local = local,
        _remote = remote,
        _merger = merger ?? SyncMergeService();
@@ -30,6 +31,7 @@ class SyncService {
   final SyncLocalStore _local;
   final SyncPort _remote;
   final SyncMergeService _merger;
+  final bool applyMergedLocal;
   Future<SyncResult>? _inFlight;
 
   /// Performs one pull/compare/apply-or-push cycle.
@@ -71,20 +73,22 @@ class SyncService {
             ifMatch: remote?.eTag,
             ifNoneMatch: remote == null,
           );
-          final applied = await _local.replaceIfCurrent(
-            local.updatedAt,
-            SyncSnapshot(
-              records: merged.records,
-              categories: merged.categories,
-              updatedAt: merged.updatedAt,
-              metadata: merged.metadata.copyWith(
-                eTag: eTag ?? remote?.eTag,
-                lastSuccessAt: DateTime.now().toUtc(),
+          if (applyMergedLocal) {
+            final applied = await _local.replaceIfCurrent(
+              local.updatedAt,
+              SyncSnapshot(
+                records: merged.records,
+                categories: merged.categories,
+                updatedAt: merged.updatedAt,
+                metadata: merged.metadata.copyWith(
+                  eTag: eTag ?? remote?.eTag,
+                  lastSuccessAt: DateTime.now().toUtc(),
+                ),
               ),
-            ),
-          );
-          if (!applied) {
-            continue;
+            );
+            if (!applied) {
+              continue;
+            }
           }
         } on SyncPreconditionFailed {
           if (attempt == 2) rethrow;

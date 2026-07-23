@@ -47,6 +47,7 @@ void callbackDispatcher() {
           username: settings.webDavUsername,
           password: settings.webDavPassword!,
         ),
+        applyMergedLocal: false,
       );
       return true;
     } on FormatException {

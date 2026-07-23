@@ -76,6 +76,26 @@ void main() {
 
     expect(remote.pushed, isEmpty);
   });
+
+  test(
+    'background synchronization does not replace the local snapshot',
+    () async {
+      final local = _Local(_snapshot('local'));
+      final remote = _Remote(_snapshot('remote'));
+
+      await SyncService(
+        local: local,
+        remote: remote,
+        applyMergedLocal: false,
+      ).synchronize();
+
+      expect(local.snapshot.records.single.id, 'local');
+      expect(
+        remote.pushed.single.records.map((item) => item.id),
+        contains('remote'),
+      );
+    },
+  );
 }
 
 SyncSnapshot _snapshot(String id) => SyncSnapshot(

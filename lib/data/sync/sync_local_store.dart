@@ -50,7 +50,9 @@ class RepositorySyncLocalStore implements SyncLocalStore {
   final SyncDataGate _gate;
 
   @override
-  Future<SyncSnapshot> read() async {
+  Future<SyncSnapshot> read() => _gate.run(_readUnlocked);
+
+  Future<SyncSnapshot> _readUnlocked() async {
     final snapshot = SyncSnapshot(
       records: _records.getAll(),
       categories: _categories.getAll(),
@@ -80,7 +82,7 @@ class RepositorySyncLocalStore implements SyncLocalStore {
 
   Future<void> _replaceUnlocked(SyncSnapshot snapshot) async {
     snapshot.validate();
-    final previous = await read();
+    final previous = await _readUnlocked();
 
     try {
       await _writeSnapshot(snapshot);
