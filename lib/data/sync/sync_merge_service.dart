@@ -72,16 +72,16 @@ class SyncMergeService {
     }) {
       final localMeta = localMetadata[id];
       final remoteMeta = remoteMetadata[id];
-      final deleted = _effectiveDeletion(localMeta, remoteMeta);
+      final deleted = localMeta != null
+          ? _effectiveDeletion(localMeta, null)
+          : _effectiveDeletion(null, remoteMeta);
       if (deleted != null) {
         metadata[id] = deleted;
         continue;
       }
       final a = left[id];
       final b = right[id];
-      if (a != null && b != null) {
-        result.add(same(a, b) ? a : a);
-      } else if (a != null) {
+      if (a != null) {
         result.add(a);
       } else if (b != null) {
         result.add(b);

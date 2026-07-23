@@ -64,6 +64,18 @@ void main() {
       );
     },
   );
+
+  test('rejects an existing remote document without an ETag', () async {
+    final local = _Local(_snapshot('local'));
+    final remote = _Remote(_snapshot('remote'), eTag: null);
+
+    await expectLater(
+      SyncService(local: local, remote: remote).synchronize(),
+      throwsFormatException,
+    );
+
+    expect(remote.pushed, isEmpty);
+  });
 }
 
 SyncSnapshot _snapshot(String id) => SyncSnapshot(
@@ -116,10 +128,12 @@ extension on SyncSnapshot {
 }
 
 class _Remote implements SyncPort {
-  _Remote(this.remote, {this.failures = 0, SyncLock? lock}) : _lock = lock;
+  _Remote(this.remote, {this.failures = 0, SyncLock? lock, this.eTag = '"v1"'})
+    : _lock = lock;
   final SyncSnapshot remote;
   int failures;
   final SyncLock? _lock;
+  final String? eTag;
   int pullCount = 0;
   final List<SyncSnapshot> pushed = [];
   final List<String?> ifMatches = [];
@@ -127,7 +141,7 @@ class _Remote implements SyncPort {
   @override
   Future<RemoteSyncDocument?> pull() async {
     pullCount++;
-    return RemoteSyncDocument(snapshot: remote, eTag: '"v1"');
+    return RemoteSyncDocument(snapshot: remote, eTag: eTag);
   }
 
   @override

@@ -118,6 +118,37 @@ void main() {
     expect(merged.records.single.id, 'a');
     expect(merged.metadata.records['a'], isNull);
   });
+
+  test('keeps a local deletion when the remote entity was updated later', () {
+    final local = _snapshot(
+      metadata: SyncMetadata(
+        records: {
+          'a': SyncEntityMetadata(
+            kind: SyncEntityKind.record,
+            id: 'a',
+            deletedAt: DateTime.utc(2026, 7, 20),
+          ),
+        },
+      ),
+    );
+    final remote = _snapshot(
+      record: _record('a', '远端更新'),
+      metadata: SyncMetadata(
+        records: {
+          'a': SyncEntityMetadata(
+            kind: SyncEntityKind.record,
+            id: 'a',
+            updatedAt: DateTime.utc(2026, 7, 21),
+          ),
+        },
+      ),
+    );
+
+    final merged = service.merge(local: local, remote: remote);
+
+    expect(merged.records, isEmpty);
+    expect(merged.metadata.records['a']!.deletedAt, DateTime.utc(2026, 7, 20));
+  });
 }
 
 SyncSnapshot _snapshot({
