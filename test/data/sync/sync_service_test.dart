@@ -47,6 +47,23 @@ void main() {
 
     expect(remote.unlocked, ['token']);
   });
+
+  test(
+    'retries from the newest local snapshot when replacement sees a write',
+    () async {
+      final local = _Local(_snapshot('local'))
+        ..advanceBeforeFirstReplace = true;
+      final remote = _Remote(_snapshot('remote'));
+
+      await SyncService(local: local, remote: remote).synchronize();
+
+      expect(remote.pushed, hasLength(2));
+      expect(
+        remote.pushed.last.records.map((item) => item.id),
+        contains('newer'),
+      );
+    },
+  );
 }
 
 SyncSnapshot _snapshot(String id) => SyncSnapshot(
@@ -65,6 +82,7 @@ SyncSnapshot _snapshot(String id) => SyncSnapshot(
 class _Local implements SyncLocalStore {
   _Local(this.snapshot);
   SyncSnapshot snapshot;
+  bool advanceBeforeFirstReplace = false;
   @override
   Future<SyncSnapshot> read() async => snapshot;
   @override
@@ -74,12 +92,27 @@ class _Local implements SyncLocalStore {
     DateTime expectedUpdatedAt,
     SyncSnapshot value,
   ) async {
+    if (advanceBeforeFirstReplace) {
+      advanceBeforeFirstReplace = false;
+      snapshot = _snapshot(
+        'newer',
+      ).copyWithUpdatedAt(DateTime.utc(2026, 7, 23));
+    }
     if (snapshot.updatedAt != expectedUpdatedAt) {
       return false;
     }
     snapshot = value;
     return true;
   }
+}
+
+extension on SyncSnapshot {
+  SyncSnapshot copyWithUpdatedAt(DateTime updatedAt) => SyncSnapshot(
+    records: records,
+    categories: categories,
+    updatedAt: updatedAt,
+    metadata: metadata,
+  );
 }
 
 class _Remote implements SyncPort {

@@ -74,12 +74,7 @@ class WeekView extends StatelessWidget {
                         : '';
                     final stackItem = rod.rodStackItems[rodIndex];
                     return BarTooltipItem(
-                      '${day.label}\n$catName ${formatStatsDuration(
-                        Duration(
-                          minutes: ((stackItem.toY - stackItem.fromY) * 60)
-                              .round(),
-                        ),
-                      )}',
+                      '${day.label}\n$catName ${formatStatsDuration(Duration(minutes: ((stackItem.toY - stackItem.fromY) * 60).round()))}',
                       TextStyle(
                         color: context.colorScheme.onPrimary,
                         fontSize: 11,
@@ -164,16 +159,17 @@ class WeekView extends StatelessWidget {
       Duration total = Duration.zero;
       final categoryDurations = <String, Duration>{};
       for (final record in records) {
-        final overlapStart =
-            record.startTime.isAfter(dayStart) ? record.startTime : dayStart;
-        final overlapEnd =
-            record.endTime.isBefore(dayEnd) ? record.endTime : dayEnd;
+        final overlapStart = record.startTime.isAfter(dayStart)
+            ? record.startTime
+            : dayStart;
+        final overlapEnd = record.endTime.isBefore(dayEnd)
+            ? record.endTime
+            : dayEnd;
         final d = overlapEnd.difference(overlapStart);
         if (d <= Duration.zero) continue;
         total += d;
         final key = record.categoryId ?? 'uncategorized';
-        categoryDurations[key] =
-            (categoryDurations[key] ?? Duration.zero) + d;
+        categoryDurations[key] = (categoryDurations[key] ?? Duration.zero) + d;
       }
       return _DayData(
         date: day,
@@ -205,13 +201,7 @@ class WeekView extends StatelessWidget {
       cumulative += value;
     }
     if (stackItems.isEmpty) {
-      return [
-        BarChartRodData(
-          toY: 0.01,
-          color: Colors.transparent,
-          width: 24,
-        ),
-      ];
+      return [BarChartRodData(toY: 0.01, color: Colors.transparent, width: 24)];
     }
     return [
       BarChartRodData(

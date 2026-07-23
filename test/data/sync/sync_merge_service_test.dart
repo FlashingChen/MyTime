@@ -66,6 +66,58 @@ void main() {
 
     expect(merged.records.single.categoryId, isNull);
   });
+
+  test('keeps an entity updated after an older remote tombstone', () {
+    final local = _snapshot(
+      record: _record('a', '重新创建'),
+      metadata: SyncMetadata(
+        records: {
+          'a': SyncEntityMetadata(
+            kind: SyncEntityKind.record,
+            id: 'a',
+            updatedAt: DateTime.utc(2026, 7, 21),
+          ),
+        },
+      ),
+    );
+    final remote = _snapshot(
+      metadata: SyncMetadata(
+        records: {
+          'a': SyncEntityMetadata(
+            kind: SyncEntityKind.record,
+            id: 'a',
+            deletedAt: DateTime.utc(2026, 7, 20),
+          ),
+        },
+      ),
+    );
+
+    final merged = service.merge(local: local, remote: remote);
+
+    expect(merged.records.single.id, 'a');
+    expect(merged.metadata.records['a']!.deletedAt, isNull);
+  });
+
+  test('allows an entity when its tombstone expired more than 90 days ago', () {
+    final local = _snapshot();
+    final remote = _snapshot(
+      record: _record('a', '旧副本'),
+      metadata: SyncMetadata(
+        records: {
+          'a': SyncEntityMetadata(
+            kind: SyncEntityKind.record,
+            id: 'a',
+            deletedAt: DateTime.utc(2026, 4, 22),
+          ),
+        },
+      ),
+    );
+
+    final merged = service.merge(local: local, remote: remote);
+
+    expect(merged.records.single.id, 'a');
+    expect(merged.metadata.records['a'], isNull);
+  });
 }
 
 SyncSnapshot _snapshot({

@@ -106,4 +106,73 @@ void main() {
 
     await expectLater(adapter.pull(), throwsFormatException);
   });
+
+  test('uses If-None-Match when creating a missing document', () async {
+    late Map<String, String> headers;
+    final adapter = WebDavSyncAdapter(
+      endpoint: Uri.parse('https://example.com/mytime.json'),
+      username: 'user',
+      password: 'secret',
+      request: (_, __, requestHeaders, ___) async {
+        headers = requestHeaders;
+        return const WebDavResponse(201, '');
+      },
+    );
+
+    await adapter.push(_snapshot(), ifMatch: null, ifNoneMatch: true);
+
+    expect(headers['If-None-Match'], '*');
+  });
+
+  test('maps an HTTP 412 response to SyncPreconditionFailed', () async {
+    final adapter = WebDavSyncAdapter(
+      endpoint: Uri.parse('https://example.com/mytime.json'),
+      username: 'user',
+      password: 'secret',
+      request: (_, __, ___, ____) async => const WebDavResponse(412, ''),
+    );
+
+    await expectLater(
+      adapter.push(_snapshot(), ifMatch: '"v1"', ifNoneMatch: false),
+      throwsA(isA<SyncPreconditionFailed>()),
+    );
+  });
+
+  test('uses a supported lock token for PUT and unlocks it', () async {
+    final requests = <String, Map<String, String>>{};
+    final adapter = WebDavSyncAdapter(
+      endpoint: Uri.parse('https://example.com/mytime.json'),
+      username: 'user',
+      password: 'secret',
+      request: (method, _, headers, __) async {
+        requests[method] = headers;
+        return switch (method) {
+          'LOCK' => const WebDavResponse(200, '', {
+            'lock-token': 'opaquelocktoken:token',
+          }),
+          _ => const WebDavResponse(204, ''),
+        };
+      },
+    );
+
+    final lock = await adapter.lock();
+    await adapter.push(_snapshot(), ifMatch: '"v1"', ifNoneMatch: false);
+    await adapter.unlock(lock!);
+
+    expect(requests['PUT']!['If'], '(<opaquelocktoken:token>)');
+    expect(requests['UNLOCK']!['Lock-Token'], 'opaquelocktoken:token');
+  });
 }
+
+SyncSnapshot _snapshot() => SyncSnapshot(
+  updatedAt: DateTime.utc(2026, 7, 22),
+  categories: const [Category(id: 'work', name: '工作', color: '#123456')],
+  records: [
+    TimeRecord(
+      id: 'record',
+      categoryId: 'work',
+      startTime: DateTime.utc(2026, 7, 22, 9),
+      endTime: DateTime.utc(2026, 7, 22, 10),
+    ),
+  ],
+);

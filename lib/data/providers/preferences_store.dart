@@ -7,17 +7,26 @@ abstract interface class PreferencesStore {
 }
 
 class SharedPreferencesStore implements PreferencesStore {
-  Future<SharedPreferences> get _preferences => SharedPreferences.getInstance();
-  @override
-  Future<String?> getString(String key) async =>
-      (await _preferences).getString(key);
-  @override
-  Future<void> setString(String key, String value) async {
-    await (await _preferences).setString(key, value);
+  SharedPreferencesStore([Future<SharedPreferences>? preferences])
+    : _preferences = preferences ?? SharedPreferences.getInstance();
+
+  final Future<SharedPreferences> _preferences;
+
+  Future<SharedPreferences> _freshPreferences() async {
+    final preferences = await _preferences;
+    await preferences.reload();
+    return preferences;
   }
 
   @override
-  Future<void> remove(String key) async {
-    await (await _preferences).remove(key);
-  }
+  Future<String?> getString(String key) async =>
+      (await _freshPreferences()).getString(key);
+
+  @override
+  Future<void> setString(String key, String value) async =>
+      (await _freshPreferences()).setString(key, value);
+
+  @override
+  Future<void> remove(String key) async =>
+      (await _freshPreferences()).remove(key);
 }

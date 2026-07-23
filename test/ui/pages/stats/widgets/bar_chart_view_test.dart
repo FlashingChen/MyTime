@@ -4,7 +4,9 @@ import 'package:mytime/ui/pages/stats/stats_metrics.dart';
 import 'package:mytime/ui/pages/stats/widgets/bar_chart_view.dart';
 
 void main() {
-  testWidgets('renders stacked bar chart with selected categories', (tester) async {
+  testWidgets('renders stacked bar chart with selected categories', (
+    tester,
+  ) async {
     final points = [
       StatsTrendPoint(
         label: '一',
@@ -17,9 +19,7 @@ void main() {
       StatsTrendPoint(
         label: '二',
         duration: const Duration(hours: 1),
-        categoryDurations: {
-          'work': const Duration(hours: 1),
-        },
+        categoryDurations: {'work': const Duration(hours: 1)},
       ),
     ];
 

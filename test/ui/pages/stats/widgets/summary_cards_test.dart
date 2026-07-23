@@ -27,7 +27,9 @@ void main() {
     expect(find.text('+0%'), findsOneWidget);
   });
 
-  testWidgets('positive change shows green, negative shows red', (tester) async {
+  testWidgets('positive change shows green, negative shows red', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
