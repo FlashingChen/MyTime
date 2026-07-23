@@ -53,6 +53,9 @@ class _LocalStore implements SyncLocalStore {
   final SyncSnapshot snapshot;
 
   @override
+  Future<T> runExclusive<T>(Future<T> Function() operation) => operation();
+
+  @override
   Future<SyncSnapshot> read() async => snapshot;
 
   @override

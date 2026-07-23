@@ -9,6 +9,9 @@ import 'package:mytime/data/sync/sync_metadata.dart';
 
 /// Storage-agnostic boundary for reading and failure-safely replacing local data.
 abstract interface class SyncLocalStore {
+  /// Runs a complete sync transaction without interleaved local mutations.
+  Future<T> runExclusive<T>(Future<T> Function() operation);
+
   /// Returns the complete local dataset and its last local mutation timestamp.
   Future<SyncSnapshot> read();
 
@@ -48,6 +51,10 @@ class RepositorySyncLocalStore implements SyncLocalStore {
   final SyncRevisionStore _revision;
   final SyncMetadataStore? _metadata;
   final SyncDataGate _gate;
+
+  @override
+  Future<T> runExclusive<T>(Future<T> Function() operation) =>
+      _gate.run(operation);
 
   @override
   Future<SyncSnapshot> read() => _gate.run(_readUnlocked);

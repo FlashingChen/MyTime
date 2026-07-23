@@ -116,6 +116,9 @@ class _Local implements SyncLocalStore {
   SyncSnapshot snapshot;
   bool advanceBeforeFirstReplace = false;
   @override
+  Future<T> runExclusive<T>(Future<T> Function() operation) => operation();
+
+  @override
   Future<SyncSnapshot> read() async => snapshot;
   @override
   Future<void> replace(SyncSnapshot value) async => snapshot = value;

@@ -52,6 +52,10 @@ class SyncService {
   }
 
   Future<SyncResult> _synchronize() async {
+    return _local.runExclusive(_synchronizeExclusive);
+  }
+
+  Future<SyncResult> _synchronizeExclusive() async {
     SyncLock? lock;
     try {
       for (var attempt = 0; attempt < 3; attempt++) {
