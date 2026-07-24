@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
@@ -61,6 +63,26 @@ void main() {
     ).synchronize();
 
     expect(remote.unlocked, ['token']);
+  });
+
+  test('keeps a successful synchronization when unlock fails', () async {
+    final local = _Local(_snapshot('local'));
+    final remote = _Remote(
+      _snapshot('remote'),
+      lock: const SyncLock('token'),
+      unlockError: const HttpException('unlock failed'),
+    );
+
+    final result = await SyncService(
+      local: local,
+      remote: remote,
+    ).synchronize();
+
+    expect(result.resolution, SyncResolution.merged);
+    expect(
+      local.snapshot.records.map((record) => record.id),
+      contains('remote'),
+    );
   });
 
   test(
@@ -180,12 +202,18 @@ extension on SyncSnapshot {
 }
 
 class _Remote implements SyncPort {
-  _Remote(this.remote, {this.failures = 0, SyncLock? lock, this.eTag = '"v1"'})
-    : _lock = lock;
+  _Remote(
+    this.remote, {
+    this.failures = 0,
+    SyncLock? lock,
+    this.eTag = '"v1"',
+    this.unlockError,
+  }) : _lock = lock;
   final SyncSnapshot remote;
   int failures;
   final SyncLock? _lock;
   final String? eTag;
+  final Object? unlockError;
   int pullCount = 0;
   final List<SyncSnapshot> pushed = [];
   final List<String?> ifMatches = [];
@@ -211,7 +239,10 @@ class _Remote implements SyncPort {
   @override
   Future<SyncLock?> lock() async => _lock;
   @override
-  Future<void> unlock(SyncLock value) async => unlocked.add(value.token);
+  Future<void> unlock(SyncLock value) async {
+    unlocked.add(value.token);
+    if (unlockError != null) throw unlockError!;
+  }
 }
 
 class _RemoteThatConfirmsDifferentDocument implements SyncPort {

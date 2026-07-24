@@ -28,6 +28,23 @@ void main() {
       expect(callbackEntered, isTrue);
     },
   );
+
+  test(
+    'stops before the operation when foreground activates after admission',
+    () async {
+      var checks = 0;
+      var operationEntered = false;
+      final runner = WebDavBackgroundRunner(
+        ownership: _ActiveOwnership(false),
+        foregroundIsActive: () async => checks++ > 0,
+        initializeAndSynchronize: () async => operationEntered = true,
+      );
+
+      expect(await runner.run(), isTrue);
+      expect(operationEntered, isFalse);
+      expect(checks, 2);
+    },
+  );
 }
 
 class _ActiveOwnership extends ForegroundSyncOwnership {

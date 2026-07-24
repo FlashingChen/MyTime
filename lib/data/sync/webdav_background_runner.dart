@@ -5,14 +5,16 @@ class WebDavBackgroundRunner {
   WebDavBackgroundRunner({
     required ForegroundSyncOwnership ownership,
     required Future<void> Function() initializeAndSynchronize,
-  }) : _ownership = ownership,
-       _initializeAndSynchronize = initializeAndSynchronize;
+    Future<bool> Function()? foregroundIsActive,
+  }) : _initializeAndSynchronize = initializeAndSynchronize,
+       _foregroundIsActive = foregroundIsActive ?? ownership.isForegroundActive;
 
-  final ForegroundSyncOwnership _ownership;
   final Future<void> Function() _initializeAndSynchronize;
+  final Future<bool> Function() _foregroundIsActive;
 
   Future<bool> run() async {
-    if (await _ownership.isForegroundActive()) return true;
+    if (await _foregroundIsActive()) return true;
+    if (await _foregroundIsActive()) return true;
     await _initializeAndSynchronize();
     return true;
   }

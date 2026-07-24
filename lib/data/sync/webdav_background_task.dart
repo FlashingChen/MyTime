@@ -19,8 +19,9 @@ void callbackDispatcher() {
     WidgetsFlutterBinding.ensureInitialized();
     try {
       final preferences = SharedPreferencesStore();
+      final ownership = ForegroundSyncOwnership(preferences: preferences);
       return await WebDavBackgroundRunner(
-        ownership: ForegroundSyncOwnership(preferences: preferences),
+        ownership: ownership,
         initializeAndSynchronize: () async {
           final settings = await SettingsRepository(
             preferences: preferences,
@@ -32,6 +33,7 @@ void callbackDispatcher() {
           } on StateError {
             return;
           }
+          if (await ownership.isForegroundActive()) return;
           await WebDavSyncCoordinator(
             local: ReadOnlySyncLocalStore(snapshotStore),
           ).synchronize(

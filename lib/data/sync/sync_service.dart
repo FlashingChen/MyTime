@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:mytime/data/sync/sync_local_store.dart';
 import 'package:mytime/data/sync/sync_port.dart';
 import 'package:mytime/data/sync/sync_merge_service.dart';
@@ -103,7 +105,13 @@ class SyncService {
         return SyncResult(SyncResolution.merged, retryCount: attempt);
       }
     } finally {
-      if (lock != null) await _remote.unlock(lock);
+      if (lock != null) {
+        try {
+          await _remote.unlock(lock);
+        } on HttpException {
+          // The completed transaction remains successful if cleanup fails.
+        }
+      }
     }
     throw StateError('unreachable');
   }

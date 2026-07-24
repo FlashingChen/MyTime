@@ -9,6 +9,7 @@ import 'package:mytime/blocs/timer/timer.dart';
 import 'package:mytime/core/utils/hive_helper.dart';
 import 'package:mytime/data/providers/hive_data_stores.dart';
 import 'package:mytime/data/providers/preferences_store.dart';
+import 'package:mytime/data/models/app_settings.dart';
 import 'package:mytime/data/repositories/active_timer_repository.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
@@ -130,6 +131,29 @@ void main() async {
         ],
         child: const AppShell(),
       ),
+    ),
+  );
+  unawaited(
+    synchronizeWebDavOnStartup(
+      loadSettings: settingsRepo.load,
+      synchronize: webDavSyncCoordinator.synchronize,
+    ).catchError((_) {}),
+  );
+}
+
+/// Pulls remote changes through the foreground coordinator after startup.
+Future<void> synchronizeWebDavOnStartup({
+  required Future<AppSettings> Function() loadSettings,
+  required Future<Object?> Function(WebDavConfiguration configuration)
+  synchronize,
+}) async {
+  final settings = await loadSettings();
+  if (!settings.hasWebDavConfiguration) return;
+  await synchronize(
+    WebDavConfiguration(
+      endpoint: settings.webDavEndpoint,
+      username: settings.webDavUsername,
+      password: settings.webDavPassword!,
     ),
   );
 }
