@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:mytime/data/sync/sync_local_store.dart';
 import 'package:mytime/data/sync/sync_port.dart';
 import 'package:mytime/data/sync/sync_merge_service.dart';
@@ -108,8 +106,8 @@ class SyncService {
       if (lock != null) {
         try {
           await _remote.unlock(lock);
-        } on HttpException {
-          // The completed transaction remains successful if cleanup fails.
+        } catch (_) {
+          // Cleanup must not replace the transaction outcome.
         }
       }
     }

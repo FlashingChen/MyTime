@@ -65,24 +65,48 @@ void main() {
     expect(remote.unlocked, ['token']);
   });
 
-  test('keeps a successful synchronization when unlock fails', () async {
-    final local = _Local(_snapshot('local'));
+  test(
+    'keeps a successful synchronization when unlock throws SocketException',
+    () async {
+      final local = _Local(_snapshot('local'));
+      final remote = _Remote(
+        _snapshot('remote'),
+        lock: const SyncLock('token'),
+        unlockError: const SocketException('unlock failed'),
+      );
+
+      final result = await SyncService(
+        local: local,
+        remote: remote,
+      ).synchronize();
+
+      expect(result.resolution, SyncResolution.merged);
+      expect(
+        local.snapshot.records.map((record) => record.id),
+        contains('remote'),
+      );
+      expect(remote.unlocked, ['token']);
+    },
+  );
+
+  test('preserves a push failure when unlock throws SocketException', () async {
+    final pushError = const HttpException('push failed');
     final remote = _Remote(
       _snapshot('remote'),
       lock: const SyncLock('token'),
-      unlockError: const HttpException('unlock failed'),
+      pushError: pushError,
+      unlockError: const SocketException('unlock failed'),
     );
 
-    final result = await SyncService(
-      local: local,
-      remote: remote,
-    ).synchronize();
-
-    expect(result.resolution, SyncResolution.merged);
-    expect(
-      local.snapshot.records.map((record) => record.id),
-      contains('remote'),
+    await expectLater(
+      SyncService(
+        local: _Local(_snapshot('local')),
+        remote: remote,
+      ).synchronize(),
+      throwsA(same(pushError)),
     );
+
+    expect(remote.unlocked, ['token']);
   });
 
   test(
@@ -207,12 +231,14 @@ class _Remote implements SyncPort {
     this.failures = 0,
     SyncLock? lock,
     this.eTag = '"v1"',
+    this.pushError,
     this.unlockError,
   }) : _lock = lock;
   final SyncSnapshot remote;
   int failures;
   final SyncLock? _lock;
   final String? eTag;
+  final Object? pushError;
   final Object? unlockError;
   int pullCount = 0;
   final List<SyncSnapshot> pushed = [];
@@ -232,6 +258,7 @@ class _Remote implements SyncPort {
   }) async {
     pushed.add(snapshot);
     ifMatches.add(ifMatch);
+    if (pushError != null) throw pushError!;
     if (failures-- > 0) throw const SyncPreconditionFailed();
     return '"v2"';
   }
