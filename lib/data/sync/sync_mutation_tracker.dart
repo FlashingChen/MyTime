@@ -24,15 +24,18 @@ class SyncMutationTracker implements SyncEntityMutationMarker {
     required SyncRevisionStore revision,
     SyncMetadataStore? metadata,
     SyncScheduler? scheduler,
+    Future<void> Function()? refreshSnapshot,
     DateTime Function()? clock,
   }) : _revision = revision,
        _metadata = metadata,
        _scheduler = scheduler ?? const NoopSyncScheduler(),
+       _refreshSnapshot = refreshSnapshot,
        _clock = clock ?? DateTime.now;
 
   final SyncRevisionStore _revision;
   final SyncMetadataStore? _metadata;
   final SyncScheduler _scheduler;
+  final Future<void> Function()? _refreshSnapshot;
   final DateTime Function() _clock;
   Future<void> _pendingMutation = Future<void>.value();
 
@@ -71,6 +74,7 @@ class SyncMutationTracker implements SyncEntityMutationMarker {
       } catch (_) {
         // A durable entity revision remains pending for the next trigger.
       }
+      await _refreshSnapshot?.call();
     });
     _pendingMutation = mutation.then<void>((_) {}, onError: (_, __) {});
     return mutation;

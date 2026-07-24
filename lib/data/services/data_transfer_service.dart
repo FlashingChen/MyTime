@@ -15,13 +15,16 @@ class DataTransferService {
     this._categories, {
     SyncMutationMarker? mutationMarker,
     SyncDataGate? gate,
+    Future<void> Function()? refreshSnapshot,
   }) : _mutationMarker = mutationMarker,
-       _gate = gate ?? SyncDataGate();
+       _gate = gate ?? SyncDataGate(),
+       _refreshSnapshot = refreshSnapshot;
 
   final RecordsSnapshotRepository _records;
   final CategoriesSnapshotRepository _categories;
   final SyncMutationMarker? _mutationMarker;
   final SyncDataGate _gate;
+  final Future<void> Function()? _refreshSnapshot;
 
   Future<ImportResult> importJson(String source) async {
     final backup = _parse(source);
@@ -40,6 +43,7 @@ class DataTransferService {
         records: backup.records,
         categories: backup.categories,
       );
+      await _refreshSnapshot?.call();
       return ImportResult(backup.records.length, backup.categories.length);
     } catch (_) {
       await _categories.replaceAll(previousCategories);

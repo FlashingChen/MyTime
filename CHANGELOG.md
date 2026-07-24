@@ -5,9 +5,7 @@
 ## [Unreleased]
 
 - WebDAV 同步支持编辑后网络约束后台任务、ETag 条件写入、可选文件锁、记录/分类逐 ID 合并和保留 90 天的删除墓碑；同一记录冲突时保留本机版本。
-- 前台 WebDAV 同步在 90 秒心跳有效期间独占 Hive 同步；WorkManager 会在 Hive 初始化前跳过同步，后台同步仅合并上传输出而不替换本地 Hive 快照。
-- Android 使用进程级公平信号量在 WorkManager 创建无头 Flutter 引擎前及前台 Hive 初始化期间串行同步访问。
-- Android 同步执行锁现以一次性 token 绑定持有者；前台会无限等待，后台仅等待 30 秒并在停止或前台接管的竞态中安全重试。
+- 前台独占 Hive；WorkManager 仅在 90 秒心跳失效后读取 SharedPreferences 中完整的 v2 同步快照，不初始化或访问 Hive。后台合并结果与 ETag 会写回该快照，下一次前台启动以 Hive 实体为准并保留快照元数据。
 
 ### Added
 - 领域模型与 Hive DTO 分离；记录和分类通过 DataStore Adapter 持久化，BLoC 通过 Repository Port 访问数据。

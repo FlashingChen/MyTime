@@ -46,6 +46,7 @@ class RepositorySyncLocalStore implements SyncLocalStore {
     required SyncRevisionStore revision,
     SyncMetadataStore? metadata,
     SyncDataGate? gate,
+    Future<void> Function()? refreshSnapshot,
     Future<List<TimeRecord>> Function()? readOnlyRecords,
     Future<List<Category>> Function()? readOnlyCategories,
   }) : _records = records,
@@ -53,6 +54,7 @@ class RepositorySyncLocalStore implements SyncLocalStore {
        _revision = revision,
        _metadata = metadata,
        _gate = gate ?? SyncDataGate(),
+       _refreshSnapshot = refreshSnapshot,
        _readOnlyRecords = readOnlyRecords ?? (() async => records.getAll()),
        _readOnlyCategories =
            readOnlyCategories ?? (() async => categories.getAll());
@@ -62,6 +64,7 @@ class RepositorySyncLocalStore implements SyncLocalStore {
   final SyncRevisionStore _revision;
   final SyncMetadataStore? _metadata;
   final SyncDataGate _gate;
+  final Future<void> Function()? _refreshSnapshot;
   final Future<List<TimeRecord>> Function() _readOnlyRecords;
   final Future<List<Category>> Function() _readOnlyCategories;
   static final Object _exclusiveStoreZoneKey = Object();
@@ -128,6 +131,7 @@ class RepositorySyncLocalStore implements SyncLocalStore {
       await _writeSnapshot(snapshot);
       await _revision.writeUpdatedAt(snapshot.updatedAt);
       await _metadata?.write(snapshot.metadata);
+      await _refreshSnapshot?.call();
     } catch (error, stackTrace) {
       try {
         await _writeSnapshot(previous);

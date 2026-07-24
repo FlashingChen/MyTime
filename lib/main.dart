@@ -19,7 +19,7 @@ import 'package:mytime/data/sync/foreground_sync_ownership.dart';
 import 'package:mytime/data/sync/sync_local_store.dart';
 import 'package:mytime/data/sync/sync_mutation_tracker.dart';
 import 'package:mytime/data/sync/sync_data_gate.dart';
-import 'package:mytime/data/sync/sync_execution_lock_port.dart';
+import 'package:mytime/data/sync/preferences_sync_snapshot_store.dart';
 import 'package:mytime/data/sync/sync_revision_store.dart';
 import 'package:mytime/data/sync/sync_metadata_store.dart';
 import 'package:mytime/data/sync/sync_scheduler.dart';
@@ -34,7 +34,6 @@ void main() async {
   final preferences = SharedPreferencesStore();
   late final ForegroundSyncOwnership foregroundSyncOwnership;
   final (recordsBox, categoriesBox) = await initializeForegroundOwnedStorage(
-    lock: const MethodChannelSyncExecutionLockPort(),
     activateForegroundOwnership: () async {
       foregroundSyncOwnership = await activateForegroundSyncOwnership(
         preferences,
@@ -56,13 +55,17 @@ void main() async {
   );
   final revisionStore = PreferencesSyncRevisionStore(preferences);
   final metadataStore = PreferencesSyncMetadataStore(preferences);
+  final snapshotStore = PreferencesSyncSnapshotStore(preferences);
+  final syncDataGate = SyncDataGate();
+  late final RepositorySyncLocalStore localSyncStore;
+  Future<void> refreshSnapshot() => syncDataGate.run(() async {
+    await snapshotStore.write(await localSyncStore.readReadOnly());
+  });
   final mutationTracker = SyncMutationTracker(
     revision: revisionStore,
     metadata: metadataStore,
     scheduler: const WorkmanagerSyncScheduler(),
-  );
-  final syncDataGate = SyncDataGate(
-    lock: const MethodChannelSyncExecutionLockPort(),
+    refreshSnapshot: refreshSnapshot,
   );
 
   // User-originated writes use the decorators. Sync replacement deliberately
@@ -77,12 +80,13 @@ void main() async {
     marker: mutationTracker,
     gate: syncDataGate,
   );
-  final localSyncStore = RepositorySyncLocalStore(
+  localSyncStore = RepositorySyncLocalStore(
     records: rawRecordRepository,
     categories: rawCategoryRepository,
     revision: revisionStore,
     metadata: metadataStore,
     gate: syncDataGate,
+    refreshSnapshot: refreshSnapshot,
   );
   final settingsRepo = SettingsRepository(preferences: preferences);
   final activeTimerRepo = ActiveTimerRepository(preferences: preferences);
@@ -91,7 +95,14 @@ void main() async {
     rawCategoryRepository,
     mutationMarker: mutationTracker,
     gate: syncDataGate,
+    refreshSnapshot: refreshSnapshot,
   );
+  await syncDataGate.run(() async {
+    final reconciled = await snapshotStore.reconcileForeground(
+      await localSyncStore.readReadOnly(),
+    );
+    await metadataStore.write(reconciled.metadata);
+  });
   final webDavSyncCoordinator = WebDavSyncCoordinator(local: localSyncStore);
 
   runApp(
@@ -134,21 +145,15 @@ Future<ForegroundSyncOwnership> activateForegroundSyncOwnership(
 
 /// Activates foreground ownership before initializing local storage services.
 Future<T> initializeForegroundOwnedStorage<T>({
-  required SyncExecutionLockPort lock,
   required Future<void> Function() activateForegroundOwnership,
   required Future<void> Function() initializeHive,
   required Future<void> Function() initializeWorkmanager,
   required Future<T> Function() openBoxes,
 }) async {
   await activateForegroundOwnership();
-  final token = await lock.acquire();
-  try {
-    await initializeHive();
-    await initializeWorkmanager();
-    return await openBoxes();
-  } finally {
-    await lock.release(token);
-  }
+  await initializeHive();
+  await initializeWorkmanager();
+  return openBoxes();
 }
 
 /// Keeps the foreground sync ownership heartbeat aligned with app lifecycle.
