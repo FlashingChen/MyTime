@@ -1,6 +1,7 @@
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/sync/sync_metadata.dart';
+import 'package:equatable/equatable.dart';
 
 /// Remote document accompanied by the entity metadata and HTTP ETag that read it.
 class RemoteSyncDocument {
@@ -21,7 +22,7 @@ class SyncPreconditionFailed implements Exception {
 }
 
 /// Immutable local dataset exchanged with a remote sync provider.
-class SyncSnapshot {
+class SyncSnapshot extends Equatable {
   SyncSnapshot({
     required Iterable<TimeRecord> records,
     required Iterable<Category> categories,
@@ -34,6 +35,14 @@ class SyncSnapshot {
   final List<Category> categories;
   final DateTime updatedAt;
   final SyncMetadata metadata;
+
+  @override
+  List<Object?> get props => [
+    records.map((record) => [record, record.createdAt]).toList(),
+    categories,
+    updatedAt,
+    metadata,
+  ];
 
   /// Verifies that this snapshot can be safely persisted as a complete dataset.
   void validate() {

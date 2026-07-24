@@ -37,6 +37,21 @@ void main() {
     expect(remote.pushed, hasLength(2));
   });
 
+  test('retries when a PUT confirmation GET has another document', () async {
+    final remote = _RemoteThatConfirmsDifferentDocument();
+
+    await expectLater(
+      SyncService(
+        local: _Local(_snapshot('local')),
+        remote: remote,
+      ).synchronize(),
+      throwsA(isA<SyncPreconditionFailed>()),
+    );
+
+    expect(remote.pullCount, 3);
+    expect(remote.pushCount, 3);
+  });
+
   test('unlocks a supported WebDAV lock after synchronization', () async {
     final remote = _Remote(_snapshot('remote'), lock: const SyncLock('token'));
 
@@ -197,4 +212,31 @@ class _Remote implements SyncPort {
   Future<SyncLock?> lock() async => _lock;
   @override
   Future<void> unlock(SyncLock value) async => unlocked.add(value.token);
+}
+
+class _RemoteThatConfirmsDifferentDocument implements SyncPort {
+  int pullCount = 0;
+  int pushCount = 0;
+
+  @override
+  Future<RemoteSyncDocument?> pull() async {
+    pullCount++;
+    return null;
+  }
+
+  @override
+  Future<String?> push(
+    SyncSnapshot snapshot, {
+    required String? ifMatch,
+    required bool ifNoneMatch,
+  }) async {
+    pushCount++;
+    throw const SyncPreconditionFailed();
+  }
+
+  @override
+  Future<SyncLock?> lock() async => null;
+
+  @override
+  Future<void> unlock(SyncLock lock) async {}
 }

@@ -1,8 +1,10 @@
+import 'package:equatable/equatable.dart';
+
 /// Kinds of domain entities tracked by synchronization metadata.
 enum SyncEntityKind { record, category }
 
 /// Revision or deletion information for one synchronized entity.
-class SyncEntityMetadata {
+class SyncEntityMetadata extends Equatable {
   const SyncEntityMetadata({
     required this.kind,
     required this.id,
@@ -15,6 +17,9 @@ class SyncEntityMetadata {
   final DateTime? updatedAt;
   final DateTime? deletedAt;
 
+  @override
+  List<Object?> get props => [kind, id, updatedAt, deletedAt];
+
   SyncEntityMetadata copyWith({DateTime? updatedAt, DateTime? deletedAt}) =>
       SyncEntityMetadata(
         kind: kind,
@@ -25,7 +30,7 @@ class SyncEntityMetadata {
 }
 
 /// Metadata exchanged with a WebDAV document but kept out of domain entities.
-class SyncMetadata {
+class SyncMetadata extends Equatable {
   const SyncMetadata({
     this.records = const {},
     this.categories = const {},
@@ -37,6 +42,9 @@ class SyncMetadata {
   final Map<String, SyncEntityMetadata> categories;
   final String? eTag;
   final DateTime? lastSuccessAt;
+
+  @override
+  List<Object?> get props => [records, categories];
 
   SyncMetadata copyWith({
     Map<String, SyncEntityMetadata>? records,

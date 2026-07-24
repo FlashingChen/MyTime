@@ -75,14 +75,13 @@ class WebDavSyncAdapter implements SyncPort {
     }
     final eTag = response.headers['etag'];
     if (eTag != null) return eTag;
-    final confirmation = await _request('GET', _endpoint, _headers, null);
-    if (confirmation.statusCode != HttpStatus.ok ||
-        confirmation.headers['etag'] == null) {
-      throw const FormatException(
-        'WebDAV PUT did not yield a confirmable ETag',
-      );
+    final confirmation = await pull();
+    if (confirmation == null ||
+        confirmation.eTag == null ||
+        confirmation.snapshot != snapshot) {
+      throw const SyncPreconditionFailed();
     }
-    return confirmation.headers['etag'];
+    return confirmation.eTag;
   }
 
   @override

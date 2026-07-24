@@ -41,7 +41,7 @@ void main() {
           body = requestBody!;
           return const WebDavResponse(201, '');
         }
-        return const WebDavResponse(200, '{}', {'etag': '"v1"'});
+        return WebDavResponse(200, body, {'etag': '"v1"'});
       },
     );
     await adapter.push(
@@ -111,15 +111,19 @@ void main() {
 
   test('uses If-None-Match when creating a missing document', () async {
     late Map<String, String> headers;
+    late String body;
     final adapter = WebDavSyncAdapter(
       endpoint: Uri.parse('https://example.com/mytime.json'),
       username: 'user',
       password: 'secret',
-      request: (method, _, requestHeaders, ___) async {
-        if (method == 'PUT') headers = requestHeaders;
+      request: (method, _, requestHeaders, requestBody) async {
+        if (method == 'PUT') {
+          headers = requestHeaders;
+          body = requestBody!;
+        }
         return method == 'PUT'
             ? const WebDavResponse(201, '')
-            : const WebDavResponse(200, '{}', {'etag': '"v1"'});
+            : WebDavResponse(200, body, {'etag': '"v1"'});
       },
     );
 
@@ -141,6 +145,51 @@ void main() {
       throwsA(isA<SyncPreconditionFailed>()),
     );
   });
+
+  test('rejects a no-ETag PUT confirmation with another document', () async {
+    final adapter = WebDavSyncAdapter(
+      endpoint: Uri.parse('https://example.com/mytime.json'),
+      username: 'user',
+      password: 'secret',
+      request: (method, _, __, ___) async => switch (method) {
+        'PUT' => const WebDavResponse(204, ''),
+        'GET' => WebDavResponse(200, jsonEncode(_differentSnapshotDocument()), {
+          'etag': '"other"',
+        }),
+        _ => throw StateError('Unexpected request: $method'),
+      },
+    );
+
+    await expectLater(
+      adapter.push(_snapshot(), ifMatch: '"v1"', ifNoneMatch: false),
+      throwsA(isA<SyncPreconditionFailed>()),
+    );
+  });
+
+  test(
+    'rejects a confirmation with a different record creation time',
+    () async {
+      final adapter = WebDavSyncAdapter(
+        endpoint: Uri.parse('https://example.com/mytime.json'),
+        username: 'user',
+        password: 'secret',
+        request: (method, _, __, ___) async => switch (method) {
+          'PUT' => const WebDavResponse(204, ''),
+          'GET' => WebDavResponse(
+            200,
+            jsonEncode(_differentCreatedAtSnapshotDocument()),
+            {'etag': '"other"'},
+          ),
+          _ => throw StateError('Unexpected request: $method'),
+        },
+      );
+
+      await expectLater(
+        adapter.push(_snapshot(), ifMatch: '"v1"', ifNoneMatch: false),
+        throwsA(isA<SyncPreconditionFailed>()),
+      );
+    },
+  );
 
   test('uses a supported lock token for PUT and unlocks it', () async {
     final requests = <String, Map<String, String>>{};
@@ -181,3 +230,32 @@ SyncSnapshot _snapshot() => SyncSnapshot(
     ),
   ],
 );
+
+Map<String, Object?> _differentSnapshotDocument() => {
+  'version': 2,
+  'updatedAt': '2026-07-23T00:00:00.000Z',
+  'categories': [
+    {'id': 'work', 'name': '工作', 'color': '#123456'},
+  ],
+  'records': [],
+  'metadata': {'records': {}, 'categories': {}},
+};
+
+Map<String, Object?> _differentCreatedAtSnapshotDocument() => {
+  'version': 2,
+  'updatedAt': '2026-07-22T00:00:00.000Z',
+  'categories': [
+    {'id': 'work', 'name': '工作', 'color': '#123456'},
+  ],
+  'records': [
+    {
+      'id': 'record',
+      'categoryId': 'work',
+      'startTime': '2026-07-22T09:00:00.000Z',
+      'endTime': '2026-07-22T10:00:00.000Z',
+      'note': null,
+      'createdAt': '2026-07-23T09:00:00.000Z',
+    },
+  ],
+  'metadata': {'records': {}, 'categories': {}},
+};
