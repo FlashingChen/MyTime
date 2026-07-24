@@ -82,3 +82,10 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    implementation("androidx.work:work-runtime:2.10.2")
+    implementation("androidx.concurrent:concurrent-futures:1.1.0")
+    implementation("com.google.guava:guava:33.4.0-android")
+    testImplementation("junit:junit:4.13.2")
+}

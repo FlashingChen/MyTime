@@ -89,7 +89,11 @@ class WebDavSyncAdapter implements SyncPort {
     final response = await _request(
       'LOCK',
       _endpoint,
-      {..._headers, 'Timeout': 'Second-30'},
+      {
+        ..._headers,
+        'content-type': 'application/xml; charset=utf-8',
+        'Timeout': 'Second-30',
+      },
       '''<?xml version="1.0" encoding="utf-8"?><D:lockinfo xmlns:D="DAV:"><D:lockscope><D:exclusive/></D:lockscope><D:locktype><D:write/></D:locktype><D:owner>MyTime</D:owner></D:lockinfo>''',
     );
     if (response.statusCode == HttpStatus.notImplemented ||

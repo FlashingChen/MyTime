@@ -46,7 +46,7 @@ void callbackDispatcher() {
             categories: categories,
             revision: PreferencesSyncRevisionStore(preferences),
             metadata: PreferencesSyncMetadataStore(preferences),
-            gate: SyncDataGate(),
+            gate: SyncDataGate(bypassNativeLock: true),
             readOnlyRecords: () async => recordStore.values.toList(),
             readOnlyCategories: () async => categoryStore.values.toList(),
           );

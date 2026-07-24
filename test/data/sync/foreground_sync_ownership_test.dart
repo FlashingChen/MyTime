@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mytime/data/providers/preferences_store.dart';
 import 'package:mytime/data/sync/foreground_sync_ownership.dart';
+import 'package:mytime/data/sync/sync_execution_lock_port.dart';
 import 'package:mytime/main.dart';
 
 void main() {
@@ -74,6 +75,7 @@ void main() {
       final order = <String>[];
       final allowActivation = Completer<void>();
       final startup = initializeForegroundOwnedStorage(
+        lock: _OrderingLock(order),
         activateForegroundOwnership: () async {
           order.add('activate-started');
           await allowActivation.future;
@@ -96,9 +98,11 @@ void main() {
       expect(order, [
         'activate-started',
         'activate-completed',
+        'lock-acquire',
         'hive',
         'workmanager',
         'boxes',
+        'lock-release',
       ]);
     },
   );
@@ -136,6 +140,18 @@ void main() {
 
     expect(store.values[ForegroundSyncOwnership.heartbeatKey], isNull);
   });
+}
+
+class _OrderingLock implements SyncExecutionLockPort {
+  _OrderingLock(this.order);
+
+  final List<String> order;
+
+  @override
+  Future<void> acquire({int? timeoutMillis}) async => order.add('lock-acquire');
+
+  @override
+  Future<void> release() async => order.add('lock-release');
 }
 
 class _MemoryPreferences implements PreferencesStore {

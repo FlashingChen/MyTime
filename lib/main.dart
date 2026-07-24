@@ -19,6 +19,7 @@ import 'package:mytime/data/sync/foreground_sync_ownership.dart';
 import 'package:mytime/data/sync/sync_local_store.dart';
 import 'package:mytime/data/sync/sync_mutation_tracker.dart';
 import 'package:mytime/data/sync/sync_data_gate.dart';
+import 'package:mytime/data/sync/sync_execution_lock_port.dart';
 import 'package:mytime/data/sync/sync_revision_store.dart';
 import 'package:mytime/data/sync/sync_metadata_store.dart';
 import 'package:mytime/data/sync/sync_scheduler.dart';
@@ -33,6 +34,7 @@ void main() async {
   final preferences = SharedPreferencesStore();
   late final ForegroundSyncOwnership foregroundSyncOwnership;
   final (recordsBox, categoriesBox) = await initializeForegroundOwnedStorage(
+    lock: const MethodChannelSyncExecutionLockPort(),
     activateForegroundOwnership: () async {
       foregroundSyncOwnership = await activateForegroundSyncOwnership(
         preferences,
@@ -59,7 +61,9 @@ void main() async {
     metadata: metadataStore,
     scheduler: const WorkmanagerSyncScheduler(),
   );
-  final syncDataGate = SyncDataGate();
+  final syncDataGate = SyncDataGate(
+    lock: const MethodChannelSyncExecutionLockPort(),
+  );
 
   // User-originated writes use the decorators. Sync replacement deliberately
   // receives the raw repositories so a pulled remote revision remains remote.
@@ -130,15 +134,21 @@ Future<ForegroundSyncOwnership> activateForegroundSyncOwnership(
 
 /// Activates foreground ownership before initializing local storage services.
 Future<T> initializeForegroundOwnedStorage<T>({
+  required SyncExecutionLockPort lock,
   required Future<void> Function() activateForegroundOwnership,
   required Future<void> Function() initializeHive,
   required Future<void> Function() initializeWorkmanager,
   required Future<T> Function() openBoxes,
 }) async {
   await activateForegroundOwnership();
-  await initializeHive();
-  await initializeWorkmanager();
-  return openBoxes();
+  await lock.acquire(timeoutMillis: 30000);
+  try {
+    await initializeHive();
+    await initializeWorkmanager();
+    return await openBoxes();
+  } finally {
+    await lock.release();
+  }
 }
 
 /// Keeps the foreground sync ownership heartbeat aligned with app lifecycle.

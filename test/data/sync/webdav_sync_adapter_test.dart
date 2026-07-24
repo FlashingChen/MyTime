@@ -236,6 +236,37 @@ void main() {
     expect(requests['UNLOCK']!['Lock-Token'], '<opaquelocktoken:token>');
   });
 
+  test(
+    'uses XML content type for LOCK and JSON content type for PUT',
+    () async {
+      final requests = <String, Map<String, String>>{};
+      final adapter = WebDavSyncAdapter(
+        endpoint: Uri.parse('https://example.com/mytime.json'),
+        username: 'user',
+        password: 'secret',
+        request: (method, _, headers, __) async {
+          requests[method] = headers;
+          return switch (method) {
+            'LOCK' => const WebDavResponse(200, '', {
+              'lock-token': 'opaquelocktoken:token',
+            }),
+            'PUT' => const WebDavResponse(204, '', {'etag': '"v2"'}),
+            _ => const WebDavResponse(204, ''),
+          };
+        },
+      );
+
+      await adapter.lock();
+      await adapter.push(_snapshot(), ifMatch: '"v1"', ifNoneMatch: false);
+
+      expect(
+        requests['LOCK']!['content-type'],
+        'application/xml; charset=utf-8',
+      );
+      expect(requests['PUT']!['content-type'], 'application/json');
+    },
+  );
+
   test('formats a bracketed lock token for PUT and UNLOCK', () async {
     final requests = <String, Map<String, String>>{};
     final adapter = WebDavSyncAdapter(
