@@ -53,7 +53,7 @@ DTO 保留既有的 Hive type ID 和字段编号（记录为 `0`，分类为 `1`
 - Adapter 只接受 HTTPS WebDAV 地址，并以一个版本化 JSON 文档进行 `GET` / `PUT`。
 - 设置页允许保存文档地址、用户名和安全存储中的密码；用户仍可点按“立即同步”，本地编辑后也会在网络可用时自动同步。
 - `PreferencesSyncRevisionStore` 记录本地快照水位；记录/分类的 Revision Tracking Decorator 仅在成功本地写入后前进水位。远端应用使用未经装饰的 Repository，避免把远端版本误记为本地改动。
-- 本地记录或分类变更会提交唯一、网络约束的 Android WorkManager 任务；连续编辑合并为一次后台同步。后台 isolate 独立初始化 Hive、偏好和安全存储。
+- 本地记录或分类变更会提交唯一、网络约束的 Android WorkManager 任务；连续编辑合并为一次后台同步。后台 isolate 只初始化偏好和安全存储，不初始化 Hive。
 - 同步文档按记录和分类 ID 合并：不同 ID 双向保留，同 ID 内容冲突时本机优先。删除使用保留 90 天的墓碑，期间不允许旧副本复活；已删除分类会使保留记录的 `categoryId` 清空。
 - GET 返回 ETag，PUT 使用 `If-Match` 或首次创建时的 `If-None-Match: *`。`412` 时重新拉取、合并并最多重试三次；服务支持时申请短时 WebDAV 锁，锁不支持时自动降级。
 - 同步错误在设置页按配置、网络/认证、远端格式和本机回滚失败分级显示；地址拒绝 URL 内嵌凭据，设置保存成功后才会显示成功或发起同步。
@@ -61,7 +61,7 @@ DTO 保留既有的 Hive type ID 和字段编号（记录为 `0`，分类为 `1`
 
 ### 前台与后台同步所有权
 
-前台同步在其 90 秒心跳保持新鲜期间拥有 Hive 同步所有权。此时 Android WorkManager 会在初始化 Hive 前退出，避免与前台同步竞争。后台同步仅合并上传输出，不会应用或替换本地 Hive 快照。
+前台同步在其 90 秒心跳保持新鲜期间拥有 Hive 同步所有权。此时 Android WorkManager 会在初始化 Hive 前退出，避免与前台同步竞争。后台同步以只读 `PreferencesSyncSnapshotStore` 快照执行 GET、合并和条件 PUT；它不会应用或替换 Hive 快照，也不会写入 SharedPreferences 快照、ETag、成功时间、修订或实体元数据。下一次前台正常同步会以当前前台快照拉取并合并后台更新的远端文档，再由前台持久化结果。
 
 ## 已知边界
 

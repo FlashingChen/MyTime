@@ -34,6 +34,32 @@ abstract interface class SyncLocalStore {
   );
 }
 
+/// Read-only [SyncLocalStore] view for synchronization that must not persist.
+class ReadOnlySyncLocalStore implements SyncLocalStore {
+  const ReadOnlySyncLocalStore(this._delegate);
+
+  final SyncLocalStore _delegate;
+
+  @override
+  Future<T> runExclusive<T>(Future<T> Function() operation) => operation();
+
+  @override
+  Future<SyncSnapshot> read() => _delegate.readReadOnly();
+
+  @override
+  Future<SyncSnapshot> readReadOnly() => _delegate.readReadOnly();
+
+  @override
+  Future<void> replace(SyncSnapshot snapshot) =>
+      Future<void>.error(UnsupportedError('Read-only sync local store'));
+
+  @override
+  Future<bool> replaceIfCurrent(
+    DateTime expectedUpdatedAt,
+    SyncSnapshot snapshot,
+  ) async => false;
+}
+
 /// [SyncLocalStore] adapter backed by the application repository ports.
 ///
 /// It avoids direct Hive access and stages an upsert-before-delete replacement.

@@ -36,7 +36,7 @@ RecordDataStore / CategoryDataStore / PreferencesStore
 Hive DTO + Hive Adapter / SharedPreferences
 ```
 
-WebDAV 通过 `SyncPort`、`WebDavSyncCoordinator`、Repository 变更追踪和 Android WorkManager 接入。每次本地变更会合并为一次网络约束的后台同步；远端以记录、分类和 90 天删除墓碑逐 ID 合并，同 ID 内容冲突时本机优先。前台同步的 90 秒心跳有效时，其独占 Hive 同步；WorkManager 会在 Hive 初始化前跳过后台任务，后台同步仅合并上传输出而不应用或替换本地 Hive 快照。同步使用 ETag 条件写入，并在服务支持时使用短时 WebDAV 锁。详细说明见 [架构说明](docs/architecture.md)。
+WebDAV 通过 `SyncPort`、`WebDavSyncCoordinator`、Repository 变更追踪和 Android WorkManager 接入。每次本地变更会合并为一次网络约束的后台同步；远端以记录、分类和 90 天删除墓碑逐 ID 合并，同 ID 内容冲突时本机优先。前台同步的 90 秒心跳有效时，其独占 Hive 同步；WorkManager 会在 Hive 初始化前跳过后台任务，并以只读 SharedPreferences 快照合并上传，绝不写入快照、ETag 或元数据。下一次前台同步会拉取并合并后台上传的文档。同步使用 ETag 条件写入，并在服务支持时使用短时 WebDAV 锁。详细说明见 [架构说明](docs/architecture.md)。
 
 ## 开始开发
 

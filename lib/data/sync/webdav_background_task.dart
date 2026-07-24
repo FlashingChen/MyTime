@@ -5,6 +5,7 @@ import 'package:mytime/data/providers/preferences_store.dart';
 import 'package:mytime/data/repositories/settings_repository.dart';
 import 'package:mytime/data/sync/foreground_sync_ownership.dart';
 import 'package:mytime/data/sync/preferences_sync_snapshot_store.dart';
+import 'package:mytime/data/sync/sync_local_store.dart';
 import 'package:mytime/data/sync/sync_scheduler.dart';
 import 'package:mytime/data/sync/webdav_background_runner.dart';
 import 'package:mytime/data/sync/webdav_sync_coordinator.dart';
@@ -25,14 +26,21 @@ void callbackDispatcher() {
             preferences: preferences,
           ).load();
           if (!settings.hasWebDavConfiguration) return;
-          final local = PreferencesSyncSnapshotStore(preferences);
-          if (await local.readSnapshot() == null) return;
-          await WebDavSyncCoordinator(local: local).synchronize(
+          final snapshotStore = PreferencesSyncSnapshotStore(preferences);
+          try {
+            await snapshotStore.readReadOnly();
+          } on StateError {
+            return;
+          }
+          await WebDavSyncCoordinator(
+            local: ReadOnlySyncLocalStore(snapshotStore),
+          ).synchronize(
             WebDavConfiguration(
               endpoint: settings.webDavEndpoint,
               username: settings.webDavUsername,
               password: settings.webDavPassword!,
             ),
+            applyMergedLocal: false,
           );
         },
       ).run();

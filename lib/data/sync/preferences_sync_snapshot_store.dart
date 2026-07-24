@@ -63,7 +63,13 @@ class PreferencesSyncSnapshotStore implements SyncLocalStore {
       await readSnapshot() ?? (throw StateError('No persisted sync snapshot'));
 
   @override
-  Future<SyncSnapshot> readReadOnly() => read();
+  Future<SyncSnapshot> readReadOnly() async {
+    final source = await _preferences.getString(key);
+    if (source == null) {
+      throw StateError('No persisted sync snapshot');
+    }
+    return _decode(source);
+  }
 
   @override
   Future<void> replace(SyncSnapshot snapshot) =>
