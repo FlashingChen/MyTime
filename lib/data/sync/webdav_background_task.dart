@@ -89,16 +89,17 @@ class WebDavBackgroundTask {
   final Future<void> Function(AppSettings settings) _synchronize;
   final Future<bool> Function()? _foregroundIsActive;
 
-  Future<void> run() async {
-    if (await _hasPendingRecovery()) return;
+  Future<bool> run() async {
+    if (await _hasPendingRecovery()) return true;
     final settings = await _loadSettings();
-    if (!settings.hasWebDavConfiguration) return;
+    if (!settings.hasWebDavConfiguration) return true;
     try {
       await _readSnapshot();
     } on StateError {
-      return;
+      return true;
     }
-    if (await _foregroundIsActive?.call() ?? false) return;
+    if (await _foregroundIsActive?.call() ?? false) return false;
     await _synchronize(settings);
+    return true;
   }
 }

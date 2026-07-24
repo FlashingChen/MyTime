@@ -4,6 +4,8 @@ import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/sync/sync_local_store.dart';
 import 'package:mytime/data/sync/sync_port.dart';
+import 'package:mytime/data/sync/sync_pending_state_store.dart';
+import 'package:mytime/data/sync/sync_scheduler.dart';
 import 'package:mytime/data/sync/webdav_sync_coordinator.dart';
 import 'package:mytime/main.dart';
 
@@ -51,7 +53,37 @@ void main() {
 
     expect(events, ['recovery', 'settings', 'sync']);
   });
+
+  test(
+    'startup failure retains pending revision and schedules a retry',
+    () async {
+      final pending = _MemoryPendingStore(DateTime.utc(2026, 7, 24, 12));
+      final scheduler = _CountingScheduler();
+
+      await expectLater(
+        synchronizeWebDavOnStartup(
+          loadSettings: () async => _settings,
+          synchronize: (_) async => throw StateError('network failed'),
+          pending: pending,
+          scheduler: scheduler,
+        ),
+        throwsStateError,
+      );
+
+      expect(
+        await pending.readPendingRevision(),
+        DateTime.utc(2026, 7, 24, 12),
+      );
+      expect(scheduler.calls, 1);
+    },
+  );
 }
+
+const _settings = AppSettings(
+  webDavEndpoint: 'https://dav.example.com/mytime.json',
+  webDavUsername: 'alice',
+  webDavPassword: 'secret',
+);
 
 SyncSnapshot _snapshot(String id) => SyncSnapshot(
   updatedAt: DateTime.utc(2026, 7, 24),
@@ -115,4 +147,26 @@ class _RemoteStore implements SyncPort {
 
   @override
   Future<void> unlock(SyncLock lock) async {}
+}
+
+class _MemoryPendingStore implements SyncPendingStateStore {
+  _MemoryPendingStore(this.value);
+  DateTime? value;
+  @override
+  Future<bool> clearIfMatches(DateTime revision) async {
+    if (value != revision) return false;
+    value = null;
+    return true;
+  }
+
+  @override
+  Future<void> markPending(DateTime revision) async => value = revision;
+  @override
+  Future<DateTime?> readPendingRevision() async => value;
+}
+
+class _CountingScheduler implements SyncScheduler {
+  int calls = 0;
+  @override
+  Future<void> schedule() async => calls++;
 }

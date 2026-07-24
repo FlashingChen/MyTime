@@ -183,7 +183,7 @@ void main() {
       dispatcher.mutationCommitted();
       await syncFailed.future;
 
-      expect(scheduler.calls, 0);
+      expect(scheduler.calls, 1);
     },
   );
 }

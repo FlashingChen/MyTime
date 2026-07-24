@@ -8,10 +8,13 @@ void main() {
     var callbackEntered = false;
     final runner = WebDavBackgroundRunner(
       ownership: _ActiveOwnership(true),
-      initializeAndSynchronize: () async => callbackEntered = true,
+      initializeAndSynchronize: () async {
+        callbackEntered = true;
+        return true;
+      },
     );
 
-    expect(await runner.run(), isTrue);
+    expect(await runner.run(), isFalse);
     expect(callbackEntered, isFalse);
   });
 
@@ -21,7 +24,10 @@ void main() {
       var callbackEntered = false;
       final runner = WebDavBackgroundRunner(
         ownership: _ActiveOwnership(false),
-        initializeAndSynchronize: () async => callbackEntered = true,
+        initializeAndSynchronize: () async {
+          callbackEntered = true;
+          return true;
+        },
       );
 
       expect(await runner.run(), isTrue);
@@ -37,10 +43,13 @@ void main() {
       final runner = WebDavBackgroundRunner(
         ownership: _ActiveOwnership(false),
         foregroundIsActive: () async => checks++ > 0,
-        initializeAndSynchronize: () async => operationEntered = true,
+        initializeAndSynchronize: () async {
+          operationEntered = true;
+          return true;
+        },
       );
 
-      expect(await runner.run(), isTrue);
+      expect(await runner.run(), isFalse);
       expect(operationEntered, isFalse);
       expect(checks, 2);
     },

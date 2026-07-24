@@ -69,6 +69,21 @@ void main() {
   });
 
   test(
+    'returns retry when foreground activates after the snapshot read',
+    () async {
+      final task = WebDavBackgroundTask(
+        hasPendingRecovery: () async => false,
+        loadSettings: () async => _configuredSettings,
+        readSnapshot: () async {},
+        foregroundIsActive: () async => true,
+        synchronize: (_) async => fail('must not synchronize'),
+      );
+
+      expect(await task.run(), isFalse);
+    },
+  );
+
+  test(
     'invalid recovery journal fails before later worker operations',
     () async {
       final calls = <String>[];

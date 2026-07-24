@@ -6,6 +6,7 @@ import 'package:mytime/data/providers/preferences_store.dart';
 import 'package:mytime/data/sync/preferences_sync_snapshot_store.dart';
 import 'package:mytime/data/sync/sync_metadata_store.dart';
 import 'package:mytime/data/sync/sync_revision_store.dart';
+import 'package:mytime/data/sync/sync_pending_state_store.dart';
 
 /// Persists the pre-import state until an import is fully committed.
 class ImportRecoveryJournal {
@@ -21,6 +22,7 @@ class ImportRecoveryJournal {
     String? syncSnapshot,
     String? revision,
     String? metadata,
+    String? pendingRevision,
   }) async {
     await _preferences.setString(
       key,
@@ -30,14 +32,20 @@ class ImportRecoveryJournal {
         'categories': [
           for (final category in categories) _encodeCategory(category),
         ],
-        'syncSnapshot': syncSnapshot ??
+        'syncSnapshot':
+            syncSnapshot ??
             await _preferences.getString(PreferencesSyncSnapshotStore.key),
-        'revision': revision ??
+        'revision':
+            revision ??
             await _preferences.getString(
               PreferencesSyncRevisionStore.updatedAtKey,
             ),
-        'metadata': metadata ??
+        'metadata':
+            metadata ??
             await _preferences.getString(PreferencesSyncMetadataStore.key),
+        'pendingRevision':
+            pendingRevision ??
+            await _preferences.getString(PreferencesSyncPendingStateStore.key),
       }),
     );
   }
@@ -49,13 +57,16 @@ class ImportRecoveryJournal {
       final root = jsonDecode(source);
       if (root is! Map || root['version'] != 1) throw const FormatException();
       final records = _list(root['records']).map(_decodeRecord).toList();
-      final categories = _list(root['categories']).map(_decodeCategory).toList();
+      final categories = _list(
+        root['categories'],
+      ).map(_decodeCategory).toList();
       return ImportRecovery(
         records: records,
         categories: categories,
         syncSnapshot: root['syncSnapshot'] as String?,
         revision: root['revision'] as String?,
         metadata: root['metadata'] as String?,
+        pendingRevision: root['pendingRevision'] as String?,
       );
     } catch (_) {
       throw StateError('Invalid import recovery journal');
@@ -90,6 +101,12 @@ class ImportRecoveryJournal {
     await attempt(
       () => _restore(PreferencesSyncMetadataStore.key, recovery.metadata),
     );
+    await attempt(
+      () => _restore(
+        PreferencesSyncPendingStateStore.key,
+        recovery.pendingRevision,
+      ),
+    );
     if (failure != null) Error.throwWithStackTrace(failure!, stackTrace!);
   }
 
@@ -112,9 +129,8 @@ class ImportRecoveryJournal {
     'color': category.color,
   };
 
-  static List<Object?> _list(Object? value) => value is List
-      ? List<Object?>.from(value)
-      : throw const FormatException();
+  static List<Object?> _list(Object? value) =>
+      value is List ? List<Object?>.from(value) : throw const FormatException();
 
   static TimeRecord _decodeRecord(Object? value) {
     final map = _map(value);
@@ -150,6 +166,7 @@ class ImportRecovery {
     required this.syncSnapshot,
     required this.revision,
     required this.metadata,
+    required this.pendingRevision,
   });
 
   final List<TimeRecord> records;
@@ -157,4 +174,5 @@ class ImportRecovery {
   final String? syncSnapshot;
   final String? revision;
   final String? metadata;
+  final String? pendingRevision;
 }

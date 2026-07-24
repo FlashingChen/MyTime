@@ -15,6 +15,7 @@ import 'package:mytime/data/sync/sync_mutation_tracker.dart';
 import 'package:mytime/data/sync/sync_revision_store.dart';
 import 'package:mytime/data/sync/sync_scheduler.dart';
 import 'package:mytime/data/sync/preferences_sync_snapshot_store.dart';
+import 'package:mytime/data/sync/sync_pending_state_store.dart';
 
 void main() {
   late _MemoryCategoryStore categoryStore;
@@ -280,7 +281,10 @@ void main() {
           endTime: DateTime.utc(2026, 7, 9, 10),
         ),
       );
-      await preferences.setString(PreferencesSyncSnapshotStore.key, 'old snapshot');
+      await preferences.setString(
+        PreferencesSyncSnapshotStore.key,
+        'old snapshot',
+      );
       await preferences.setString('sync_snapshot_updated_at', 'old revision');
       await preferences.setString('sync_metadata', 'old metadata');
       recordStore.failPutAllCount = 2;
@@ -299,7 +303,10 @@ void main() {
 
       expect(await journal.hasPendingRecovery(), isTrue);
       expect(recordStore.values, isEmpty);
-      expect(await preferences.getString(PreferencesSyncSnapshotStore.key), 'old snapshot');
+      expect(
+        await preferences.getString(PreferencesSyncSnapshotStore.key),
+        'old snapshot',
+      );
 
       await DataTransferService.recoverPendingImport(
         RecordRepository.withStore(recordStore),
@@ -309,8 +316,14 @@ void main() {
 
       expect(categoryStore.values.single.id, 'old');
       expect(recordStore.values.single.id, 'old-record');
-      expect(await preferences.getString(PreferencesSyncSnapshotStore.key), 'old snapshot');
-      expect(await preferences.getString('sync_snapshot_updated_at'), 'old revision');
+      expect(
+        await preferences.getString(PreferencesSyncSnapshotStore.key),
+        'old snapshot',
+      );
+      expect(
+        await preferences.getString('sync_snapshot_updated_at'),
+        'old revision',
+      );
       expect(await preferences.getString('sync_metadata'), 'old metadata');
       expect(await journal.hasPendingRecovery(), isFalse);
     },
@@ -337,39 +350,49 @@ void main() {
       throwsStateError,
     );
 
-    expect(await preferences.getString(PreferencesSyncSnapshotStore.key), 'old snapshot');
-    expect(await preferences.getString('sync_snapshot_updated_at'), 'old revision');
+    expect(
+      await preferences.getString(PreferencesSyncSnapshotStore.key),
+      'old snapshot',
+    );
+    expect(
+      await preferences.getString('sync_snapshot_updated_at'),
+      'old revision',
+    );
     expect(await preferences.getString('sync_metadata'), 'old metadata');
     expect(await journal.hasPendingRecovery(), isTrue);
   });
 
-  test('clears recovery journal only after import snapshot publication', () async {
-    final preferences = _MemoryPreferences();
-    final journal = ImportRecoveryJournal(preferences);
-    final events = <String>[];
-    final scheduler = _JournalAwareScheduler(events, journal);
-    final marker = SyncMutationTracker(
-      revision: _MemoryRevisionStore(DateTime.utc(2026, 7, 1)),
-      metadata: _MemoryMetadataStore(const SyncMetadata()),
-      scheduler: scheduler,
-      clock: () => DateTime.utc(2026, 7, 2),
-    );
-    service = DataTransferService(
-      RecordRepository.withStore(recordStore),
-      CategoryRepository.withStore(categoryStore),
-      mutationMarker: marker,
-      refreshSnapshot: () async => events.add('snapshot'),
-      recoveryJournal: journal,
-    );
+  test(
+    'clears recovery journal only after import snapshot publication',
+    () async {
+      final preferences = _MemoryPreferences();
+      final journal = ImportRecoveryJournal(preferences);
+      final events = <String>[];
+      final scheduler = _JournalAwareScheduler(events, journal);
+      final marker = SyncMutationTracker(
+        revision: _MemoryRevisionStore(DateTime.utc(2026, 7, 1)),
+        metadata: _MemoryMetadataStore(const SyncMetadata()),
+        scheduler: scheduler,
+        pending: _EventPendingStore(events),
+        clock: () => DateTime.utc(2026, 7, 2),
+      );
+      service = DataTransferService(
+        RecordRepository.withStore(recordStore),
+        CategoryRepository.withStore(categoryStore),
+        mutationMarker: marker,
+        refreshSnapshot: () async => events.add('snapshot'),
+        recoveryJournal: journal,
+      );
 
-    await service.importJson('''
+      await service.importJson('''
       {"version":1,"categories":[{"id":"work","name":"工作","color":"#123456"}],"records":[]}
     ''');
-    await scheduler.scheduled.future;
+      await scheduler.scheduled.future;
 
-    expect(events, ['snapshot', 'schedule']);
-    expect(await journal.hasPendingRecovery(), isFalse);
-  });
+      expect(events, ['snapshot', 'pending', 'schedule']);
+      expect(await journal.hasPendingRecovery(), isFalse);
+    },
+  );
 }
 
 class _FakeMutationTracker implements SyncMutationMarker {
@@ -426,6 +449,21 @@ class _EventScheduler implements SyncScheduler {
 
   @override
   Future<void> schedule() async => events.add('schedule');
+}
+
+class _EventPendingStore implements SyncPendingStateStore {
+  _EventPendingStore(this.events);
+
+  final List<String> events;
+
+  @override
+  Future<bool> clearIfMatches(DateTime revision) async => false;
+
+  @override
+  Future<void> markPending(DateTime revision) async => events.add('pending');
+
+  @override
+  Future<DateTime?> readPendingRevision() async => null;
 }
 
 class _JournalAwareScheduler implements SyncScheduler {

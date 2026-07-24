@@ -36,7 +36,7 @@ RecordDataStore / CategoryDataStore / PreferencesStore
 Hive DTO + Hive Adapter / SharedPreferences
 ```
 
-WebDAV 通过 `SyncPort`、`WebDavSyncCoordinator`、Repository 变更追踪和 Android WorkManager 接入。每次本地变更会合并为一次网络约束的后台同步；远端以记录、分类和 90 天删除墓碑逐 ID 合并，同 ID 内容冲突时本机优先。前台会在打开 Hive 前激活 90 秒所有权心跳；WorkManager 在心跳有效时跳过任务，其他时间只以只读 SharedPreferences 快照合并上传，绝不初始化或访问 Hive，也绝不写入快照、ETag 或元数据。隔离的 Hive 访问和不可变后台快照消除了原生进程锁的需要。下一次前台同步会拉取并合并后台上传的文档。同步使用 ETag 条件写入，并在服务支持时使用短时 WebDAV 锁。详细说明见 [架构说明](docs/architecture.md)。
+WebDAV 通过 `SyncPort`、`WebDavSyncCoordinator`、Repository 变更追踪和 Android WorkManager 接入。每次本地变更在 Hive、版本/元数据和不可变快照全部发布后，持久化一个待同步 UTC revision；成功同步只能清除自己开始时捕获的相同 revision，故同步期间的新编辑不会被旧请求确认。失败与前后台交接均保留该责任并请求网络约束后台任务。远端以记录、分类和 90 天删除墓碑逐 ID 合并，同 ID 内容冲突时本机优先。前台会在打开 Hive 前激活 90 秒所有权心跳；WorkManager 在心跳有效时返回 retry，其他时间只以只读 SharedPreferences 快照合并上传，绝不初始化或访问 Hive，也绝不写入快照、ETag 或元数据。隔离的 Hive 访问和不可变后台快照消除了原生进程锁的需要。下一次前台同步会拉取并合并后台上传的文档。同步使用 ETag 条件写入，并在服务支持时使用短时 WebDAV 锁。详细说明见 [架构说明](docs/architecture.md)。
 
 ## 开始开发
 

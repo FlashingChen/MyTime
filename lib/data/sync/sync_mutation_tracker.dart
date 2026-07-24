@@ -5,6 +5,7 @@ import 'package:mytime/data/sync/sync_revision_store.dart';
 import 'package:mytime/data/sync/sync_metadata.dart';
 import 'package:mytime/data/sync/sync_metadata_store.dart';
 import 'package:mytime/data/sync/sync_scheduler.dart';
+import 'package:mytime/data/sync/sync_pending_state_store.dart';
 
 /// Marks a successful local data mutation for later synchronization.
 abstract interface class SyncMutationMarker {
@@ -48,12 +49,14 @@ class SyncMutationTracker implements SyncImportMutationMarker {
     SyncScheduler? scheduler,
     ForegroundSyncMutationDispatcher? foregroundDispatcher,
     Future<void> Function()? refreshSnapshot,
+    SyncPendingStateStore? pending,
     DateTime Function()? clock,
   }) : _revision = revision,
        _metadata = metadata,
        _scheduler = scheduler ?? const NoopSyncScheduler(),
        _foregroundDispatcher = foregroundDispatcher,
        _refreshSnapshot = refreshSnapshot,
+       _pending = pending ?? const NoopSyncPendingStateStore(),
        _clock = clock ?? DateTime.now;
 
   final SyncRevisionStore _revision;
@@ -61,12 +64,18 @@ class SyncMutationTracker implements SyncImportMutationMarker {
   final SyncScheduler _scheduler;
   final ForegroundSyncMutationDispatcher? _foregroundDispatcher;
   final Future<void> Function()? _refreshSnapshot;
+  final SyncPendingStateStore _pending;
   final DateTime Function() _clock;
   Future<void> _pendingMutation = Future<void>.value();
 
   @override
   Future<void> markLocalChanged() {
-    final mutation = _pendingMutation.then<void>((_) => _advance());
+    final mutation = _pendingMutation.then<void>((_) async {
+      await _advance();
+      await _refreshSnapshot?.call();
+      await _pending.markPending(await _revision.readUpdatedAt());
+      _notifyCommittedMutation();
+    });
     _pendingMutation = mutation.then<void>(
       (_) {},
       onError: (Object _, StackTrace __) {},
@@ -103,6 +112,7 @@ class SyncMutationTracker implements SyncImportMutationMarker {
           await metadata.write(next);
         }
         await (refreshSnapshot ?? _refreshSnapshot)?.call();
+        await _pending.markPending(await _revision.readUpdatedAt());
         await beforeSchedule?.call();
         _notifyCommittedMutation();
       } catch (error, stackTrace) {
@@ -128,6 +138,7 @@ class SyncMutationTracker implements SyncImportMutationMarker {
         }
       }
       await _refreshSnapshot?.call();
+      await _pending.markPending(await _revision.readUpdatedAt());
       _notifyCommittedMutation();
     });
     _pendingMutation = mutation.then<void>((_) {}, onError: (_, __) {});

@@ -26,6 +26,7 @@ import 'package:mytime/data/sync/preferences_sync_snapshot_store.dart';
 import 'package:mytime/data/sync/sync_revision_store.dart';
 import 'package:mytime/data/sync/sync_metadata_store.dart';
 import 'package:mytime/data/sync/sync_scheduler.dart';
+import 'package:mytime/data/sync/sync_pending_state_store.dart';
 import 'package:mytime/data/sync/webdav_background_task.dart';
 import 'package:mytime/data/sync/webdav_sync_coordinator.dart';
 import 'package:mytime/ui/app_shell.dart';
@@ -51,6 +52,7 @@ void main() async {
   final revisionStore = PreferencesSyncRevisionStore(preferences);
   final metadataStore = PreferencesSyncMetadataStore(preferences);
   final snapshotStore = PreferencesSyncSnapshotStore(preferences);
+  final pendingStore = PreferencesSyncPendingStateStore(preferences);
   final importRecoveryJournal = ImportRecoveryJournal(preferences);
   final syncDataGate = SyncDataGate();
   late final RepositorySyncLocalStore localSyncStore;
@@ -80,6 +82,7 @@ void main() async {
       synchronize: webDavSyncCoordinator.synchronize,
     ),
     scheduler: const WorkmanagerSyncScheduler(),
+    pending: pendingStore,
   );
   ForegroundSyncLifecycleOwner(
     foregroundSyncOwnership,
@@ -91,6 +94,7 @@ void main() async {
     metadata: metadataStore,
     foregroundDispatcher: foregroundMutationDispatcher,
     refreshSnapshot: refreshSnapshot,
+    pending: pendingStore,
   );
 
   // User-originated writes use the decorators. Sync replacement deliberately
@@ -153,7 +157,13 @@ void main() async {
     synchronizeWebDavOnStartup(
       loadSettings: settingsRepo.load,
       synchronize: webDavSyncCoordinator.synchronize,
-    ).catchError((_) {}),
+      pending: pendingStore,
+      scheduler: const WorkmanagerSyncScheduler(),
+    ).catchError((Object error, StackTrace stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(exception: error, stack: stackTrace),
+      );
+    }),
   );
 }
 
@@ -163,17 +173,30 @@ Future<void> synchronizeWebDavOnStartup({
   required Future<Object?> Function(WebDavConfiguration configuration)
   synchronize,
   Future<void> Function()? recoverPendingImport,
+  SyncPendingStateStore? pending,
+  SyncScheduler? scheduler,
 }) async {
   await recoverPendingImport?.call();
   final settings = await loadSettings();
   if (!settings.hasWebDavConfiguration) return;
-  await synchronize(
-    WebDavConfiguration(
-      endpoint: settings.webDavEndpoint,
-      username: settings.webDavUsername,
-      password: settings.webDavPassword!,
-    ),
-  );
+  final attempt = await pending?.readPendingRevision();
+  try {
+    await synchronize(
+      WebDavConfiguration(
+        endpoint: settings.webDavEndpoint,
+        username: settings.webDavUsername,
+        password: settings.webDavPassword!,
+      ),
+    );
+    if (attempt != null) await pending!.clearIfMatches(attempt);
+  } catch (error, stackTrace) {
+    if (pending != null) {
+      try {
+        await scheduler?.schedule();
+      } catch (_) {}
+    }
+    Error.throwWithStackTrace(error, stackTrace);
+  }
 }
 
 /// Activates the foreground ownership heartbeat before local storage opens.

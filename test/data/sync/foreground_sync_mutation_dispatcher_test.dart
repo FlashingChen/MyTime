@@ -5,6 +5,7 @@ import 'package:mytime/data/sync/foreground_sync_mutation_dispatcher.dart';
 import 'package:mytime/data/sync/sync_metadata.dart';
 import 'package:mytime/data/sync/sync_metadata_store.dart';
 import 'package:mytime/data/sync/sync_mutation_tracker.dart';
+import 'package:mytime/data/sync/sync_pending_state_store.dart';
 import 'package:mytime/data/sync/sync_revision_store.dart';
 import 'package:mytime/data/sync/sync_scheduler.dart';
 
@@ -30,6 +31,77 @@ void main() {
       await foregroundSyncStarted.future;
 
       expect(scheduler.calls, 0);
+    },
+  );
+
+  test(
+    'retains pending work and schedules after an active sync failure',
+    () async {
+      final pending = _MemoryPendingStore(DateTime.utc(2026, 7, 24, 12));
+      final scheduler = _CountingScheduler();
+      final dispatcher = ForegroundSyncMutationDispatcher(
+        foregroundIsActive: () async => true,
+        synchronize: () async => throw StateError('network failed'),
+        scheduler: scheduler,
+        pending: pending,
+      );
+
+      dispatcher.mutationCommitted();
+      await _waitFor(() => scheduler.calls == 1);
+
+      expect(
+        await pending.readPendingRevision(),
+        DateTime.utc(2026, 7, 24, 12),
+      );
+    },
+  );
+
+  test(
+    'does not clear a new pending revision after an earlier sync succeeds',
+    () async {
+      final firstStarted = Completer<void>();
+      final finishFirst = Completer<void>();
+      var syncCalls = 0;
+      final pending = _MemoryPendingStore(DateTime.utc(2026, 7, 24, 12));
+      final dispatcher = ForegroundSyncMutationDispatcher(
+        foregroundIsActive: () async => true,
+        synchronize: () async {
+          syncCalls++;
+          if (syncCalls == 1) {
+            firstStarted.complete();
+            await finishFirst.future;
+          }
+        },
+        scheduler: _CountingScheduler(),
+        pending: pending,
+      );
+
+      dispatcher.mutationCommitted();
+      await firstStarted.future;
+      await pending.markPending(DateTime.utc(2026, 7, 24, 13));
+      dispatcher.mutationCommitted();
+      finishFirst.complete();
+      await _waitFor(
+        () => pending.clearAttempts.contains(DateTime.utc(2026, 7, 24, 13)),
+      );
+
+      expect(await pending.readPendingRevision(), isNull);
+    },
+  );
+
+  test(
+    'hands off durable pending work after dispatcher reconstruction',
+    () async {
+      final scheduler = _CountingScheduler();
+      final dispatcher = ForegroundSyncMutationDispatcher(
+        foregroundIsActive: () async => false,
+        synchronize: () async {},
+        scheduler: scheduler,
+        pending: _MemoryPendingStore(DateTime.utc(2026, 7, 24, 12)),
+      );
+
+      dispatcher.foregroundBecameInactive();
+      await _waitFor(() => scheduler.calls == 1);
     },
   );
 
@@ -197,4 +269,27 @@ class _CountingScheduler implements SyncScheduler {
 
   @override
   Future<void> schedule() async => calls++;
+}
+
+class _MemoryPendingStore implements SyncPendingStateStore {
+  _MemoryPendingStore(this.value);
+
+  DateTime? value;
+  final clearAttempts = <DateTime>[];
+
+  @override
+  Future<bool> clearIfMatches(DateTime revision) async {
+    clearAttempts.add(revision);
+    if (value != revision) return false;
+    value = null;
+    return true;
+  }
+
+  @override
+  Future<void> markPending(DateTime revision) async {
+    if (value == null || revision.isAfter(value!)) value = revision;
+  }
+
+  @override
+  Future<DateTime?> readPendingRevision() async => value;
 }
