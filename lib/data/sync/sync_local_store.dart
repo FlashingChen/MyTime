@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
@@ -62,16 +64,21 @@ class RepositorySyncLocalStore implements SyncLocalStore {
   final SyncDataGate _gate;
   final Future<List<TimeRecord>> Function() _readOnlyRecords;
   final Future<List<Category>> Function() _readOnlyCategories;
+  static final Object _exclusiveStoreZoneKey = Object();
 
   @override
-  Future<T> runExclusive<T>(Future<T> Function() operation) =>
-      _gate.run(operation);
+  Future<T> runExclusive<T>(Future<T> Function() operation) => _gate.run(
+    () => runZoned<Future<T>>(
+      operation,
+      zoneValues: {_exclusiveStoreZoneKey: this},
+    ),
+  );
 
   @override
-  Future<SyncSnapshot> read() => _gate.run(_readUnlocked);
+  Future<SyncSnapshot> read() => _runGuarded(_readUnlocked);
 
   @override
-  Future<SyncSnapshot> readReadOnly() => _gate.run(() async {
+  Future<SyncSnapshot> readReadOnly() => _runGuarded(() async {
     return SyncSnapshot(
       records: await _readOnlyRecords(),
       categories: await _readOnlyCategories(),
@@ -93,19 +100,24 @@ class RepositorySyncLocalStore implements SyncLocalStore {
 
   @override
   Future<void> replace(SyncSnapshot snapshot) =>
-      _gate.run(() => _replaceUnlocked(snapshot));
+      _runGuarded(() => _replaceUnlocked(snapshot));
 
   @override
   Future<bool> replaceIfCurrent(
     DateTime expectedUpdatedAt,
     SyncSnapshot snapshot,
   ) {
-    return _gate.run(() async {
+    return _runGuarded(() async {
       final current = await _revision.readUpdatedAt();
       if (current.toUtc() != expectedUpdatedAt.toUtc()) return false;
       await _replaceUnlocked(snapshot);
       return true;
     });
+  }
+
+  Future<T> _runGuarded<T>(Future<T> Function() operation) {
+    if (Zone.current[_exclusiveStoreZoneKey] == this) return operation();
+    return _gate.run(operation);
   }
 
   Future<void> _replaceUnlocked(SyncSnapshot snapshot) async {

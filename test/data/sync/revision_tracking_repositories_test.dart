@@ -4,6 +4,7 @@ import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/sync/revision_tracking_repositories.dart';
+import 'package:mytime/data/sync/sync_metadata.dart';
 import 'package:mytime/data/sync/sync_mutation_tracker.dart';
 
 void main() {
@@ -56,6 +57,29 @@ void main() {
   });
 
   test(
+    'marks the persisted generated record ID after adding an empty ID',
+    () async {
+      final marker = _EntityMutationTracker();
+      final repository = RevisionTrackingRecordsRepository(
+        delegate: _GeneratingRecordsRepository(),
+        marker: marker,
+      );
+
+      final result = await repository.add(
+        TimeRecord(
+          id: '',
+          categoryId: category.id,
+          startTime: DateTime.utc(2026, 7, 12, 9),
+          endTime: DateTime.utc(2026, 7, 12, 10),
+        ),
+      );
+
+      expect(result.id, 'generated-record-id');
+      expect(marker.changed, [(SyncEntityKind.record, 'generated-record-id')]);
+    },
+  );
+
+  test(
     'marks every successful category write through the existing port',
     () async {
       final delegate = _FakeCategoriesRepository();
@@ -86,6 +110,26 @@ void main() {
 
     expect(marker.calls, 0);
   });
+
+  test(
+    'marks the persisted generated category ID after adding an empty ID',
+    () async {
+      final marker = _EntityMutationTracker();
+      final repository = RevisionTrackingCategoriesRepository(
+        delegate: _GeneratingCategoriesRepository(),
+        marker: marker,
+      );
+
+      final result = await repository.add(
+        const Category(id: '', name: '新分类', color: '#123456'),
+      );
+
+      expect(result.id, 'generated-category-id');
+      expect(marker.changed, [
+        (SyncEntityKind.category, 'generated-category-id'),
+      ]);
+    },
+  );
 }
 
 class _FakeMutationTracker implements SyncMutationMarker {
@@ -94,6 +138,35 @@ class _FakeMutationTracker implements SyncMutationMarker {
   @override
   Future<void> markLocalChanged() async {
     calls++;
+  }
+}
+
+class _EntityMutationTracker implements SyncEntityMutationMarker {
+  final List<(SyncEntityKind, String)> changed = [];
+
+  @override
+  Future<void> markChanged(SyncEntityKind kind, String id) async {
+    changed.add((kind, id));
+  }
+
+  @override
+  Future<void> markDeleted(SyncEntityKind kind, String id) async {}
+
+  @override
+  Future<void> markLocalChanged() async {}
+}
+
+class _GeneratingRecordsRepository extends _FakeRecordsRepository {
+  @override
+  Future<TimeRecord> add(TimeRecord record) async {
+    return super.add(record.copyWith(id: 'generated-record-id'));
+  }
+}
+
+class _GeneratingCategoriesRepository extends _FakeCategoriesRepository {
+  @override
+  Future<Category> add(Category category) async {
+    return super.add(category.copyWith(id: 'generated-category-id'));
   }
 }
 

@@ -69,6 +69,25 @@ void main() {
   });
 
   test(
+    'awaits foreground ownership activation at the startup boundary',
+    () async {
+      final store = _DelayedActivationPreferences();
+      var completed = false;
+      final activation = activateForegroundSyncOwnership(store).then((_) {
+        completed = true;
+      });
+
+      await store.activationStarted.future;
+      expect(completed, isFalse);
+
+      store.allowActivation.complete();
+      await activation;
+
+      expect(store.values[ForegroundSyncOwnership.heartbeatKey], isNotNull);
+    },
+  );
+
+  test(
     'removes the heartbeat after a pending refresh is deactivated',
     () async {
       final store = _DelayedPreferences();
@@ -136,6 +155,18 @@ class _DelayedPreferences extends _MemoryPreferences {
   Future<void> remove(String key) async {
     await super.remove(key);
     deactivated.complete();
+  }
+}
+
+class _DelayedActivationPreferences extends _MemoryPreferences {
+  final activationStarted = Completer<void>();
+  final allowActivation = Completer<void>();
+
+  @override
+  Future<void> setString(String key, String value) async {
+    activationStarted.complete();
+    await allowActivation.future;
+    await super.setString(key, value);
   }
 }
 

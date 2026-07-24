@@ -38,8 +38,17 @@ class RevisionTrackingRecordsRepository implements RecordsRepository {
       _delegate.getByRange(start, end);
 
   @override
-  Future<TimeRecord> add(TimeRecord record) =>
-      _afterLocalWrite(() => _delegate.add(record), record.id);
+  Future<TimeRecord> add(TimeRecord record) async {
+    return _gate.run(() async {
+      final result = await _delegate.add(record);
+      if (_marker case final SyncEntityMutationMarker marker) {
+        await marker.markChanged(SyncEntityKind.record, result.id);
+      } else {
+        await _marker.markLocalChanged();
+      }
+      return result;
+    });
+  }
 
   @override
   Future<void> delete(String id) =>
@@ -126,8 +135,17 @@ class RevisionTrackingCategoriesRepository implements CategoriesRepository {
   Category? getById(String id) => _delegate.getById(id);
 
   @override
-  Future<Category> add(Category category) =>
-      _afterLocalWrite(() => _delegate.add(category), category.id);
+  Future<Category> add(Category category) async {
+    return _gate.run(() async {
+      final result = await _delegate.add(category);
+      if (_marker case final SyncEntityMutationMarker marker) {
+        await marker.markChanged(SyncEntityKind.category, result.id);
+      } else {
+        await _marker.markLocalChanged();
+      }
+      return result;
+    });
+  }
 
   @override
   Future<void> update(Category category) =>

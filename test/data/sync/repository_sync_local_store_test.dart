@@ -6,8 +6,10 @@ import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/sync/revision_tracking_repositories.dart';
 import 'package:mytime/data/sync/sync_local_store.dart';
 import 'package:mytime/data/sync/sync_mutation_tracker.dart';
+import 'package:mytime/data/sync/sync_data_gate.dart';
 import 'package:mytime/data/sync/sync_port.dart';
 import 'package:mytime/data/sync/sync_revision_store.dart';
+import 'package:mytime/data/sync/sync_service.dart';
 
 void main() {
   final oldCategory = const Category(id: 'old', name: '旧分类', color: '#123456');
@@ -57,6 +59,46 @@ void main() {
 
       expect(snapshot.categories, isEmpty);
       expect(categories.writeCalls, 0);
+    },
+  );
+
+  test(
+    'completes foreground synchronization with a shared real store gate',
+    () async {
+      final store = RepositorySyncLocalStore(
+        records: _FakeRecordsRepository([recordFor(oldCategory.id)]),
+        categories: _FakeCategoriesRepository([oldCategory]),
+        revision: _FakeRevisionStore(DateTime.utc(2026, 7, 24)),
+        gate: SyncDataGate(),
+      );
+
+      await expectLater(
+        SyncService(local: store, remote: _AcceptingRemote()).synchronize(),
+        completes,
+      ).timeout(const Duration(seconds: 1));
+    },
+  );
+
+  test(
+    'completes read-only synchronization with a shared real store gate',
+    () async {
+      final store = RepositorySyncLocalStore(
+        records: _FakeRecordsRepository([recordFor(oldCategory.id)]),
+        categories: _FakeCategoriesRepository([oldCategory]),
+        revision: _FakeRevisionStore(DateTime.utc(2026, 7, 24)),
+        gate: SyncDataGate(),
+        readOnlyRecords: () async => [recordFor(oldCategory.id)],
+        readOnlyCategories: () async => [oldCategory],
+      );
+
+      await expectLater(
+        SyncService(
+          local: store,
+          remote: _AcceptingRemote(),
+          applyMergedLocal: false,
+        ).synchronize(),
+        completes,
+      ).timeout(const Duration(seconds: 1));
     },
   );
 
@@ -191,6 +233,24 @@ class _FakeRevisionStore implements SyncRevisionStore {
   Future<void> writeUpdatedAt(DateTime updatedAt) async {
     value = updatedAt;
   }
+}
+
+class _AcceptingRemote implements SyncPort {
+  @override
+  Future<RemoteSyncDocument?> pull() async => null;
+
+  @override
+  Future<String?> push(
+    SyncSnapshot snapshot, {
+    required String? ifMatch,
+    required bool ifNoneMatch,
+  }) async => '"v1"';
+
+  @override
+  Future<SyncLock?> lock() async => null;
+
+  @override
+  Future<void> unlock(SyncLock lock) async {}
 }
 
 class _FakeMutationTracker implements SyncMutationMarker {

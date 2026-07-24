@@ -30,16 +30,15 @@ import 'package:workmanager/workmanager.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  final preferences = SharedPreferencesStore();
+  final foregroundSyncOwnership = await activateForegroundSyncOwnership(
+    preferences,
+  );
   await HiveHelper.init();
   await Workmanager().initialize(callbackDispatcher);
 
   final recordsBox = await HiveHelper.openRecordsBox();
   final categoriesBox = await HiveHelper.openCategoriesBox();
-  final preferences = SharedPreferencesStore();
-  final foregroundSyncOwnership = ForegroundSyncOwnership(
-    preferences: preferences,
-  );
-  await foregroundSyncOwnership.activate();
   ForegroundSyncLifecycleOwner(foregroundSyncOwnership).start();
   final rawRecordRepository = RecordRepository.withStore(
     HiveRecordDataStore(recordsBox),
@@ -112,6 +111,15 @@ void main() async {
       ),
     ),
   );
+}
+
+/// Activates the foreground ownership heartbeat before local storage opens.
+Future<ForegroundSyncOwnership> activateForegroundSyncOwnership(
+  PreferencesStore preferences,
+) async {
+  final ownership = ForegroundSyncOwnership(preferences: preferences);
+  await ownership.activate();
+  return ownership;
 }
 
 /// Keeps the foreground sync ownership heartbeat aligned with app lifecycle.
