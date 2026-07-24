@@ -2,6 +2,7 @@ package com.mytime.mytime
 
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import androidx.concurrent.futures.CallbackToFutureAdapter
 import androidx.work.ListenableWorker.Result
 import com.google.common.util.concurrent.ListenableFuture
@@ -131,6 +132,42 @@ class SyncExecutionLockTest {
         assertEquals(listOf("worker-token"), harness.releasedTokens)
     }
 
+    @Test
+    fun workerWrapperStopsDelegateBeforeReleasingWhenStoppedDuringDelegateConstruction() {
+        val delegateAdmission = CountDownLatch(1)
+        val allowConstruction = CountDownLatch(1)
+        val releasedTokens = mutableListOf<String>()
+        var delegateConstructions = 0
+        val events = mutableListOf<String>()
+        val runner = SyncExecutionLockWorkRunner(
+            acquire = { "worker-token" },
+            release = { token -> releasedTokens.add(token); events.add("released"); true },
+            isForegroundAttached = { false },
+            startDelegate = {
+                delegateAdmission.countDown()
+                assertTrue(allowConstruction.await(1, TimeUnit.SECONDS))
+                delegateConstructions++
+                events.add("started")
+                completed(Result.success())
+            },
+            stopDelegate = { events.add("stopped") },
+        )
+        val startThread = Thread { runner.start().get() }
+        startThread.start()
+
+        assertTrue(delegateAdmission.await(1, TimeUnit.SECONDS))
+        val stopThread = Thread(runner::stop)
+        stopThread.start()
+        assertTrue(waitForStopRequest(runner))
+        allowConstruction.countDown()
+        startThread.join(1000)
+        stopThread.join(1000)
+
+        assertEquals(1, delegateConstructions)
+        assertEquals(listOf("started", "stopped", "released"), events)
+        assertEquals(listOf("worker-token"), releasedTokens)
+    }
+
     private class WorkerHarness(
         private var foregroundAttached: Boolean = false,
         private val acquireResult: String? = "worker-token",
@@ -146,10 +183,22 @@ class SyncExecutionLockTest {
                 delegateStarts++
                 completed(Result.success())
             },
+            stopDelegate = {},
         )
     }
 
     private companion object {
+        fun waitForStopRequest(runner: SyncExecutionLockWorkRunner): Boolean {
+            val stoppedField = SyncExecutionLockWorkRunner::class.java.getDeclaredField("stopped")
+            stoppedField.isAccessible = true
+            val stopped = stoppedField.get(runner) as AtomicBoolean
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1)
+            while (!stopped.get() && System.nanoTime() < deadline) {
+                Thread.yield()
+            }
+            return stopped.get()
+        }
+
         fun completed(result: Result): ListenableFuture<Result> =
             CallbackToFutureAdapter.getFuture { completer ->
                 completer.set(result)

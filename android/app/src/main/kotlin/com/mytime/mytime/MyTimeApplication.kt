@@ -52,17 +52,14 @@ class SyncExecutionLockWorker(
         startDelegate = {
             BackgroundWorker(applicationContext, workerParameters).also { delegate = it }.startWork()
         },
+        stopDelegate = { delegate?.onStopped() },
     )
 
     override fun startWork(): ListenableFuture<Result> = runner.start()
 
     override fun onStopped() {
         runner.stop()
-        try {
-            delegate?.onStopped()
-        } finally {
-            super.onStopped()
-        }
+        super.onStopped()
     }
 }
 
@@ -72,42 +69,106 @@ internal class SyncExecutionLockWorkRunner(
     private val release: (String) -> Boolean,
     private val isForegroundAttached: () -> Boolean,
     private val startDelegate: () -> ListenableFuture<ListenableWorker.Result>,
+    private val stopDelegate: () -> Unit,
 ) {
-    private val stateLock = Any()
+    private val stateLock = java.lang.Object()
     private val stopped = AtomicBoolean(false)
-    private val released = AtomicBoolean(false)
     private var token: String? = null
+    private var startingDelegate = false
+    private var delegateStarted = false
+    private var stoppingDelegate = false
+    private var delegateStopped = false
+    private var released = false
 
     fun start(): ListenableFuture<ListenableWorker.Result> {
         if (isForegroundAttached()) return completed(ListenableWorker.Result.retry())
         val acquiredToken = acquire() ?: return completed(ListenableWorker.Result.retry())
 
         return try {
-            val future = synchronized(stateLock) {
+            val shouldStart = synchronized(stateLock) {
                 token = acquiredToken
-                if (stopped.get() || isForegroundAttached()) null else startDelegate()
+                if (stopped.get() || isForegroundAttached()) {
+                    false
+                } else {
+                    startingDelegate = true
+                    true
+                }
             }
-            if (future == null) {
+            if (!shouldStart) {
                 releaseOnce()
                 return completed(ListenableWorker.Result.retry())
             }
+            val future = startDelegate()
+            val shouldStop = synchronized(stateLock) {
+                startingDelegate = false
+                delegateStarted = true
+                stateLock.notifyAll()
+                if (stopped.get() && !delegateStopped && !stoppingDelegate) {
+                    stoppingDelegate = true
+                    true
+                } else {
+                    false
+                }
+            }
+            if (shouldStop) stopAndRelease()
             future.addListener(::releaseOnce, MoreExecutors.directExecutor())
             future
         } catch (error: Throwable) {
-            releaseOnce()
+            val shouldStop = synchronized(stateLock) {
+                startingDelegate = false
+                stateLock.notifyAll()
+                if (stopped.get() && !delegateStopped && !stoppingDelegate) {
+                    stoppingDelegate = true
+                    true
+                } else {
+                    false
+                }
+            }
+            if (shouldStop) stopAndRelease() else releaseOnce()
             throw error
         }
     }
 
     fun stop() {
-        stopped.set(true)
-        releaseOnce()
+        val shouldStop = synchronized(stateLock) {
+            stopped.set(true)
+            while (startingDelegate || stoppingDelegate) stateLock.wait()
+            if (delegateStarted && !delegateStopped) {
+                stoppingDelegate = true
+                true
+            } else {
+                false
+            }
+        }
+        if (shouldStop) stopAndRelease() else releaseOnce()
     }
 
     private fun releaseOnce() {
-        val acquiredToken = synchronized(stateLock) { token }
-        if (acquiredToken != null && released.compareAndSet(false, true)) {
+        val acquiredToken = synchronized(stateLock) {
+            if (
+                released ||
+                    (stopped.get() && delegateStarted && !delegateStopped)
+            ) {
+                null
+            } else {
+                token?.also { released = true }
+            }
+        }
+        if (acquiredToken != null) {
             release(acquiredToken)
+        }
+    }
+
+    private fun stopAndRelease() {
+        try {
+            stopDelegate()
+        } finally {
+            synchronized(stateLock) {
+                stoppingDelegate = false
+                delegateStopped = true
+                stateLock.notifyAll()
+            }
+            releaseOnce()
         }
     }
 
