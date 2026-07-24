@@ -98,11 +98,11 @@ void main() {
       expect(order, [
         'activate-started',
         'activate-completed',
-        'lock-acquire',
+        'lock-acquire:null',
         'hive',
         'workmanager',
         'boxes',
-        'lock-release',
+        'lock-release:startup-token',
       ]);
     },
   );
@@ -148,10 +148,16 @@ class _OrderingLock implements SyncExecutionLockPort {
   final List<String> order;
 
   @override
-  Future<void> acquire({int? timeoutMillis}) async => order.add('lock-acquire');
+  Future<String> acquire({int? timeoutMillis}) async {
+    order.add('lock-acquire:$timeoutMillis');
+    return 'startup-token';
+  }
 
   @override
-  Future<void> release() async => order.add('lock-release');
+  Future<bool> release(String token) async {
+    order.add('lock-release:$token');
+    return true;
+  }
 }
 
 class _MemoryPreferences implements PreferencesStore {

@@ -141,13 +141,13 @@ Future<T> initializeForegroundOwnedStorage<T>({
   required Future<T> Function() openBoxes,
 }) async {
   await activateForegroundOwnership();
-  await lock.acquire(timeoutMillis: 30000);
+  final token = await lock.acquire();
   try {
     await initializeHive();
     await initializeWorkmanager();
     return await openBoxes();
   } finally {
-    await lock.release();
+    await lock.release(token);
   }
 }
 

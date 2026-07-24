@@ -27,11 +27,16 @@ class MyTimeWorkerFactory : WorkerFactory() {
         workerClassName: String,
         workerParameters: WorkerParameters,
     ): ListenableWorker? =
-        if (workerClassName == BackgroundWorker::class.java.name) {
+        if (handles(workerClassName)) {
             SyncExecutionLockWorker(appContext, workerParameters)
         } else {
             null
         }
+
+    companion object {
+        internal fun handles(workerClassName: String): Boolean =
+            workerClassName == BackgroundWorker::class.java.name
+    }
 }
 
 /** Acquires process ownership before constructing the plugin's headless worker. */
@@ -39,19 +44,53 @@ class SyncExecutionLockWorker(
     appContext: Context,
     private val workerParameters: WorkerParameters,
 ) : ListenableWorker(appContext, workerParameters) {
-    private val released = AtomicBoolean(false)
-    private var acquired = false
     private var delegate: BackgroundWorker? = null
+    private val runner = SyncExecutionLockWorkRunner(
+        acquire = { SyncExecutionLock.acquire(30_000) },
+        release = SyncExecutionLock::release,
+        isForegroundAttached = SyncExecutionLock::isForegroundAttached,
+        startDelegate = {
+            BackgroundWorker(applicationContext, workerParameters).also { delegate = it }.startWork()
+        },
+    )
 
-    override fun startWork(): ListenableFuture<Result> {
-        if (SyncExecutionLock.isForegroundAttached()) return completed(Result.retry())
-        if (!SyncExecutionLock.tryAcquire(30_000)) return completed(Result.retry())
+    override fun startWork(): ListenableFuture<Result> = runner.start()
 
-        acquired = true
+    override fun onStopped() {
+        runner.stop()
+        try {
+            delegate?.onStopped()
+        } finally {
+            super.onStopped()
+        }
+    }
+}
+
+/** Owns worker admission so stop and foreground races cannot start Flutter. */
+internal class SyncExecutionLockWorkRunner(
+    private val acquire: () -> String?,
+    private val release: (String) -> Boolean,
+    private val isForegroundAttached: () -> Boolean,
+    private val startDelegate: () -> ListenableFuture<ListenableWorker.Result>,
+) {
+    private val stateLock = Any()
+    private val stopped = AtomicBoolean(false)
+    private val released = AtomicBoolean(false)
+    private var token: String? = null
+
+    fun start(): ListenableFuture<ListenableWorker.Result> {
+        if (isForegroundAttached()) return completed(ListenableWorker.Result.retry())
+        val acquiredToken = acquire() ?: return completed(ListenableWorker.Result.retry())
+
         return try {
-            val future = BackgroundWorker(applicationContext, workerParameters).also {
-                delegate = it
-            }.startWork()
+            val future = synchronized(stateLock) {
+                token = acquiredToken
+                if (stopped.get() || isForegroundAttached()) null else startDelegate()
+            }
+            if (future == null) {
+                releaseOnce()
+                return completed(ListenableWorker.Result.retry())
+            }
             future.addListener(::releaseOnce, MoreExecutors.directExecutor())
             future
         } catch (error: Throwable) {
@@ -60,22 +99,19 @@ class SyncExecutionLockWorker(
         }
     }
 
-    override fun onStopped() {
-        try {
-            delegate?.onStopped()
-        } finally {
-            releaseOnce()
-            super.onStopped()
-        }
+    fun stop() {
+        stopped.set(true)
+        releaseOnce()
     }
 
     private fun releaseOnce() {
-        if (acquired && released.compareAndSet(false, true)) {
-            SyncExecutionLock.release()
+        val acquiredToken = synchronized(stateLock) { token }
+        if (acquiredToken != null && released.compareAndSet(false, true)) {
+            release(acquiredToken)
         }
     }
 
-    private fun completed(result: Result): ListenableFuture<Result> =
+    private fun completed(result: ListenableWorker.Result): ListenableFuture<ListenableWorker.Result> =
         CallbackToFutureAdapter.getFuture { completer ->
             completer.set(result)
             null

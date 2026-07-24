@@ -2,9 +2,9 @@ import 'package:flutter/services.dart';
 
 /// Acquires Android's process-wide foreground/background sync execution lock.
 abstract interface class SyncExecutionLockPort {
-  Future<void> acquire({required int timeoutMillis});
+  Future<String> acquire({int? timeoutMillis});
 
-  Future<void> release();
+  Future<bool> release(String token);
 }
 
 /// Production MethodChannel implementation of [SyncExecutionLockPort].
@@ -16,17 +16,19 @@ class MethodChannelSyncExecutionLockPort implements SyncExecutionLockPort {
   final MethodChannel _channel;
 
   @override
-  Future<void> acquire({required int timeoutMillis}) async {
-    final acquired = await _channel.invokeMethod<bool>('acquire', {
-      'timeoutMillis': timeoutMillis,
+  Future<String> acquire({int? timeoutMillis}) async {
+    final token = await _channel.invokeMethod<String>('acquire', {
+      if (timeoutMillis != null) 'timeoutMillis': timeoutMillis,
     });
-    if (acquired != true) {
+    if (token == null) {
       throw StateError('Android sync execution lock acquisition timed out');
     }
+    return token;
   }
 
   @override
-  Future<void> release() => _channel.invokeMethod<void>('release');
+  Future<bool> release(String token) async =>
+      await _channel.invokeMethod<bool>('release', {'token': token}) ?? false;
 }
 
 /// Explicit test-only port for code paths that do not require native locking.
@@ -34,8 +36,8 @@ class NoopSyncExecutionLockPort implements SyncExecutionLockPort {
   const NoopSyncExecutionLockPort();
 
   @override
-  Future<void> acquire({required int timeoutMillis}) async {}
+  Future<String> acquire({int? timeoutMillis}) async => 'noop';
 
   @override
-  Future<void> release() async {}
+  Future<bool> release(String token) async => true;
 }

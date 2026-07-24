@@ -3,13 +3,13 @@ package com.mytime.mytime
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.UUID
 
 /** Coordinates foreground and WorkManager access to process-local sync storage. */
 object SyncExecutionLock {
     private val semaphore = Semaphore(1, true)
     private val foregroundActivities = AtomicInteger(0)
-    private val acquired = AtomicBoolean(false)
+    private var holderToken: String? = null
 
     fun attachForeground() {
         foregroundActivities.incrementAndGet()
@@ -21,22 +21,32 @@ object SyncExecutionLock {
 
     fun isForegroundAttached(): Boolean = foregroundActivities.get() > 0
 
-    fun tryAcquire(timeoutMillis: Long): Boolean {
+    fun acquire(timeoutMillis: Long?): String? {
         try {
-            val obtained = if (timeoutMillis <= 0) {
-                semaphore.tryAcquire()
-            } else {
-                semaphore.tryAcquire(timeoutMillis, TimeUnit.MILLISECONDS)
+            val obtained = when {
+                timeoutMillis == null -> {
+                    semaphore.acquire()
+                    true
+                }
+                timeoutMillis <= 0 -> semaphore.tryAcquire()
+                else -> semaphore.tryAcquire(timeoutMillis, TimeUnit.MILLISECONDS)
             }
-            if (obtained) acquired.set(true)
-            return obtained
+            if (!obtained) return null
+            return UUID.randomUUID().toString().also { token ->
+                synchronized(this) { holderToken = token }
+            }
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
-            return false
+            return null
         }
     }
 
-    fun release() {
-        if (acquired.compareAndSet(true, false)) semaphore.release()
+    fun release(token: String): Boolean {
+        synchronized(this) {
+            if (holderToken != token) return false
+            holderToken = null
+        }
+        semaphore.release()
+        return true
     }
 }

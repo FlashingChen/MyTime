@@ -23,12 +23,12 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "acquire" -> {
                     val timeoutMillis = call.argument<Number>("timeoutMillis")?.toLong()
-                    if (timeoutMillis == null || timeoutMillis < 0) {
+                    if (timeoutMillis != null && timeoutMillis < 0) {
                         result.error("invalid_timeout", "timeoutMillis must be a non-negative integer", null)
                     } else {
                         executor.execute {
                             try {
-                                result.success(SyncExecutionLock.tryAcquire(timeoutMillis))
+                                result.success(SyncExecutionLock.acquire(timeoutMillis))
                             } catch (error: Throwable) {
                                 result.error("acquire_failed", error.message, null)
                             }
@@ -37,8 +37,12 @@ class MainActivity : FlutterActivity() {
                 }
                 "release" -> {
                     try {
-                        SyncExecutionLock.release()
-                        result.success(null)
+                        val token = call.argument<String>("token")
+                        if (token == null) {
+                            result.error("invalid_token", "token is required", null)
+                        } else {
+                            result.success(SyncExecutionLock.release(token))
+                        }
                     } catch (error: Throwable) {
                         result.error("release_failed", error.message, null)
                     }

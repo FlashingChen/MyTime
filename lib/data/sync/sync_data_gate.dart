@@ -15,11 +15,11 @@ class SyncDataGate {
   Future<T> run<T>(Future<T> Function() operation) {
     final queued = _tail.then<T>((_) async {
       if (bypassNativeLock) return operation();
-      await _lock.acquire(timeoutMillis: 30000);
+      final token = await _lock.acquire();
       try {
         return await operation();
       } finally {
-        await _lock.release();
+        await _lock.release(token);
       }
     });
     _tail = queued.then<void>((_) {}, onError: (Object _, StackTrace __) {});
