@@ -25,7 +25,9 @@ class ForegroundSyncOwnership {
   Future<bool> isForegroundActive() async {
     final value = await _preferences.getString(heartbeatKey);
     final heartbeat = value == null ? null : DateTime.tryParse(value)?.toUtc();
+    final now = _clock().toUtc();
     return heartbeat != null &&
-        _clock().toUtc().difference(heartbeat) <= activeWindow;
+        !heartbeat.isAfter(now) &&
+        now.difference(heartbeat) <= activeWindow;
   }
 }

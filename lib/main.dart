@@ -40,7 +40,7 @@ void main() async {
     preferences: preferences,
   );
   await foregroundSyncOwnership.activate();
-  _ForegroundSyncLifecycleOwner(foregroundSyncOwnership).start();
+  ForegroundSyncLifecycleOwner(foregroundSyncOwnership).start();
   final rawRecordRepository = RecordRepository.withStore(
     HiveRecordDataStore(recordsBox),
   );
@@ -114,11 +114,14 @@ void main() async {
   );
 }
 
-class _ForegroundSyncLifecycleOwner with WidgetsBindingObserver {
-  _ForegroundSyncLifecycleOwner(this._ownership);
+/// Keeps the foreground sync ownership heartbeat aligned with app lifecycle.
+class ForegroundSyncLifecycleOwner with WidgetsBindingObserver {
+  ForegroundSyncLifecycleOwner(this._ownership);
 
   final ForegroundSyncOwnership _ownership;
   Timer? _refreshTimer;
+  Future<void> _pendingOperation = Future.value();
+  int _generation = 0;
 
   void start() {
     WidgetsBinding.instance.addObserver(this);
@@ -130,22 +133,37 @@ class _ForegroundSyncLifecycleOwner with WidgetsBindingObserver {
     switch (state) {
       case AppLifecycleState.resumed:
         _startRefreshTimer();
-        unawaited(_ownership.refresh());
+        _queueRefresh();
       case AppLifecycleState.inactive:
-        unawaited(_ownership.refresh());
+        _queueRefresh();
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
         _refreshTimer?.cancel();
         _refreshTimer = null;
-        unawaited(_ownership.deactivate());
+        _generation++;
+        _queueOperation(_ownership.deactivate);
     }
   }
 
   void _startRefreshTimer() {
     _refreshTimer ??= Timer.periodic(
       ForegroundSyncOwnership.refreshInterval,
-      (_) => unawaited(_ownership.refresh()),
+      (_) => _queueRefresh(),
     );
+  }
+
+  void _queueRefresh() {
+    final generation = _generation;
+    _queueOperation(() async {
+      if (generation == _generation) {
+        await _ownership.refresh();
+      }
+    });
+  }
+
+  void _queueOperation(Future<void> Function() operation) {
+    _pendingOperation = _pendingOperation.then((_) => operation());
+    unawaited(_pendingOperation);
   }
 }
