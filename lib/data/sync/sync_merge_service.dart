@@ -80,27 +80,76 @@ class SyncMergeService {
       final localMeta = localMetadata[id];
       final remoteMeta = remoteMetadata[id];
       final remoteWins = conflictPolicy == SyncConflictPolicy.preferRemote;
-      final remoteEntityWins = remoteWins && right[id] != null;
-      final deleted = remoteEntityWins && remoteMeta?.deletedAt == null
-          ? null
-          : _effectiveDeletion(localMeta, remoteMeta);
-      if (deleted != null) {
-        metadata[id] = deleted;
+      final localDeletion = _effectiveDeletion(localMeta, null);
+      final remoteDeletion = _effectiveDeletion(remoteMeta, null);
+      final localEntity = localDeletion == null ? left[id] : null;
+      final remoteEntity = remoteDeletion == null ? right[id] : null;
+      final deletion = _resolveDeletion(
+        localDeletion: localDeletion,
+        remoteDeletion: remoteDeletion,
+        localEntity: localEntity,
+        remoteEntity: remoteEntity,
+        localMetadata: localMeta,
+        remoteMetadata: remoteMeta,
+        conflictPolicy: conflictPolicy,
+      );
+      if (deletion != null) {
+        metadata[id] = deletion;
         continue;
       }
-      final a = left[id];
-      final b = right[id];
-      final item = remoteWins ? b ?? a : a ?? b;
+      final item = remoteWins
+          ? remoteEntity ?? localEntity
+          : localEntity ?? remoteEntity;
       if (item != null) result.add(item);
-      if (remoteEntityWins) metadata.remove(id);
-      final chosen = remoteEntityWins
-          ? remoteMeta
-          : remoteWins
-          ? remoteMeta ?? localMeta
-          : localMeta ?? remoteMeta;
-      if (chosen != null) metadata[id] = chosen;
+      final chosen = remoteWins
+          ? remoteEntity != null
+                ? remoteMeta
+                : localMeta
+          : localEntity != null
+          ? localMeta
+          : remoteMeta;
+      if (chosen?.deletedAt != null) {
+        metadata.remove(id);
+      } else if (chosen != null) {
+        metadata[id] = chosen;
+      } else {
+        metadata.remove(id);
+      }
     }
     return _Merge(result, metadata);
+  }
+
+  SyncEntityMetadata? _resolveDeletion<T extends Object>({
+    required SyncEntityMetadata? localDeletion,
+    required SyncEntityMetadata? remoteDeletion,
+    required T? localEntity,
+    required T? remoteEntity,
+    required SyncEntityMetadata? localMetadata,
+    required SyncEntityMetadata? remoteMetadata,
+    required SyncConflictPolicy conflictPolicy,
+  }) {
+    if (localDeletion == null && remoteDeletion == null) return null;
+    if (localEntity == null && remoteEntity == null) {
+      return _effectiveDeletion(localDeletion, remoteDeletion);
+    }
+    final remoteWins = conflictPolicy == SyncConflictPolicy.preferRemote;
+    final deletion = _effectiveDeletion(localDeletion, remoteDeletion)!;
+    final entity = remoteWins
+        ? remoteEntity ?? localEntity
+        : localEntity ?? remoteEntity;
+    final entityMetadata = identical(entity, remoteEntity)
+        ? remoteMetadata
+        : localMetadata;
+    final updatedAt = entityMetadata?.updatedAt;
+    if (updatedAt != null) {
+      final comparison = deletion.deletedAt!.toUtc().compareTo(
+        updatedAt.toUtc(),
+      );
+      if (comparison > 0) return deletion;
+      if (comparison < 0) return null;
+    }
+    final preferredDeletion = remoteWins ? remoteDeletion : localDeletion;
+    return preferredDeletion;
   }
 
   SyncEntityMetadata? _effectiveDeletion(

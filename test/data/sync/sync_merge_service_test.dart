@@ -58,29 +58,38 @@ void main() {
     expect(merged.metadata.records['a']!.deletedAt, DateTime.utc(2026, 7, 21));
   });
 
-  test('background policy keeps a remote entity over a local tombstone', () {
-    final local = _snapshot(
-      metadata: SyncMetadata(
-        records: {
-          'a': SyncEntityMetadata(
-            kind: SyncEntityKind.record,
-            id: 'a',
-            deletedAt: DateTime.utc(2026, 7, 21),
-          ),
-        },
-      ),
-    );
-    final remote = _snapshot(record: _record('a', '前台重新创建'));
+  test(
+    'background policy keeps a newer local tombstone over an old remote entity',
+    () {
+      final local = _snapshot(
+        metadata: SyncMetadata(
+          records: {
+            'a': SyncEntityMetadata(
+              kind: SyncEntityKind.record,
+              id: 'a',
+              deletedAt: DateTime.utc(2026, 7, 21),
+            ),
+          },
+        ),
+      );
+      final remote = _snapshot(
+        record: _record('a', '后台旧版本'),
+        metadata: _recordMetadata('a', updatedAt: DateTime.utc(2026, 7, 20)),
+      );
 
-    final merged = service.merge(
-      local: local,
-      remote: remote,
-      conflictPolicy: SyncConflictPolicy.preferRemote,
-    );
+      final merged = service.merge(
+        local: local,
+        remote: remote,
+        conflictPolicy: SyncConflictPolicy.preferRemote,
+      );
 
-    expect(merged.records.single.note, '前台重新创建');
-    expect(merged.metadata.records['a'], isNull);
-  });
+      expect(merged.records, isEmpty);
+      expect(
+        merged.metadata.records['a']!.deletedAt,
+        DateTime.utc(2026, 7, 21),
+      );
+    },
+  );
 
   test(
     'background policy uploads an entity absent from the remote document',
@@ -144,7 +153,7 @@ void main() {
     expect(merged.records.single.categoryId, isNull);
   });
 
-  test('keeps a valid remote tombstone over a locally recreated entity', () {
+  test('keeps a newer record update over an older tombstone', () {
     final local = _snapshot(
       record: _record('a', '重新创建'),
       metadata: SyncMetadata(
@@ -171,8 +180,8 @@ void main() {
 
     final merged = service.merge(local: local, remote: remote);
 
-    expect(merged.records, isEmpty);
-    expect(merged.metadata.records['a']!.deletedAt, DateTime.utc(2026, 7, 20));
+    expect(merged.records.single.note, '重新创建');
+    expect(merged.metadata.records['a']!.updatedAt, DateTime.utc(2026, 7, 21));
   });
 
   test('allows an entity when its tombstone expired more than 90 days ago', () {
@@ -196,14 +205,14 @@ void main() {
     expect(merged.metadata.records['a'], isNull);
   });
 
-  test('keeps a local deletion when the remote entity was updated later', () {
+  test('keeps a newer record tombstone over an older remote update', () {
     final local = _snapshot(
       metadata: SyncMetadata(
         records: {
           'a': SyncEntityMetadata(
             kind: SyncEntityKind.record,
             id: 'a',
-            deletedAt: DateTime.utc(2026, 7, 20),
+            deletedAt: DateTime.utc(2026, 7, 21),
           ),
         },
       ),
@@ -215,7 +224,7 @@ void main() {
           'a': SyncEntityMetadata(
             kind: SyncEntityKind.record,
             id: 'a',
-            updatedAt: DateTime.utc(2026, 7, 21),
+            updatedAt: DateTime.utc(2026, 7, 20),
           ),
         },
       ),
@@ -224,9 +233,142 @@ void main() {
     final merged = service.merge(local: local, remote: remote);
 
     expect(merged.records, isEmpty);
-    expect(merged.metadata.records['a']!.deletedAt, DateTime.utc(2026, 7, 20));
+    expect(merged.metadata.records['a']!.deletedAt, DateTime.utc(2026, 7, 21));
+  });
+
+  test(
+    'foreground policy keeps its tombstone when record versions are equal',
+    () {
+      final local = _snapshot(
+        metadata: _recordMetadata('a', deletedAt: DateTime.utc(2026, 7, 21)),
+      );
+      final remote = _snapshot(
+        record: _record('a', '远端同版本'),
+        metadata: _recordMetadata('a', updatedAt: DateTime.utc(2026, 7, 21)),
+      );
+
+      final merged = service.merge(local: local, remote: remote);
+
+      expect(merged.records, isEmpty);
+      expect(
+        merged.metadata.records['a']!.deletedAt,
+        DateTime.utc(2026, 7, 21),
+      );
+    },
+  );
+
+  test(
+    'background policy keeps its tombstone when record versions are equal',
+    () {
+      final local = _snapshot(
+        record: _record('a', '后台同版本'),
+        metadata: _recordMetadata('a', updatedAt: DateTime.utc(2026, 7, 21)),
+      );
+      final remote = _snapshot(
+        metadata: _recordMetadata('a', deletedAt: DateTime.utc(2026, 7, 21)),
+      );
+
+      final merged = service.merge(
+        local: local,
+        remote: remote,
+        conflictPolicy: SyncConflictPolicy.preferRemote,
+      );
+
+      expect(merged.records, isEmpty);
+      expect(
+        merged.metadata.records['a']!.deletedAt,
+        DateTime.utc(2026, 7, 21),
+      );
+    },
+  );
+
+  test('foreground policy keeps its entity when record versions are equal', () {
+    final local = _snapshot(
+      record: _record('a', '本地同版本'),
+      metadata: _recordMetadata('a', updatedAt: DateTime.utc(2026, 7, 21)),
+    );
+    final remote = _snapshot(
+      metadata: _recordMetadata('a', deletedAt: DateTime.utc(2026, 7, 21)),
+    );
+
+    final merged = service.merge(local: local, remote: remote);
+
+    expect(merged.records.single.note, '本地同版本');
+    expect(merged.metadata.records['a']!.updatedAt, DateTime.utc(2026, 7, 21));
+  });
+
+  test('keeps a newer category update over an older tombstone', () {
+    final local = _snapshot(
+      categories: const [Category(id: 'life', name: '本地', color: '#123456')],
+      metadata: _categoryMetadata('work', deletedAt: DateTime.utc(2026, 7, 20)),
+    );
+    final remote = _snapshot(
+      categories: const [Category(id: 'work', name: '远端新版本', color: '#654321')],
+      metadata: _categoryMetadata('work', updatedAt: DateTime.utc(2026, 7, 21)),
+    );
+
+    final merged = service.merge(local: local, remote: remote);
+
+    expect(merged.categories.map((item) => item.id), contains('work'));
+    expect(
+      merged.metadata.categories['work']!.updatedAt,
+      DateTime.utc(2026, 7, 21),
+    );
+  });
+
+  test('keeps a newer category tombstone over an older remote update', () {
+    final local = _snapshot(
+      categories: const [Category(id: 'life', name: '本地', color: '#123456')],
+      metadata: _categoryMetadata('work', deletedAt: DateTime.utc(2026, 7, 21)),
+    );
+    final remote = _snapshot(
+      categories: const [Category(id: 'work', name: '远端旧版本', color: '#654321')],
+      metadata: _categoryMetadata('work', updatedAt: DateTime.utc(2026, 7, 20)),
+    );
+
+    final merged = service.merge(
+      local: local,
+      remote: remote,
+      conflictPolicy: SyncConflictPolicy.preferRemote,
+    );
+
+    expect(merged.categories.map((item) => item.id), isNot(contains('work')));
+    expect(
+      merged.metadata.categories['work']!.deletedAt,
+      DateTime.utc(2026, 7, 21),
+    );
   });
 }
+
+SyncMetadata _recordMetadata(
+  String id, {
+  DateTime? updatedAt,
+  DateTime? deletedAt,
+}) => SyncMetadata(
+  records: {
+    id: SyncEntityMetadata(
+      kind: SyncEntityKind.record,
+      id: id,
+      updatedAt: updatedAt,
+      deletedAt: deletedAt,
+    ),
+  },
+);
+
+SyncMetadata _categoryMetadata(
+  String id, {
+  DateTime? updatedAt,
+  DateTime? deletedAt,
+}) => SyncMetadata(
+  categories: {
+    id: SyncEntityMetadata(
+      kind: SyncEntityKind.category,
+      id: id,
+      updatedAt: updatedAt,
+      deletedAt: deletedAt,
+    ),
+  },
+);
 
 SyncSnapshot _snapshot({
   TimeRecord? record,

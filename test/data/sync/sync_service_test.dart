@@ -5,6 +5,7 @@ import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/sync/sync_local_store.dart';
 import 'package:mytime/data/sync/sync_merge_service.dart';
+import 'package:mytime/data/sync/sync_metadata.dart';
 import 'package:mytime/data/sync/sync_port.dart';
 import 'package:mytime/data/sync/sync_service.dart';
 
@@ -180,20 +181,81 @@ void main() {
       expect(remote.pushed.last.records.single.note, '前台新版本');
     },
   );
+
+  test(
+    'background retry does not revive a newer remote tombstone from its old snapshot',
+    () async {
+      final remote = _RemoteChangingAfterPreconditionFailure(
+        initial: _snapshot(
+          'record',
+          note: '远端旧版本',
+          updatedAt: DateTime.utc(2026, 7, 20),
+        ),
+        afterFailure: _tombstonedSnapshot(DateTime.utc(2026, 7, 21)),
+      );
+
+      await SyncService(
+        local: _Local(
+          _snapshot(
+            'record',
+            note: 'Worker旧版本',
+            updatedAt: DateTime.utc(2026, 7, 20),
+          ),
+        ),
+        remote: remote,
+        applyMergedLocal: false,
+        conflictPolicy: SyncConflictPolicy.preferRemote,
+      ).synchronize();
+
+      expect(remote.pushed, hasLength(2));
+      expect(remote.pushed.last.records, isEmpty);
+      expect(
+        remote.pushed.last.metadata.records['record']!.deletedAt,
+        DateTime.utc(2026, 7, 21),
+      );
+    },
+  );
 }
 
-SyncSnapshot _snapshot(String id, {String? note}) => SyncSnapshot(
+SyncSnapshot _snapshot(String id, {String? note, DateTime? updatedAt}) =>
+    SyncSnapshot(
+      updatedAt: DateTime.utc(2026, 7, 22),
+      categories: const [Category(id: 'work', name: '工作', color: '#123456')],
+      records: [
+        TimeRecord(
+          id: id,
+          categoryId: 'work',
+          note: note,
+          startTime: DateTime.utc(2026, 7, 22, 9),
+          endTime: DateTime.utc(2026, 7, 22, 10),
+        ),
+      ],
+      metadata: updatedAt == null
+          ? const SyncMetadata()
+          : SyncMetadata(
+              records: {
+                id: SyncEntityMetadata(
+                  kind: SyncEntityKind.record,
+                  id: id,
+                  updatedAt: updatedAt,
+                ),
+              },
+            ),
+    );
+
+SyncSnapshot _tombstonedSnapshot(DateTime deletedAt) => SyncSnapshot(
   updatedAt: DateTime.utc(2026, 7, 22),
   categories: const [Category(id: 'work', name: '工作', color: '#123456')],
-  records: [
-    TimeRecord(
-      id: id,
-      categoryId: 'work',
-      note: note,
-      startTime: DateTime.utc(2026, 7, 22, 9),
-      endTime: DateTime.utc(2026, 7, 22, 10),
-    ),
-  ],
+  records: const [],
+  metadata: SyncMetadata(
+    records: {
+      'record': SyncEntityMetadata(
+        kind: SyncEntityKind.record,
+        id: 'record',
+        deletedAt: deletedAt,
+      ),
+    },
+  ),
 );
 
 class _Local implements SyncLocalStore {
