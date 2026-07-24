@@ -166,6 +166,24 @@ void main() {
     );
   });
 
+  test('rejects a no-ETag PUT confirmation with a matching snapshot', () async {
+    final adapter = WebDavSyncAdapter(
+      endpoint: Uri.parse('https://example.com/mytime.json'),
+      username: 'user',
+      password: 'secret',
+      request: (method, _, __, ___) async => switch (method) {
+        'PUT' => const WebDavResponse(204, ''),
+        'GET' => WebDavResponse(200, jsonEncode(_snapshotDocument())),
+        _ => throw StateError('Unexpected request: $method'),
+      },
+    );
+
+    await expectLater(
+      adapter.push(_snapshot(), ifMatch: '"v1"', ifNoneMatch: false),
+      throwsA(isA<SyncPreconditionFailed>()),
+    );
+  });
+
   test(
     'rejects a confirmation with a different record creation time',
     () async {
@@ -230,6 +248,25 @@ SyncSnapshot _snapshot() => SyncSnapshot(
     ),
   ],
 );
+
+Map<String, Object?> _snapshotDocument() => {
+  'version': 2,
+  'updatedAt': '2026-07-22T00:00:00.000Z',
+  'categories': [
+    {'id': 'work', 'name': '工作', 'color': '#123456'},
+  ],
+  'records': [
+    {
+      'id': 'record',
+      'categoryId': 'work',
+      'startTime': '2026-07-22T09:00:00.000Z',
+      'endTime': '2026-07-22T10:00:00.000Z',
+      'note': null,
+      'createdAt': '2026-07-22T09:00:00.000Z',
+    },
+  ],
+  'metadata': {'records': {}, 'categories': {}},
+};
 
 Map<String, Object?> _differentSnapshotDocument() => {
   'version': 2,
