@@ -69,21 +69,37 @@ void main() {
   });
 
   test(
-    'awaits foreground ownership activation at the startup boundary',
+    'activates foreground ownership before initializing local storage',
     () async {
-      final store = _DelayedActivationPreferences();
-      var completed = false;
-      final activation = activateForegroundSyncOwnership(store).then((_) {
-        completed = true;
-      });
+      final order = <String>[];
+      final allowActivation = Completer<void>();
+      final startup = initializeForegroundOwnedStorage(
+        activateForegroundOwnership: () async {
+          order.add('activate-started');
+          await allowActivation.future;
+          order.add('activate-completed');
+        },
+        initializeHive: () async => order.add('hive'),
+        initializeWorkmanager: () async => order.add('workmanager'),
+        openBoxes: () async {
+          order.add('boxes');
+          return null;
+        },
+      );
 
-      await store.activationStarted.future;
-      expect(completed, isFalse);
+      await Future<void>.delayed(Duration.zero);
+      expect(order, ['activate-started']);
 
-      store.allowActivation.complete();
-      await activation;
+      allowActivation.complete();
+      await startup;
 
-      expect(store.values[ForegroundSyncOwnership.heartbeatKey], isNotNull);
+      expect(order, [
+        'activate-started',
+        'activate-completed',
+        'hive',
+        'workmanager',
+        'boxes',
+      ]);
     },
   );
 
@@ -155,18 +171,6 @@ class _DelayedPreferences extends _MemoryPreferences {
   Future<void> remove(String key) async {
     await super.remove(key);
     deactivated.complete();
-  }
-}
-
-class _DelayedActivationPreferences extends _MemoryPreferences {
-  final activationStarted = Completer<void>();
-  final allowActivation = Completer<void>();
-
-  @override
-  Future<void> setString(String key, String value) async {
-    activationStarted.complete();
-    await allowActivation.future;
-    await super.setString(key, value);
   }
 }
 

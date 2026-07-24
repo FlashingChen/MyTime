@@ -31,14 +31,20 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final preferences = SharedPreferencesStore();
-  final foregroundSyncOwnership = await activateForegroundSyncOwnership(
-    preferences,
+  late final ForegroundSyncOwnership foregroundSyncOwnership;
+  final (recordsBox, categoriesBox) = await initializeForegroundOwnedStorage(
+    activateForegroundOwnership: () async {
+      foregroundSyncOwnership = await activateForegroundSyncOwnership(
+        preferences,
+      );
+    },
+    initializeHive: HiveHelper.init,
+    initializeWorkmanager: () => Workmanager().initialize(callbackDispatcher),
+    openBoxes: () async => (
+      await HiveHelper.openRecordsBox(),
+      await HiveHelper.openCategoriesBox(),
+    ),
   );
-  await HiveHelper.init();
-  await Workmanager().initialize(callbackDispatcher);
-
-  final recordsBox = await HiveHelper.openRecordsBox();
-  final categoriesBox = await HiveHelper.openCategoriesBox();
   ForegroundSyncLifecycleOwner(foregroundSyncOwnership).start();
   final rawRecordRepository = RecordRepository.withStore(
     HiveRecordDataStore(recordsBox),
@@ -120,6 +126,19 @@ Future<ForegroundSyncOwnership> activateForegroundSyncOwnership(
   final ownership = ForegroundSyncOwnership(preferences: preferences);
   await ownership.activate();
   return ownership;
+}
+
+/// Activates foreground ownership before initializing local storage services.
+Future<T> initializeForegroundOwnedStorage<T>({
+  required Future<void> Function() activateForegroundOwnership,
+  required Future<void> Function() initializeHive,
+  required Future<void> Function() initializeWorkmanager,
+  required Future<T> Function() openBoxes,
+}) async {
+  await activateForegroundOwnership();
+  await initializeHive();
+  await initializeWorkmanager();
+  return openBoxes();
 }
 
 /// Keeps the foreground sync ownership heartbeat aligned with app lifecycle.
