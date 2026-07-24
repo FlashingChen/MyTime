@@ -210,7 +210,7 @@ void main() {
     },
   );
 
-  test('uses a supported lock token for PUT and unlocks it', () async {
+  test('formats a legacy lock token for PUT and UNLOCK', () async {
     final requests = <String, Map<String, String>>{};
     final adapter = WebDavSyncAdapter(
       endpoint: Uri.parse('https://example.com/mytime.json'),
@@ -233,10 +233,10 @@ void main() {
     await adapter.unlock(lock!);
 
     expect(requests['PUT']!['If'], '(<opaquelocktoken:token>)');
-    expect(requests['UNLOCK']!['Lock-Token'], 'opaquelocktoken:token');
+    expect(requests['UNLOCK']!['Lock-Token'], '<opaquelocktoken:token>');
   });
 
-  test('normalizes a bracketed lock token for PUT and unlock', () async {
+  test('formats a bracketed lock token for PUT and UNLOCK', () async {
     final requests = <String, Map<String, String>>{};
     final adapter = WebDavSyncAdapter(
       endpoint: Uri.parse('https://example.com/mytime.json'),
@@ -259,7 +259,7 @@ void main() {
     await adapter.unlock(lock!);
 
     expect(requests['PUT']!['If'], '(<opaquelocktoken:token>)');
-    expect(requests['UNLOCK']!['Lock-Token'], 'opaquelocktoken:token');
+    expect(requests['UNLOCK']!['Lock-Token'], '<opaquelocktoken:token>');
   });
 
   test('throws for LOCK contention without sending a PUT', () async {

@@ -114,7 +114,7 @@ class WebDavSyncAdapter implements SyncPort {
   Future<void> unlock(SyncLock lock) async {
     final response = await _request('UNLOCK', _endpoint, {
       ..._headers,
-      'Lock-Token': lock.token,
+      'Lock-Token': '<${lock.token}>',
     }, null);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw HttpException('WebDAV UNLOCK failed: ${response.statusCode}');

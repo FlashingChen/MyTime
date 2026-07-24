@@ -1,35 +1,46 @@
-# WebDAV Lock-Token Normalization Report
+# Final WebDAV Lock Token Review
 
-## Red
+## Scope
 
-Added `normalizes a bracketed lock token for PUT and unlock` to
-`test/data/sync/webdav_sync_adapter_test.dart`. The test supplies the standard
-`lock-token: <opaquelocktoken:token>` LOCK response and requires canonical
-headers:
+Correct the `UNLOCK` `Lock-Token` header serialization while preserving the
+canonical stored token and the existing `PUT` `If` condition syntax.
 
-- `If: (<opaquelocktoken:token>)` for PUT
-- `Lock-Token: opaquelocktoken:token` for UNLOCK
+## Red Evidence
 
-Before the implementation, the focused test failed with:
+Updated `test/data/sync/webdav_sync_adapter_test.dart` before production code:
 
-```text
-Expected: '(<opaquelocktoken:token>)'
-Actual: '(<<opaquelocktoken:token>>)'
-```
+- `formats a legacy lock token for PUT and UNLOCK`
+- `formats a bracketed lock token for PUT and UNLOCK`
 
-## Green
-
-`WebDavSyncAdapter.lock()` now removes one enclosing angle-bracket pair from a
-successful LOCK response before storing and returning the token. Unbracketed
-responses retain their existing value, so the existing unbracketed-token test
-continues to assert the same PUT and UNLOCK headers.
-
-Verification completed:
+Command:
 
 ```text
 flutter test test/data/sync/webdav_sync_adapter_test.dart
-00:00 +13: All tests passed!
+```
 
+Result: failed as expected. Both tests expected
+`<opaquelocktoken:token>` for `UNLOCK` `Lock-Token`, but the adapter emitted
+the bare `opaquelocktoken:token`. The same runs retained the required `PUT`
+assertion `(<opaquelocktoken:token>)`.
+
+## Green Evidence
+
+Production change: `WebDavSyncAdapter.unlock` now serializes the canonical
+token as `<${lock.token}>` in the `Lock-Token` header.
+
+Command:
+
+```text
+flutter test test/data/sync/webdav_sync_adapter_test.dart
+```
+
+Result: all 13 adapter tests passed, including both legacy and bracketed LOCK
+response variants. Their `PUT` `If` assertions remain
+`(<opaquelocktoken:token>)`.
+
+Static analysis also completed successfully:
+
+```text
 flutter analyze
 No issues found!
 ```
