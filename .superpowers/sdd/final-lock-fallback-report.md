@@ -1,29 +1,32 @@
-# WebDAV LOCK 423 Fallback Report
+# WebDAV LOCK Fallback Report
 
 ## Change
 
-`WebDavSyncAdapter.lock()` now treats HTTP 423 Locked as an unavailable optional
-WebDAV lock, returning `null` so synchronization continues with the existing
-ETag-based conditional PUT.
+`WebDavSyncAdapter.lock()` treats LOCK as optional only when the server does not
+support the method: HTTP 405 Method Not Allowed or HTTP 501 Not Implemented.
+HTTP 423 Locked represents lock contention and continues to throw the normal
+`HttpException`; synchronization therefore cannot downgrade to an ETag-only PUT.
 
 ## Test-First Evidence
 
-Added adapter regression coverage for a LOCK response of 423 followed by a
-successful conditional PUT. Before the production change, the focused test
-failed with:
+Replaced the erroneous 423 fallback test with adapter regression coverage that
+returns 423 for LOCK, expects `HttpException`, and asserts that no PUT request
+occurs. Before the production change, the focused test failed with:
 
 ```
-HttpException: WebDAV LOCK failed: 423
+Expected: throws HttpException with message `WebDAV LOCK failed: 423`
+Actual: emitted <null>
 ```
 
-After adding the fallback, the regression verifies that `lock()` returns null,
-PUT preserves `If-Match: "v1"`, and no lock `If` header is sent.
+After removing only the 423 fallback, the test passes: `lock()` throws
+`HttpException: WebDAV LOCK failed: 423` and PUT count remains zero.
 
 ## Verification
 
 | Command | Result |
 | --- | --- |
-| `flutter test test/data/sync/webdav_sync_adapter_test.dart` | Passed: 12 tests |
+| `flutter test test/data/sync/webdav_sync_adapter_test.dart` (red) | Failed as expected: LOCK 423 emitted `null` |
+| `flutter test test/data/sync/webdav_sync_adapter_test.dart` (green) | Passed: 12 tests |
 | `flutter analyze` | Passed: no issues found |
 
 ## Scope

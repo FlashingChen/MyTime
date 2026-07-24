@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mytime/data/models/category.dart';
@@ -235,33 +236,34 @@ void main() {
     expect(requests['UNLOCK']!['Lock-Token'], 'opaquelocktoken:token');
   });
 
-  test('falls back to an ETag-only conditional PUT when LOCK is unavailable', () async {
-    Map<String, String>? putHeaders;
+  test('throws for LOCK contention without sending a PUT', () async {
+    var putRequests = 0;
     final adapter = WebDavSyncAdapter(
       endpoint: Uri.parse('https://example.com/mytime.json'),
       username: 'user',
       password: 'secret',
-      request: (method, _, headers, __) async {
+      request: (method, _, __, ___) async {
         if (method == 'LOCK') return const WebDavResponse(423, '');
         if (method == 'PUT') {
-          putHeaders = headers;
-          return const WebDavResponse(204, '', {'etag': '"v2"'});
+          putRequests++;
+          return const WebDavResponse(204, '');
         }
         throw StateError('Unexpected request: $method');
       },
     );
 
-    final lock = await adapter.lock();
-    final eTag = await adapter.push(
-      _snapshot(),
-      ifMatch: '"v1"',
-      ifNoneMatch: false,
+    await expectLater(
+      adapter.lock(),
+      throwsA(
+        isA<HttpException>().having(
+          (error) => error.message,
+          'message',
+          'WebDAV LOCK failed: 423',
+        ),
+      ),
     );
 
-    expect(lock, isNull);
-    expect(eTag, '"v2"');
-    expect(putHeaders!['If-Match'], '"v1"');
-    expect(putHeaders, isNot(contains('If')));
+    expect(putRequests, 0);
   });
 }
 
