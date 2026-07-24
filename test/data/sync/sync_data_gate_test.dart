@@ -50,4 +50,20 @@ void main() {
 
     await expectLater(gate.run(() => gate.run(() async {})), completes);
   });
+
+  test('continues serializing operations after a failed operation', () async {
+    final gate = SyncDataGate();
+    final order = <String>[];
+
+    await expectLater(
+      gate.run(() async {
+        order.add('failed');
+        throw StateError('expected failure');
+      }),
+      throwsStateError,
+    );
+    await gate.run(() async => order.add('after failure'));
+
+    expect(order, ['failed', 'after failure']);
+  });
 }

@@ -61,7 +61,7 @@ DTO 保留既有的 Hive type ID 和字段编号（记录为 `0`，分类为 `1`
 
 ### 前台与后台同步所有权
 
-前台同步在其 90 秒心跳保持新鲜期间拥有 Hive 同步所有权。此时 Android WorkManager 会在初始化 Hive 前退出，避免与前台同步竞争。后台同步以只读 `PreferencesSyncSnapshotStore` 快照执行 GET、合并和条件 PUT；它不会应用或替换 Hive 快照，也不会写入 SharedPreferences 快照、ETag、成功时间、修订或实体元数据。下一次前台正常同步会以当前前台快照拉取并合并后台更新的远端文档，再由前台持久化结果。
+前台在初始化 Hive 前激活 90 秒所有权心跳。心跳保持新鲜时 Android WorkManager 退出；其他时间后台同步以只读 `PreferencesSyncSnapshotStore` 快照执行 GET、合并和条件 PUT。Worker 没有 Hive 依赖，绝不应用或替换 Hive 快照，也不会写入 SharedPreferences 快照、ETag、成功时间、修订或实体元数据。此 Hive 访问隔离和不可变后台快照是并发安全边界，不使用原生进程锁。下一次前台正常同步会以当前前台快照拉取并合并后台更新的远端文档，再由前台持久化结果。
 
 ## 已知边界
 

@@ -4,27 +4,30 @@ import 'package:mytime/data/sync/foreground_sync_ownership.dart';
 import 'package:mytime/data/sync/webdav_background_runner.dart';
 
 void main() {
-  test('worker skip returns before the configured sync callback', () async {
-    var synchronized = false;
+  test('worker skip returns before the Hive-free sync callback', () async {
+    var callbackEntered = false;
     final runner = WebDavBackgroundRunner(
       ownership: _ActiveOwnership(true),
-      initializeAndSynchronize: () async => synchronized = true,
+      initializeAndSynchronize: () async => callbackEntered = true,
     );
 
     expect(await runner.run(), isTrue);
-    expect(synchronized, isFalse);
+    expect(callbackEntered, isFalse);
   });
 
-  test('runs snapshot sync when no foreground owner is active', () async {
-    var synchronized = false;
-    final runner = WebDavBackgroundRunner(
-      ownership: _ActiveOwnership(false),
-      initializeAndSynchronize: () async => synchronized = true,
-    );
+  test(
+    'runs the injected Hive-free snapshot sync when no owner is active',
+    () async {
+      var callbackEntered = false;
+      final runner = WebDavBackgroundRunner(
+        ownership: _ActiveOwnership(false),
+        initializeAndSynchronize: () async => callbackEntered = true,
+      );
 
-    expect(await runner.run(), isTrue);
-    expect(synchronized, isTrue);
-  });
+      expect(await runner.run(), isTrue);
+      expect(callbackEntered, isTrue);
+    },
+  );
 }
 
 class _ActiveOwnership extends ForegroundSyncOwnership {
