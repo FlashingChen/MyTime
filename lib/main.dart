@@ -15,6 +15,7 @@ import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/repositories/settings_repository.dart';
 import 'package:mytime/data/services/data_transfer_service.dart';
+import 'package:mytime/data/services/import_recovery_journal.dart';
 import 'package:mytime/data/sync/revision_tracking_repositories.dart';
 import 'package:mytime/data/sync/foreground_sync_ownership.dart';
 import 'package:mytime/data/sync/foreground_sync_mutation_dispatcher.dart';
@@ -35,18 +36,11 @@ void main() async {
 
   final preferences = SharedPreferencesStore();
   late final ForegroundSyncOwnership foregroundSyncOwnership;
-  final (recordsBox, categoriesBox) = await initializeForegroundOwnedStorage(
-    activateForegroundOwnership: () async {
-      foregroundSyncOwnership = await activateForegroundSyncOwnership(
-        preferences,
-      );
-    },
-    initializeHive: HiveHelper.init,
-    initializeWorkmanager: () => Workmanager().initialize(callbackDispatcher),
-    openBoxes: () async => (
-      await HiveHelper.openRecordsBox(),
-      await HiveHelper.openCategoriesBox(),
-    ),
+  foregroundSyncOwnership = await activateForegroundSyncOwnership(preferences);
+  await HiveHelper.init();
+  final (recordsBox, categoriesBox) = (
+    await HiveHelper.openRecordsBox(),
+    await HiveHelper.openCategoriesBox(),
   );
   final rawRecordRepository = RecordRepository.withStore(
     HiveRecordDataStore(recordsBox),
@@ -57,6 +51,7 @@ void main() async {
   final revisionStore = PreferencesSyncRevisionStore(preferences);
   final metadataStore = PreferencesSyncMetadataStore(preferences);
   final snapshotStore = PreferencesSyncSnapshotStore(preferences);
+  final importRecoveryJournal = ImportRecoveryJournal(preferences);
   final syncDataGate = SyncDataGate();
   late final RepositorySyncLocalStore localSyncStore;
   Future<void> refreshSnapshot() => syncDataGate.run(() async {
@@ -71,6 +66,12 @@ void main() async {
     refreshSnapshot: refreshSnapshot,
   );
   final settingsRepo = SettingsRepository(preferences: preferences);
+  await DataTransferService.recoverPendingImport(
+    rawRecordRepository,
+    rawCategoryRepository,
+    importRecoveryJournal,
+  );
+  await Workmanager().initialize(callbackDispatcher);
   final webDavSyncCoordinator = WebDavSyncCoordinator(local: localSyncStore);
   final foregroundMutationDispatcher = ForegroundSyncMutationDispatcher(
     foregroundIsActive: foregroundSyncOwnership.isForegroundActive,
@@ -113,6 +114,7 @@ void main() async {
     refreshSnapshot: refreshSnapshot,
     captureSnapshot: snapshotStore.captureSerialized,
     restoreSnapshot: snapshotStore.restoreSerialized,
+    recoveryJournal: importRecoveryJournal,
   );
   await syncDataGate.run(() async {
     final reconciled = await snapshotStore.reconcileForeground(
@@ -160,7 +162,9 @@ Future<void> synchronizeWebDavOnStartup({
   required Future<AppSettings> Function() loadSettings,
   required Future<Object?> Function(WebDavConfiguration configuration)
   synchronize,
+  Future<void> Function()? recoverPendingImport,
 }) async {
+  await recoverPendingImport?.call();
   final settings = await loadSettings();
   if (!settings.hasWebDavConfiguration) return;
   await synchronize(

@@ -13,13 +13,13 @@ abstract interface class SyncMetadataStore {
 
 /// Stores all metadata in one private preference value.
 class PreferencesSyncMetadataStore implements SyncMetadataStore {
-  static const _key = 'sync_metadata';
+  static const key = 'sync_metadata';
   PreferencesSyncMetadataStore(this._preferences);
   final PreferencesStore _preferences;
 
   @override
   Future<SyncMetadata> read() async {
-    final source = await _preferences.getString(_key);
+    final source = await _preferences.getString(key);
     if (source == null) return const SyncMetadata();
     try {
       final root = jsonDecode(source) as Map<String, dynamic>;
@@ -32,14 +32,14 @@ class PreferencesSyncMetadataStore implements SyncMetadataStore {
             : DateTime.parse(root['lastSuccessAt'] as String).toUtc(),
       );
     } catch (_) {
-      await _preferences.remove(_key);
+      await _preferences.remove(key);
       return const SyncMetadata();
     }
   }
 
   @override
   Future<void> write(SyncMetadata metadata) => _preferences.setString(
-    _key,
+    key,
     jsonEncode({
       'records': _encode(metadata.records),
       'categories': _encode(metadata.categories),

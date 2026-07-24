@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
+import 'package:mytime/data/services/import_recovery_journal.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/sync/sync_mutation_tracker.dart';
@@ -18,11 +19,13 @@ class DataTransferService {
     Future<void> Function()? refreshSnapshot,
     Future<String?> Function()? captureSnapshot,
     Future<void> Function(String? snapshot)? restoreSnapshot,
+    ImportRecoveryJournal? recoveryJournal,
   }) : _mutationMarker = mutationMarker,
        _gate = gate ?? SyncDataGate(),
        _refreshSnapshot = refreshSnapshot,
-       _captureSnapshot = captureSnapshot,
-       _restoreSnapshot = restoreSnapshot;
+        _captureSnapshot = captureSnapshot,
+        _restoreSnapshot = restoreSnapshot,
+        _recoveryJournal = recoveryJournal;
 
   final RecordsSnapshotRepository _records;
   final CategoriesSnapshotRepository _categories;
@@ -31,6 +34,7 @@ class DataTransferService {
   final Future<void> Function()? _refreshSnapshot;
   final Future<String?> Function()? _captureSnapshot;
   final Future<void> Function(String? snapshot)? _restoreSnapshot;
+  final ImportRecoveryJournal? _recoveryJournal;
 
   Future<ImportResult> importJson(String source) async {
     final backup = _parse(source);
@@ -41,6 +45,11 @@ class DataTransferService {
     final previousRecords = _records.getAll();
     final previousCategories = _categories.getAll();
     final previousSnapshot = await _captureSnapshot?.call();
+    await _recoveryJournal?.save(
+      records: previousRecords,
+      categories: previousCategories,
+      syncSnapshot: previousSnapshot,
+    );
     try {
       await _categories.replaceAll(backup.categories);
       await _records.replaceAll(backup.records);
@@ -49,14 +58,50 @@ class DataTransferService {
         previousCategories: previousCategories,
         records: backup.records,
         categories: backup.categories,
+        beforeSchedule: _recoveryJournal?.clear,
       );
       return ImportResult(backup.records.length, backup.categories.length);
     } catch (_) {
-      await _categories.replaceAll(previousCategories);
-      await _records.replaceAll(previousRecords);
-      await _restoreSnapshot?.call(previousSnapshot);
+      final journal = _recoveryJournal;
+      if (journal != null) {
+        try {
+          await recoverPendingImport(_records, _categories, journal);
+        } catch (_) {
+          // The durable journal is retried before any startup synchronization.
+        }
+      } else {
+        await _categories.replaceAll(previousCategories);
+        await _records.replaceAll(previousRecords);
+        await _restoreSnapshot?.call(previousSnapshot);
+      }
       rethrow;
     }
+  }
+
+  /// Restores a pending import before foreground state can be reconciled.
+  static Future<void> recoverPendingImport(
+    RecordsSnapshotRepository records,
+    CategoriesSnapshotRepository categories,
+    ImportRecoveryJournal journal,
+  ) async {
+    final recovery = await journal.read();
+    if (recovery == null) return;
+    Object? failure;
+    StackTrace? stackTrace;
+    Future<void> attempt(Future<void> Function() operation) async {
+      try {
+        await operation();
+      } catch (error, trace) {
+        failure ??= error;
+        stackTrace ??= trace;
+      }
+    }
+
+    await attempt(() => categories.replaceAll(recovery.categories));
+    await attempt(() => records.replaceAll(recovery.records));
+    await attempt(() => journal.restorePreferences(recovery));
+    if (failure != null) Error.throwWithStackTrace(failure!, stackTrace!);
+    await journal.clear();
   }
 
   Future<void> _markImportedChanges({
@@ -64,6 +109,7 @@ class DataTransferService {
     required List<Category> previousCategories,
     required List<TimeRecord> records,
     required List<Category> categories,
+    Future<void> Function()? beforeSchedule,
   }) async {
     final marker = _mutationMarker;
     if (marker is SyncImportMutationMarker) {
@@ -75,12 +121,14 @@ class DataTransferService {
           categories: categories,
         ),
         refreshSnapshot: _refreshSnapshot,
+        beforeSchedule: beforeSchedule,
       );
       return;
     }
     if (marker is! SyncEntityMutationMarker) {
       await marker?.markLocalChanged();
       await _refreshSnapshot?.call();
+      await beforeSchedule?.call();
       return;
     }
     final previousRecordIds = previousRecords.map((item) => item.id).toSet();
@@ -102,6 +150,7 @@ class DataTransferService {
       await marker.markChanged(SyncEntityKind.category, id);
     }
     await _refreshSnapshot?.call();
+    await beforeSchedule?.call();
   }
 
   List<SyncEntityChange> _importChanges({

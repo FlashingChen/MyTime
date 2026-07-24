@@ -32,6 +32,25 @@ void main() {
       );
     },
   );
+
+  test('startup recovery completes before automatic foreground sync', () async {
+    final events = <String>[];
+
+    await synchronizeWebDavOnStartup(
+      recoverPendingImport: () async => events.add('recovery'),
+      loadSettings: () async {
+        events.add('settings');
+        return const AppSettings(
+          webDavEndpoint: 'https://dav.example.com/mytime.json',
+          webDavUsername: 'alice',
+          webDavPassword: 'secret',
+        );
+      },
+      synchronize: (_) async => events.add('sync'),
+    );
+
+    expect(events, ['recovery', 'settings', 'sync']);
+  });
 }
 
 SyncSnapshot _snapshot(String id) => SyncSnapshot(

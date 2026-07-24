@@ -24,6 +24,7 @@ abstract interface class SyncImportMutationMarker
   Future<void> markImportedChanges(
     List<SyncEntityChange> changes, {
     Future<void> Function()? refreshSnapshot,
+    Future<void> Function()? beforeSchedule,
   });
 }
 
@@ -85,6 +86,7 @@ class SyncMutationTracker implements SyncImportMutationMarker {
   Future<void> markImportedChanges(
     List<SyncEntityChange> changes, {
     Future<void> Function()? refreshSnapshot,
+    Future<void> Function()? beforeSchedule,
   }) {
     final mutation = _pendingMutation.then<void>((_) async {
       final previousRevision = await _revision.readUpdatedAt();
@@ -101,6 +103,7 @@ class SyncMutationTracker implements SyncImportMutationMarker {
           await metadata.write(next);
         }
         await (refreshSnapshot ?? _refreshSnapshot)?.call();
+        await beforeSchedule?.call();
         _notifyCommittedMutation();
       } catch (error, stackTrace) {
         await _revision.writeUpdatedAt(previousRevision);
