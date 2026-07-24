@@ -4,6 +4,7 @@ import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/sync/revision_tracking_repositories.dart';
+import 'package:mytime/data/sync/sync_data_gate.dart';
 import 'package:mytime/data/sync/sync_metadata.dart';
 import 'package:mytime/data/sync/sync_mutation_tracker.dart';
 
@@ -76,6 +77,37 @@ void main() {
 
       expect(result.id, 'generated-record-id');
       expect(marker.changed, [(SyncEntityKind.record, 'generated-record-id')]);
+    },
+  );
+
+  test(
+    'marks records selected after the foreground gate starts bulk category writes',
+    () async {
+      final delegate = _FakeRecordsRepository()
+        ..replaceRecords([recordFor(category.id)]);
+      final marker = _EntityMutationTracker();
+      final gate = _SnapshotReplacingGate(delegate, [
+        recordFor(category.id).copyWith(id: 'replacement'),
+      ]);
+      final repository = RevisionTrackingRecordsRepository(
+        delegate: delegate,
+        marker: marker,
+        gate: gate,
+      );
+
+      await repository.reassignCategory(category.id, 'personal');
+
+      expect(marker.changed, [(SyncEntityKind.record, 'replacement')]);
+
+      delegate.replaceRecords([recordFor(category.id).copyWith(id: 'cleared')]);
+      gate.replacement = [recordFor(category.id).copyWith(id: 'replacement')];
+
+      await repository.clearCategory(category.id);
+
+      expect(marker.changed, [
+        (SyncEntityKind.record, 'replacement'),
+        (SyncEntityKind.record, 'replacement'),
+      ]);
     },
   );
 
@@ -209,6 +241,12 @@ class _FakeRecordsRepository implements RecordsRepository {
   @override
   List<TimeRecord> getByRange(DateTime start, DateTime end) => getAll();
 
+  void replaceRecords(List<TimeRecord> records) {
+    _records
+      ..clear()
+      ..addEntries(records.map((record) => MapEntry(record.id, record)));
+  }
+
   @override
   Future<void> reassignCategory(
     String fromCategoryId,
@@ -232,6 +270,19 @@ class _FakeRecordsRepository implements RecordsRepository {
     if (!failNextWrite) return;
     failNextWrite = false;
     throw StateError('simulated write failure');
+  }
+}
+
+class _SnapshotReplacingGate extends SyncDataGate {
+  _SnapshotReplacingGate(this.delegate, this.replacement);
+
+  final _FakeRecordsRepository delegate;
+  List<TimeRecord> replacement;
+
+  @override
+  Future<T> run<T>(Future<T> Function() operation) {
+    delegate.replaceRecords(replacement);
+    return super.run(operation);
   }
 }
 

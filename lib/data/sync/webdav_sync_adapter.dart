@@ -187,9 +187,20 @@ class WebDavSyncAdapter implements SyncPort {
 
   static String _normalizeLockToken(String token) {
     if (token.startsWith('<') && token.endsWith('>')) {
-      return token.substring(1, token.length - 1);
+      final normalized = token.substring(1, token.length - 1);
+      if (normalized.isNotEmpty &&
+          !normalized.contains('<') &&
+          !normalized.contains('>')) {
+        return normalized;
+      }
+    } else if (token.isNotEmpty &&
+        !token.contains('<') &&
+        !token.contains('>')) {
+      return token;
     }
-    return token;
+    throw const FormatException(
+      'WebDAV LOCK response included an invalid Lock-Token',
+    );
   }
 
   static Map<String, Object?> _encode(SyncSnapshot snapshot) => {

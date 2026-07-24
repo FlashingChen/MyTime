@@ -75,12 +75,12 @@ class RevisionTrackingRecordsRepository implements RecordsRepository {
     Future<void> Function() operation,
     String categoryId,
   ) async {
-    final affected = _delegate
-        .getAll()
-        .where((record) => record.categoryId == categoryId)
-        .map((record) => record.id)
-        .toList();
     return _gate.run(() async {
+      final affected = _delegate
+          .getAll()
+          .where((record) => record.categoryId == categoryId)
+          .map((record) => record.id)
+          .toList();
       await operation();
       if (_marker case final SyncEntityMutationMarker marker) {
         for (final id in affected) {

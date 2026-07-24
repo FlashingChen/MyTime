@@ -262,6 +262,25 @@ void main() {
     expect(requests['UNLOCK']!['Lock-Token'], '<opaquelocktoken:token>');
   });
 
+  test('rejects malformed LOCK tokens before PUT or UNLOCK', () async {
+    for (final token in ['<>', 'opaquelocktoken:bad>', '<bad', '<bad>extra']) {
+      final requests = <String>[];
+      final adapter = WebDavSyncAdapter(
+        endpoint: Uri.parse('https://example.com/mytime.json'),
+        username: 'user',
+        password: 'secret',
+        request: (method, _, __, ___) async {
+          requests.add(method);
+          return WebDavResponse(200, '', {'lock-token': token});
+        },
+      );
+
+      await expectLater(adapter.lock(), throwsFormatException);
+
+      expect(requests, ['LOCK']);
+    }
+  });
+
   test('throws for LOCK contention without sending a PUT', () async {
     var putRequests = 0;
     final adapter = WebDavSyncAdapter(
