@@ -70,6 +70,7 @@
 - `main.dart` 通过 `HiveHelper` 初始化并同时打开 `records` 与 `categories` 两个 Hive box，全局提供 `CategoriesBloc`
 
 ### Fixed
+- Android 后台 Worker 在委托构造或停止回调中同步重入停止时不再死锁；外层交接会停止已启动委托并仅释放一次执行锁 token。
 - WebDAV `LOCK` response tokens now normalize standard angle-bracket syntax before constructing `If` and `UNLOCK` headers.
 - “我的 → 记录管理”将新增入口移入顶部栏，并重构为无悬浮遮挡的记录卡片，底部记录的编辑和删除操作保持可见、可点击。
 - 记录编辑器的开始与结束端点均可独立选择日期和时间，支持跨天记录，并在结束不晚于开始时阻止保存。

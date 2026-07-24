@@ -77,6 +77,7 @@ internal class SyncExecutionLockWorkRunner(
     private var startingDelegate = false
     private var delegateStarted = false
     private var stoppingDelegate = false
+    private var delegateHandoffThread: Thread? = null
     private var delegateStopped = false
     private var released = false
 
@@ -98,7 +99,7 @@ internal class SyncExecutionLockWorkRunner(
                 releaseOnce()
                 return completed(ListenableWorker.Result.retry())
             }
-            val future = startDelegate()
+            val future = runDelegateHandoff(startDelegate)
             val shouldStop = synchronized(stateLock) {
                 startingDelegate = false
                 delegateStarted = true
@@ -132,6 +133,12 @@ internal class SyncExecutionLockWorkRunner(
     fun stop() {
         val shouldStop = synchronized(stateLock) {
             stopped.set(true)
+            if (
+                delegateHandoffThread === Thread.currentThread() &&
+                    (startingDelegate || stoppingDelegate)
+            ) {
+                return
+            }
             while (startingDelegate || stoppingDelegate) stateLock.wait()
             if (delegateStarted && !delegateStopped) {
                 stoppingDelegate = true
@@ -161,7 +168,7 @@ internal class SyncExecutionLockWorkRunner(
 
     private fun stopAndRelease() {
         try {
-            stopDelegate()
+            runDelegateHandoff(stopDelegate)
         } finally {
             synchronized(stateLock) {
                 stoppingDelegate = false
@@ -169,6 +176,21 @@ internal class SyncExecutionLockWorkRunner(
                 stateLock.notifyAll()
             }
             releaseOnce()
+        }
+    }
+
+    private fun <T> runDelegateHandoff(delegate: () -> T): T {
+        synchronized(stateLock) {
+            delegateHandoffThread = Thread.currentThread()
+        }
+        return try {
+            delegate()
+        } finally {
+            synchronized(stateLock) {
+                if (delegateHandoffThread === Thread.currentThread()) {
+                    delegateHandoffThread = null
+                }
+            }
         }
     }
 

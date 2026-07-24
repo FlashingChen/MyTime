@@ -1,54 +1,22 @@
-# Android Worker Stop Race Report
+# Android Worker Reentrant Stop Race Report
 
 ## Root Cause
 
-`SyncExecutionLockWorkRunner.start()` checked `stopped` under `stateLock` and
-then constructed and started the Flutter `BackgroundWorker` while still in that
-admission block. `stop()` used a separate atomic flag and released the token
-immediately. A stop could therefore set its request after admission but before
-delegate construction, release the native token, and allow Flutter work to
-start afterward.
+`SyncExecutionLockWorkRunner.stop()` marked the runner stopped, then waited while a delegate was being constructed or stopped. Both delegate callbacks execute outside `stateLock`. If either callback synchronously invoked `runner.stop()` on its own handoff thread, the nested call waited for the outer callback to finish, but the outer callback could not finish until the nested call returned.
+
+## Regression Coverage
+
+- `workerWrapperDefersReentrantStopDuringDelegateConstruction` invokes `runner.stop()` from `startDelegate` and requires `started`, `stopped`, then exactly one `released` event.
+- `workerWrapperDefersReentrantStopDuringDelegateStopping` invokes `runner.stop()` from `stopDelegate` while its delegate future remains pending and requires the same ordered, single-release outcome.
+
+The construction test failed before the production change at its one-second completion assertion, demonstrating the deadlock.
 
 ## Fix
 
-- Admission records `startingDelegate` under `stateLock`; delegate construction
-  and startup happen outside the lock so Flutter callbacks cannot reenter the
-  state monitor.
-- `stop()` synchronously waits for the handoff. If stop wins before admission,
-  no delegate is constructed and the acquired token is released once. If start
-  wins, stop dispatches `delegate.onStopped()` outside the lock and releases
-  only after that callback returns.
-- Completion, acquisition failure, retry, and delegate-stop paths share the
-  same token release guard. A token is never released while an admitted,
-  non-stopped delegate can run.
+The runner records the active delegate handoff thread while executing either callback. A `stop()` reentered by that same thread records the stop request and returns without waiting or releasing. The outer start/stop handoff observes the request, stops an admitted delegate when required, and retains the existing `releaseOnce()` guard.
 
-## Red Evidence
+## Verification
 
-- Added `workerWrapperStopsDelegateBeforeReleasingWhenStoppedDuringDelegateConstruction`.
-  It blocks injected delegate construction after safe admission, requests stop,
-  then unblocks construction deterministically.
-- Before the fix:
-  `cd android && ./gradlew :app:testDebugUnitTest --tests com.mytime.mytime.SyncExecutionLockTest.workerWrapperDoesNotConstructDelegateWhenStoppedAfterAdmission`
-  failed at `SyncExecutionLockTest.kt:163`: the old runner constructed the
-  delegate after the stop request was observable. The finalized regression
-  asserts the legal start-wins behavior instead: `started`, then synchronous
-  `stopped`, then `released`.
-
-## Green Evidence
-
-- PASS: `cd android && ./gradlew :app:testDebugUnitTest --tests com.mytime.mytime.SyncExecutionLockTest`
-  (10 tests).
-- PASS: `flutter test test/data/sync/sync_data_gate_test.dart test/data/sync/foreground_sync_ownership_test.dart`
-  (13 tests).
-- PASS: `flutter test` (207 tests).
-- PASS: `flutter analyze` (`No issues found!`).
-
-## Android Unit Test Constraint
-
-- The focused `SyncExecutionLockTest` task executed successfully.
-- Attempted full task: `cd android && ./gradlew :app:testDebugUnitTest`.
-- The full task stops before app unit-test execution because `:integration_test`
-  resolves dynamic dependency `androidx.test:runner:1.2+`; Maven metadata fetch
-  from `https://dl.google.com/dl/android/maven2/androidx/test/runner/maven-metadata.xml`
-  fails when the remote host terminates the TLS handshake. This is an external
-  dependency-resolution blocker, not an Android source or focused test failure.
+- Focused Dart WebDAV tests: passed, 19 tests.
+- `flutter analyze`: passed, no issues.
+- Android focused suite requires excluding `:integration_test:compileDebugJavaWithJavac` in this environment because `androidx.test:runner:1.2+` cannot be resolved: Google Maven TLS handshake fails online and no dynamic version metadata is cached offline.

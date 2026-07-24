@@ -168,6 +168,75 @@ class SyncExecutionLockTest {
         assertEquals(listOf("worker-token"), releasedTokens)
     }
 
+    @Test
+    fun workerWrapperDefersReentrantStopDuringDelegateConstruction() {
+        val releasedTokens = mutableListOf<String>()
+        val events = mutableListOf<String>()
+        lateinit var runner: SyncExecutionLockWorkRunner
+        runner = SyncExecutionLockWorkRunner(
+            acquire = { "worker-token" },
+            release = { token -> releasedTokens.add(token); events.add("released"); true },
+            isForegroundAttached = { false },
+            startDelegate = {
+                events.add("started")
+                runner.stop()
+                completed(Result.success())
+            },
+            stopDelegate = { events.add("stopped") },
+        )
+
+        var result: Result? = null
+        val completed = CountDownLatch(1)
+        val startThread = Thread {
+            result = runner.start().get()
+            completed.countDown()
+        }.apply { isDaemon = true }
+        startThread.start()
+
+        assertTrue(completed.await(1, TimeUnit.SECONDS))
+        assertEquals(Result.success(), result)
+        assertEquals(listOf("started", "stopped", "released"), events)
+        assertEquals(listOf("worker-token"), releasedTokens)
+    }
+
+    @Test
+    fun workerWrapperDefersReentrantStopDuringDelegateStopping() {
+        val releasedTokens = mutableListOf<String>()
+        val events = mutableListOf<String>()
+        lateinit var runner: SyncExecutionLockWorkRunner
+        lateinit var delegateFutureCompleter: CallbackToFutureAdapter.Completer<Result>
+        runner = SyncExecutionLockWorkRunner(
+            acquire = { "worker-token" },
+            release = { token -> releasedTokens.add(token); events.add("released"); true },
+            isForegroundAttached = { false },
+            startDelegate = {
+                events.add("started")
+                CallbackToFutureAdapter.getFuture { completer ->
+                    delegateFutureCompleter = completer
+                    null
+                }
+            },
+            stopDelegate = {
+                events.add("stopping")
+                runner.stop()
+                events.add("stopped")
+            },
+        )
+
+        runner.start()
+        val completed = CountDownLatch(1)
+        val stopThread = Thread {
+            runner.stop()
+            completed.countDown()
+        }.apply { isDaemon = true }
+        stopThread.start()
+
+        assertTrue(completed.await(1, TimeUnit.SECONDS))
+        assertEquals(listOf("started", "stopping", "stopped", "released"), events)
+        assertEquals(listOf("worker-token"), releasedTokens)
+        delegateFutureCompleter.set(Result.success())
+    }
+
     private class WorkerHarness(
         private var foregroundAttached: Boolean = false,
         private val acquireResult: String? = "worker-token",
