@@ -136,6 +136,19 @@ void main() {
 
     expect(store.values[ForegroundSyncOwnership.heartbeatKey], isNull);
   });
+
+  test('notifies the foreground sync dispatcher when ownership ends', () async {
+    final store = _MemoryPreferences();
+    final inactive = Completer<void>();
+    final owner = ForegroundSyncLifecycleOwner(
+      ForegroundSyncOwnership(preferences: store),
+      onForegroundInactive: () async => inactive.complete(),
+    );
+
+    owner.didChangeAppLifecycleState(AppLifecycleState.paused);
+
+    await inactive.future;
+  });
 }
 
 class _MemoryPreferences implements PreferencesStore {

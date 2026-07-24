@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:mytime/data/sync/foreground_sync_mutation_dispatcher.dart';
 import 'package:mytime/data/sync/sync_revision_store.dart';
 import 'package:mytime/data/sync/sync_metadata.dart';
 import 'package:mytime/data/sync/sync_metadata_store.dart';
@@ -42,17 +45,20 @@ class SyncMutationTracker implements SyncImportMutationMarker {
     required SyncRevisionStore revision,
     SyncMetadataStore? metadata,
     SyncScheduler? scheduler,
+    ForegroundSyncMutationDispatcher? foregroundDispatcher,
     Future<void> Function()? refreshSnapshot,
     DateTime Function()? clock,
   }) : _revision = revision,
        _metadata = metadata,
        _scheduler = scheduler ?? const NoopSyncScheduler(),
+       _foregroundDispatcher = foregroundDispatcher,
        _refreshSnapshot = refreshSnapshot,
        _clock = clock ?? DateTime.now;
 
   final SyncRevisionStore _revision;
   final SyncMetadataStore? _metadata;
   final SyncScheduler _scheduler;
+  final ForegroundSyncMutationDispatcher? _foregroundDispatcher;
   final Future<void> Function()? _refreshSnapshot;
   final DateTime Function() _clock;
   Future<void> _pendingMutation = Future<void>.value();
@@ -95,11 +101,7 @@ class SyncMutationTracker implements SyncImportMutationMarker {
           await metadata.write(next);
         }
         await (refreshSnapshot ?? _refreshSnapshot)?.call();
-        try {
-          await _scheduler.schedule();
-        } catch (_) {
-          // A durable entity revision remains pending for the next trigger.
-        }
+        _notifyCommittedMutation();
       } catch (error, stackTrace) {
         await _revision.writeUpdatedAt(previousRevision);
         if (metadata != null) await metadata.write(previousMetadata!);
@@ -122,12 +124,8 @@ class SyncMutationTracker implements SyncImportMutationMarker {
           await metadata.markChanged(kind, id, now);
         }
       }
-      try {
-        await _scheduler.schedule();
-      } catch (_) {
-        // A durable entity revision remains pending for the next trigger.
-      }
       await _refreshSnapshot?.call();
+      _notifyCommittedMutation();
     });
     _pendingMutation = mutation.then<void>((_) {}, onError: (_, __) {});
     return mutation;
@@ -140,6 +138,23 @@ class SyncMutationTracker implements SyncImportMutationMarker {
         ? now
         : current.add(const Duration(microseconds: 1));
     await _revision.writeUpdatedAt(next);
+  }
+
+  void _notifyCommittedMutation() {
+    final dispatcher = _foregroundDispatcher;
+    if (dispatcher != null) {
+      dispatcher.mutationCommitted();
+      return;
+    }
+    unawaited(_scheduleBackground());
+  }
+
+  Future<void> _scheduleBackground() async {
+    try {
+      await _scheduler.schedule();
+    } catch (_) {
+      // A durable entity revision remains pending for the next trigger.
+    }
   }
 
   SyncMetadata _applyChange(

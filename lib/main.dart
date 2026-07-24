@@ -17,6 +17,7 @@ import 'package:mytime/data/repositories/settings_repository.dart';
 import 'package:mytime/data/services/data_transfer_service.dart';
 import 'package:mytime/data/sync/revision_tracking_repositories.dart';
 import 'package:mytime/data/sync/foreground_sync_ownership.dart';
+import 'package:mytime/data/sync/foreground_sync_mutation_dispatcher.dart';
 import 'package:mytime/data/sync/sync_local_store.dart';
 import 'package:mytime/data/sync/sync_mutation_tracker.dart';
 import 'package:mytime/data/sync/sync_data_gate.dart';
@@ -47,7 +48,6 @@ void main() async {
       await HiveHelper.openCategoriesBox(),
     ),
   );
-  ForegroundSyncLifecycleOwner(foregroundSyncOwnership).start();
   final rawRecordRepository = RecordRepository.withStore(
     HiveRecordDataStore(recordsBox),
   );
@@ -62,10 +62,33 @@ void main() async {
   Future<void> refreshSnapshot() => syncDataGate.run(() async {
     await snapshotStore.write(await localSyncStore.readReadOnly());
   });
+  localSyncStore = RepositorySyncLocalStore(
+    records: rawRecordRepository,
+    categories: rawCategoryRepository,
+    revision: revisionStore,
+    metadata: metadataStore,
+    gate: syncDataGate,
+    refreshSnapshot: refreshSnapshot,
+  );
+  final settingsRepo = SettingsRepository(preferences: preferences);
+  final webDavSyncCoordinator = WebDavSyncCoordinator(local: localSyncStore);
+  final foregroundMutationDispatcher = ForegroundSyncMutationDispatcher(
+    foregroundIsActive: foregroundSyncOwnership.isForegroundActive,
+    synchronize: () => synchronizeWebDavOnStartup(
+      loadSettings: settingsRepo.load,
+      synchronize: webDavSyncCoordinator.synchronize,
+    ),
+    scheduler: const WorkmanagerSyncScheduler(),
+  );
+  ForegroundSyncLifecycleOwner(
+    foregroundSyncOwnership,
+    onForegroundActive: foregroundMutationDispatcher.foregroundBecameActive,
+    onForegroundInactive: foregroundMutationDispatcher.foregroundBecameInactive,
+  ).start();
   final mutationTracker = SyncMutationTracker(
     revision: revisionStore,
     metadata: metadataStore,
-    scheduler: const WorkmanagerSyncScheduler(),
+    foregroundDispatcher: foregroundMutationDispatcher,
     refreshSnapshot: refreshSnapshot,
   );
 
@@ -81,15 +104,6 @@ void main() async {
     marker: mutationTracker,
     gate: syncDataGate,
   );
-  localSyncStore = RepositorySyncLocalStore(
-    records: rawRecordRepository,
-    categories: rawCategoryRepository,
-    revision: revisionStore,
-    metadata: metadataStore,
-    gate: syncDataGate,
-    refreshSnapshot: refreshSnapshot,
-  );
-  final settingsRepo = SettingsRepository(preferences: preferences);
   final activeTimerRepo = ActiveTimerRepository(preferences: preferences);
   final dataTransferService = DataTransferService(
     rawRecordRepository,
@@ -106,8 +120,6 @@ void main() async {
     );
     await metadataStore.write(reconciled.metadata);
   });
-  final webDavSyncCoordinator = WebDavSyncCoordinator(local: localSyncStore);
-
   runApp(
     MultiRepositoryProvider(
       providers: [
@@ -184,9 +196,16 @@ Future<T> initializeForegroundOwnedStorage<T>({
 
 /// Keeps the foreground sync ownership heartbeat aligned with app lifecycle.
 class ForegroundSyncLifecycleOwner with WidgetsBindingObserver {
-  ForegroundSyncLifecycleOwner(this._ownership);
+  ForegroundSyncLifecycleOwner(
+    this._ownership, {
+    FutureOr<void> Function()? onForegroundActive,
+    FutureOr<void> Function()? onForegroundInactive,
+  }) : _onForegroundActive = onForegroundActive,
+       _onForegroundInactive = onForegroundInactive;
 
   final ForegroundSyncOwnership _ownership;
+  final FutureOr<void> Function()? _onForegroundActive;
+  final FutureOr<void> Function()? _onForegroundInactive;
   Timer? _refreshTimer;
   Future<void> _pendingOperation = Future.value();
   int _generation = 0;
@@ -200,6 +219,7 @@ class ForegroundSyncLifecycleOwner with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
+        _onForegroundActive?.call();
         _startRefreshTimer();
         _queueRefresh();
       case AppLifecycleState.inactive:
@@ -210,7 +230,10 @@ class ForegroundSyncLifecycleOwner with WidgetsBindingObserver {
         _refreshTimer?.cancel();
         _refreshTimer = null;
         _generation++;
-        _queueOperation(_ownership.deactivate);
+        _queueOperation(() async {
+          await _ownership.deactivate();
+          await _onForegroundInactive?.call();
+        });
     }
   }
 
