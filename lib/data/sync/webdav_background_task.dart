@@ -7,11 +7,13 @@ import 'package:mytime/data/providers/preferences_store.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/repositories/settings_repository.dart';
+import 'package:mytime/data/sync/foreground_sync_ownership.dart';
 import 'package:mytime/data/sync/sync_data_gate.dart';
 import 'package:mytime/data/sync/sync_local_store.dart';
 import 'package:mytime/data/sync/sync_metadata_store.dart';
 import 'package:mytime/data/sync/sync_revision_store.dart';
 import 'package:mytime/data/sync/sync_scheduler.dart';
+import 'package:mytime/data/sync/webdav_background_runner.dart';
 import 'package:mytime/data/sync/webdav_sync_coordinator.dart';
 import 'package:workmanager/workmanager.dart';
 
@@ -22,34 +24,38 @@ void callbackDispatcher() {
     if (taskName != WorkmanagerSyncScheduler.taskName) return true;
     WidgetsFlutterBinding.ensureInitialized();
     try {
-      await HiveHelper.init();
       final preferences = SharedPreferencesStore();
-      final settings = await SettingsRepository(
-        preferences: preferences,
-      ).load();
-      if (!settings.hasWebDavConfiguration) return true;
-      final records = RecordRepository.withStore(
-        HiveRecordDataStore(await HiveHelper.openRecordsBox()),
-      );
-      final categories = CategoryRepository.withStore(
-        HiveCategoryDataStore(await HiveHelper.openCategoriesBox()),
-      );
-      final local = RepositorySyncLocalStore(
-        records: records,
-        categories: categories,
-        revision: PreferencesSyncRevisionStore(preferences),
-        metadata: PreferencesSyncMetadataStore(preferences),
-        gate: SyncDataGate(),
-      );
-      await WebDavSyncCoordinator(local: local).synchronize(
-        WebDavConfiguration(
-          endpoint: settings.webDavEndpoint,
-          username: settings.webDavUsername,
-          password: settings.webDavPassword!,
-        ),
-        applyMergedLocal: false,
-      );
-      return true;
+      return await WebDavBackgroundRunner(
+        ownership: ForegroundSyncOwnership(preferences: preferences),
+        initializeAndSynchronize: () async {
+          await HiveHelper.init();
+          final settings = await SettingsRepository(
+            preferences: preferences,
+          ).load();
+          if (!settings.hasWebDavConfiguration) return;
+          final records = RecordRepository.withStore(
+            HiveRecordDataStore(await HiveHelper.openRecordsBox()),
+          );
+          final categories = CategoryRepository.withStore(
+            HiveCategoryDataStore(await HiveHelper.openCategoriesBox()),
+          );
+          final local = RepositorySyncLocalStore(
+            records: records,
+            categories: categories,
+            revision: PreferencesSyncRevisionStore(preferences),
+            metadata: PreferencesSyncMetadataStore(preferences),
+            gate: SyncDataGate(),
+          );
+          await WebDavSyncCoordinator(local: local).synchronize(
+            WebDavConfiguration(
+              endpoint: settings.webDavEndpoint,
+              username: settings.webDavUsername,
+              password: settings.webDavPassword!,
+            ),
+            applyMergedLocal: false,
+          );
+        },
+      ).run();
     } on FormatException {
       return true;
     } on ArgumentError {
