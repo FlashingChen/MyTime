@@ -97,6 +97,8 @@ void main() async {
     mutationMarker: mutationTracker,
     gate: syncDataGate,
     refreshSnapshot: refreshSnapshot,
+    captureSnapshot: snapshotStore.captureSerialized,
+    restoreSnapshot: snapshotStore.restoreSerialized,
   );
   await syncDataGate.run(() async {
     final reconciled = await snapshotStore.reconcileForeground(

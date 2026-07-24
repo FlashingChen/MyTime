@@ -48,6 +48,14 @@ class PreferencesSyncSnapshotStore implements SyncLocalStore {
     return _preferences.setString(key, jsonEncode(_encode(snapshot)));
   }
 
+  /// Captures the exact persisted value for transactional foreground rollback.
+  Future<String?> captureSerialized() => _preferences.getString(key);
+
+  /// Restores a value captured by [captureSerialized] without rebuilding it.
+  Future<void> restoreSerialized(String? source) => source == null
+      ? _preferences.remove(key)
+      : _preferences.setString(key, source);
+
   @override
   Future<T> runExclusive<T>(Future<T> Function() operation) {
     if (Zone.current[_zoneKey] == this) return operation();

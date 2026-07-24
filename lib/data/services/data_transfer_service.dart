@@ -16,15 +16,21 @@ class DataTransferService {
     SyncMutationMarker? mutationMarker,
     SyncDataGate? gate,
     Future<void> Function()? refreshSnapshot,
+    Future<String?> Function()? captureSnapshot,
+    Future<void> Function(String? snapshot)? restoreSnapshot,
   }) : _mutationMarker = mutationMarker,
        _gate = gate ?? SyncDataGate(),
-       _refreshSnapshot = refreshSnapshot;
+       _refreshSnapshot = refreshSnapshot,
+       _captureSnapshot = captureSnapshot,
+       _restoreSnapshot = restoreSnapshot;
 
   final RecordsSnapshotRepository _records;
   final CategoriesSnapshotRepository _categories;
   final SyncMutationMarker? _mutationMarker;
   final SyncDataGate _gate;
   final Future<void> Function()? _refreshSnapshot;
+  final Future<String?> Function()? _captureSnapshot;
+  final Future<void> Function(String? snapshot)? _restoreSnapshot;
 
   Future<ImportResult> importJson(String source) async {
     final backup = _parse(source);
@@ -34,6 +40,7 @@ class DataTransferService {
   Future<ImportResult> _import(_Backup backup) async {
     final previousRecords = _records.getAll();
     final previousCategories = _categories.getAll();
+    final previousSnapshot = await _captureSnapshot?.call();
     try {
       await _categories.replaceAll(backup.categories);
       await _records.replaceAll(backup.records);
@@ -47,7 +54,7 @@ class DataTransferService {
     } catch (_) {
       await _categories.replaceAll(previousCategories);
       await _records.replaceAll(previousRecords);
-      await _refreshSnapshot?.call();
+      await _restoreSnapshot?.call(previousSnapshot);
       rethrow;
     }
   }
@@ -73,6 +80,7 @@ class DataTransferService {
     }
     if (marker is! SyncEntityMutationMarker) {
       await marker?.markLocalChanged();
+      await _refreshSnapshot?.call();
       return;
     }
     final previousRecordIds = previousRecords.map((item) => item.id).toSet();

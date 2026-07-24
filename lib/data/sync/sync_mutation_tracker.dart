@@ -94,12 +94,12 @@ class SyncMutationTracker implements SyncImportMutationMarker {
           }
           await metadata.write(next);
         }
+        await (refreshSnapshot ?? _refreshSnapshot)?.call();
         try {
           await _scheduler.schedule();
         } catch (_) {
           // A durable entity revision remains pending for the next trigger.
         }
-        await (refreshSnapshot ?? _refreshSnapshot)?.call();
       } catch (error, stackTrace) {
         await _revision.writeUpdatedAt(previousRevision);
         if (metadata != null) await metadata.write(previousMetadata!);

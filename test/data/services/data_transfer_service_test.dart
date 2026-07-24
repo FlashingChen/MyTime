@@ -9,6 +9,7 @@ import 'package:mytime/data/sync/sync_metadata.dart';
 import 'package:mytime/data/sync/sync_metadata_store.dart';
 import 'package:mytime/data/sync/sync_mutation_tracker.dart';
 import 'package:mytime/data/sync/sync_revision_store.dart';
+import 'package:mytime/data/sync/sync_scheduler.dart';
 
 void main() {
   late _MemoryCategoryStore categoryStore;
@@ -119,74 +120,142 @@ void main() {
     expect(marker.calls, 0);
   });
 
-  test('restores sync state when an import mutation refresh fails', () async {
-    await categoryStore.put(
-      'old',
-      const Category(id: 'old', name: '旧分类', color: '#111111'),
-    );
-    await recordStore.put(
-      'old-record',
-      TimeRecord(
-        id: 'old-record',
-        categoryId: 'old',
-        startTime: DateTime.utc(2026, 7, 9, 9),
-        endTime: DateTime.utc(2026, 7, 9, 10),
-      ),
-    );
-    final revision = _MemoryRevisionStore(DateTime.utc(2026, 7, 1));
-    final oldMetadata = SyncMetadata(
-      records: {
-        'old-record': SyncEntityMetadata(
-          kind: SyncEntityKind.record,
-          id: 'old-record',
-          updatedAt: DateTime.utc(2026, 6, 30),
-        ),
-      },
-      categories: {
-        'removed-category': SyncEntityMetadata(
-          kind: SyncEntityKind.category,
-          id: 'removed-category',
-          deletedAt: DateTime.utc(2026, 6, 29),
-        ),
-      },
-    );
-    final metadata = _MemoryMetadataStore(oldMetadata);
-    var snapshot = 'old snapshot';
-    var refreshAttempts = 0;
-    final marker = SyncMutationTracker(
-      revision: revision,
-      metadata: metadata,
-      clock: () => DateTime.utc(2026, 7, 2),
-    );
-    service = DataTransferService(
-      RecordRepository.withStore(recordStore),
-      CategoryRepository.withStore(categoryStore),
-      mutationMarker: marker,
-      refreshSnapshot: () async {
-        refreshAttempts++;
-        snapshot = categoryStore.values.single.id == 'old'
-            ? 'old snapshot'
-            : 'new snapshot';
-        if (refreshAttempts == 1) {
-          throw StateError('snapshot refresh failed');
-        }
-      },
-    );
+  test(
+    'refreshes the snapshot after import with a non-entity marker',
+    () async {
+      final marker = _FakeMutationTracker();
+      var refreshes = 0;
+      service = DataTransferService(
+        RecordRepository.withStore(recordStore),
+        CategoryRepository.withStore(categoryStore),
+        mutationMarker: marker,
+        refreshSnapshot: () async => refreshes++,
+      );
 
-    await expectLater(
-      service.importJson('''
+      await service.importJson('''
+      {"version":1,"categories":[{"id":"work","name":"工作","color":"#123456"}],"records":[]}
+    ''');
+
+      expect(marker.calls, 1);
+      expect(refreshes, 1);
+    },
+  );
+
+  test(
+    'refreshes the snapshot after import without a mutation marker',
+    () async {
+      var refreshes = 0;
+      service = DataTransferService(
+        RecordRepository.withStore(recordStore),
+        CategoryRepository.withStore(categoryStore),
+        refreshSnapshot: () async => refreshes++,
+      );
+
+      await service.importJson('''
+      {"version":1,"categories":[{"id":"work","name":"工作","color":"#123456"}],"records":[]}
+    ''');
+
+      expect(refreshes, 1);
+    },
+  );
+
+  test(
+    'schedules an imported sync only after its snapshot is published',
+    () async {
+      final events = <String>[];
+      final marker = SyncMutationTracker(
+        revision: _MemoryRevisionStore(DateTime.utc(2026, 7, 1)),
+        metadata: _MemoryMetadataStore(const SyncMetadata()),
+        scheduler: _EventScheduler(events),
+        clock: () => DateTime.utc(2026, 7, 2),
+      );
+      service = DataTransferService(
+        RecordRepository.withStore(recordStore),
+        CategoryRepository.withStore(categoryStore),
+        mutationMarker: marker,
+        refreshSnapshot: () async => events.add('snapshot'),
+      );
+
+      await service.importJson('''
+      {"version":1,"categories":[{"id":"work","name":"工作","color":"#123456"}],"records":[]}
+    ''');
+
+      expect(events, ['snapshot', 'schedule']);
+    },
+  );
+
+  test(
+    'restores captured snapshot when publication fails after writing',
+    () async {
+      await categoryStore.put(
+        'old',
+        const Category(id: 'old', name: '旧分类', color: '#111111'),
+      );
+      await recordStore.put(
+        'old-record',
+        TimeRecord(
+          id: 'old-record',
+          categoryId: 'old',
+          startTime: DateTime.utc(2026, 7, 9, 9),
+          endTime: DateTime.utc(2026, 7, 9, 10),
+        ),
+      );
+      final revision = _MemoryRevisionStore(DateTime.utc(2026, 7, 1));
+      final oldMetadata = SyncMetadata(
+        records: {
+          'old-record': SyncEntityMetadata(
+            kind: SyncEntityKind.record,
+            id: 'old-record',
+            updatedAt: DateTime.utc(2026, 6, 30),
+          ),
+        },
+        categories: {
+          'removed-category': SyncEntityMetadata(
+            kind: SyncEntityKind.category,
+            id: 'removed-category',
+            deletedAt: DateTime.utc(2026, 6, 29),
+          ),
+        },
+      );
+      final metadata = _MemoryMetadataStore(oldMetadata);
+      var serializedSnapshot = 'old snapshot';
+      var publicationAttempts = 0;
+      final scheduler = _CountingScheduler();
+      final marker = SyncMutationTracker(
+        revision: revision,
+        metadata: metadata,
+        scheduler: scheduler,
+        clock: () => DateTime.utc(2026, 7, 2),
+      );
+      service = DataTransferService(
+        RecordRepository.withStore(recordStore),
+        CategoryRepository.withStore(categoryStore),
+        mutationMarker: marker,
+        refreshSnapshot: () async {
+          publicationAttempts++;
+          serializedSnapshot = 'new snapshot';
+          throw StateError('snapshot publication failed');
+        },
+        captureSnapshot: () async => serializedSnapshot,
+        restoreSnapshot: (snapshot) async => serializedSnapshot = snapshot!,
+      );
+
+      await expectLater(
+        service.importJson('''
           {"version":1,"categories":[{"id":"new","name":"新分类","color":"#222222"}],"records":[{"id":"new-record","categoryId":"new","startTime":"2026-07-10T09:00:00.000Z","endTime":"2026-07-10T10:00:00.000Z","note":null}]}
         '''),
-      throwsStateError,
-    );
+        throwsStateError,
+      );
 
-    expect(refreshAttempts, 2);
-    expect(categoryStore.values.single.id, 'old');
-    expect(recordStore.values.single.id, 'old-record');
-    expect(await revision.readUpdatedAt(), DateTime.utc(2026, 7, 1));
-    expect(await metadata.read(), oldMetadata);
-    expect(snapshot, 'old snapshot');
-  });
+      expect(publicationAttempts, 1);
+      expect(scheduler.calls, 0);
+      expect(categoryStore.values.single.id, 'old');
+      expect(recordStore.values.single.id, 'old-record');
+      expect(await revision.readUpdatedAt(), DateTime.utc(2026, 7, 1));
+      expect(await metadata.read(), oldMetadata);
+      expect(serializedSnapshot, 'old snapshot');
+    },
+  );
 }
 
 class _FakeMutationTracker implements SyncMutationMarker {
@@ -234,6 +303,22 @@ class _MemoryMetadataStore implements SyncMetadataStore {
 
   @override
   Future<void> write(SyncMetadata metadata) async => value = metadata;
+}
+
+class _EventScheduler implements SyncScheduler {
+  _EventScheduler(this.events);
+
+  final List<String> events;
+
+  @override
+  Future<void> schedule() async => events.add('schedule');
+}
+
+class _CountingScheduler implements SyncScheduler {
+  int calls = 0;
+
+  @override
+  Future<void> schedule() async => calls++;
 }
 
 class _MemoryRecordStore implements RecordDataStore {
