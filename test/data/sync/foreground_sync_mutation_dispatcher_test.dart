@@ -197,25 +197,41 @@ void main() {
   );
 
   test(
-    'releases dispatching after an ownership check error so a later active mutation synchronizes',
+    'schedules retained pending work after an ownership check error',
     () async {
-      final synchronized = Completer<void>();
-      var throwsOwnershipError = true;
+      final pending = _MemoryPendingStore(DateTime.utc(2026, 7, 24, 12));
+      final scheduler = _CountingScheduler();
       final dispatcher = ForegroundSyncMutationDispatcher(
-        foregroundIsActive: () async {
-          if (throwsOwnershipError) throw StateError('ownership unavailable');
-          return true;
-        },
-        synchronize: () async => synchronized.complete(),
-        scheduler: _CountingScheduler(),
+        foregroundIsActive: () async =>
+            throw StateError('ownership unavailable'),
+        synchronize: () async {},
+        scheduler: scheduler,
+        pending: pending,
       );
 
       dispatcher.mutationCommitted();
-      await Future<void>.delayed(Duration.zero);
-      throwsOwnershipError = false;
-      dispatcher.mutationCommitted();
+      await _waitFor(() => scheduler.calls == 1);
 
-      await synchronized.future;
+      expect(
+        await pending.readPendingRevision(),
+        DateTime.utc(2026, 7, 24, 12),
+      );
+    },
+  );
+
+  test(
+    'schedules after a pending read failure from a committed mutation',
+    () async {
+      final scheduler = _CountingScheduler();
+      final dispatcher = ForegroundSyncMutationDispatcher(
+        foregroundIsActive: () async => true,
+        synchronize: () async {},
+        scheduler: scheduler,
+        pending: _ThrowingReadPendingStore(),
+      );
+
+      dispatcher.mutationCommitted();
+      await _waitFor(() => scheduler.calls == 1);
     },
   );
 }
@@ -292,4 +308,16 @@ class _MemoryPendingStore implements SyncPendingStateStore {
 
   @override
   Future<DateTime?> readPendingRevision() async => value;
+}
+
+class _ThrowingReadPendingStore implements SyncPendingStateStore {
+  @override
+  Future<bool> clearIfMatches(DateTime revision) async => false;
+
+  @override
+  Future<void> markPending(DateTime revision) async {}
+
+  @override
+  Future<DateTime?> readPendingRevision() async =>
+      throw StateError('pending unavailable');
 }

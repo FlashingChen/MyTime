@@ -77,6 +77,43 @@ void main() {
       expect(scheduler.calls, 1);
     },
   );
+
+  test('startup recovery failure schedules retained pending work', () async {
+    final pending = _MemoryPendingStore(DateTime.utc(2026, 7, 24, 12));
+    final scheduler = _CountingScheduler();
+
+    await expectLater(
+      synchronizeWebDavOnStartup(
+        recoverPendingImport: () async => throw StateError('recovery failed'),
+        loadSettings: () async => _settings,
+        synchronize: (_) async => null,
+        pending: pending,
+        scheduler: scheduler,
+      ),
+      throwsStateError,
+    );
+
+    expect(await pending.readPendingRevision(), DateTime.utc(2026, 7, 24, 12));
+    expect(scheduler.calls, 1);
+  });
+
+  test('startup settings failure schedules retained pending work', () async {
+    final pending = _MemoryPendingStore(DateTime.utc(2026, 7, 24, 12));
+    final scheduler = _CountingScheduler();
+
+    await expectLater(
+      synchronizeWebDavOnStartup(
+        loadSettings: () async => throw StateError('settings unavailable'),
+        synchronize: (_) async => null,
+        pending: pending,
+        scheduler: scheduler,
+      ),
+      throwsStateError,
+    );
+
+    expect(await pending.readPendingRevision(), DateTime.utc(2026, 7, 24, 12));
+    expect(scheduler.calls, 1);
+  });
 }
 
 const _settings = AppSettings(

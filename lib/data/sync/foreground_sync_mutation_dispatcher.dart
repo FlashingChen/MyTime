@@ -71,17 +71,23 @@ class ForegroundSyncMutationDispatcher {
       _hasPendingMutation = await _pending.readPendingRevision() != null;
     } catch (error, stackTrace) {
       _reportError?.call(error, stackTrace);
+      await _scheduleBackground();
     } finally {
       _dispatching = false;
-      if (_backgroundHandoffRequested &&
-          (await _pending.readPendingRevision()) != null) {
+      if (_backgroundHandoffRequested) {
         await _scheduleBackground();
       }
     }
   }
 
   Future<void> _scheduleBackground() async {
-    if (!_hasPendingMutation && await _pending.readPendingRevision() == null) {
+    var hasPending = _hasPendingMutation;
+    try {
+      hasPending = hasPending || await _pending.readPendingRevision() != null;
+    } catch (error, stackTrace) {
+      _reportError?.call(error, stackTrace);
+    }
+    if (!hasPending) {
       return;
     }
     try {
@@ -92,8 +98,6 @@ class ForegroundSyncMutationDispatcher {
   }
 
   Future<void> _handoffIfPending() async {
-    if (await _pending.readPendingRevision() != null) {
-      await _scheduleBackground();
-    }
+    await _scheduleBackground();
   }
 }

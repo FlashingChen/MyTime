@@ -16,9 +16,12 @@ class PreferencesSyncPendingStateStore implements SyncPendingStateStore {
   PreferencesSyncPendingStateStore(this._preferences);
 
   final PreferencesStore _preferences;
+  Future<void> _operations = Future.value();
 
   @override
-  Future<DateTime?> readPendingRevision() async {
+  Future<DateTime?> readPendingRevision() => _serialize(_readPendingRevision);
+
+  Future<DateTime?> _readPendingRevision() async {
     final value = await _preferences.getString(key);
     if (value == null) return null;
     final revision = DateTime.tryParse(value);
@@ -30,19 +33,25 @@ class PreferencesSyncPendingStateStore implements SyncPendingStateStore {
   }
 
   @override
-  Future<void> markPending(DateTime revision) async {
+  Future<void> markPending(DateTime revision) => _serialize(() async {
     final next = revision.toUtc();
-    final current = await readPendingRevision();
+    final current = await _readPendingRevision();
     if (current != null && !next.isAfter(current)) return;
     await _preferences.setString(key, next.toIso8601String());
-  }
+  });
 
   @override
-  Future<bool> clearIfMatches(DateTime revision) async {
-    final current = await readPendingRevision();
+  Future<bool> clearIfMatches(DateTime revision) => _serialize(() async {
+    final current = await _readPendingRevision();
     if (current != revision.toUtc()) return false;
     await _preferences.remove(key);
     return true;
+  });
+
+  Future<T> _serialize<T>(Future<T> Function() operation) {
+    final result = _operations.then((_) => operation());
+    _operations = result.then<void>((_) {}, onError: (_, __) {});
+    return result;
   }
 }
 

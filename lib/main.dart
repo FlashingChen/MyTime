@@ -176,11 +176,11 @@ Future<void> synchronizeWebDavOnStartup({
   SyncPendingStateStore? pending,
   SyncScheduler? scheduler,
 }) async {
-  await recoverPendingImport?.call();
-  final settings = await loadSettings();
-  if (!settings.hasWebDavConfiguration) return;
-  final attempt = await pending?.readPendingRevision();
   try {
+    await recoverPendingImport?.call();
+    final settings = await loadSettings();
+    if (!settings.hasWebDavConfiguration) return;
+    final attempt = await pending?.readPendingRevision();
     await synchronize(
       WebDavConfiguration(
         endpoint: settings.webDavEndpoint,
