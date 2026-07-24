@@ -163,7 +163,8 @@ class ForegroundSyncLifecycleOwner with WidgetsBindingObserver {
   }
 
   void _queueOperation(Future<void> Function() operation) {
-    _pendingOperation = _pendingOperation.then((_) => operation());
-    unawaited(_pendingOperation);
+    _pendingOperation = _pendingOperation
+        .then<void>((_) => operation(), onError: (_, _) => operation())
+        .catchError((_) {});
   }
 }

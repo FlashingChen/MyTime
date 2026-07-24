@@ -86,6 +86,21 @@ void main() {
       expect(store.values[ForegroundSyncOwnership.heartbeatKey], isNull);
     },
   );
+
+  test('deactivates after a failed lifecycle refresh', () async {
+    final store = _FailingRefreshPreferences();
+    final owner = ForegroundSyncLifecycleOwner(
+      ForegroundSyncOwnership(preferences: store),
+    );
+
+    owner.didChangeAppLifecycleState(AppLifecycleState.inactive);
+    await store.refreshAttempted.future;
+    owner.didChangeAppLifecycleState(AppLifecycleState.paused);
+
+    await store.deactivated.future;
+
+    expect(store.values[ForegroundSyncOwnership.heartbeatKey], isNull);
+  });
 }
 
 class _MemoryPreferences implements PreferencesStore {
@@ -114,6 +129,28 @@ class _DelayedPreferences extends _MemoryPreferences {
   Future<void> setString(String key, String value) async {
     refreshStarted.complete();
     await allowRefresh.future;
+    await super.setString(key, value);
+  }
+
+  @override
+  Future<void> remove(String key) async {
+    await super.remove(key);
+    deactivated.complete();
+  }
+}
+
+class _FailingRefreshPreferences extends _MemoryPreferences {
+  final refreshAttempted = Completer<void>();
+  final deactivated = Completer<void>();
+  bool _hasFailedRefresh = false;
+
+  @override
+  Future<void> setString(String key, String value) async {
+    if (!_hasFailedRefresh) {
+      _hasFailedRefresh = true;
+      refreshAttempted.complete();
+      throw StateError('refresh failed');
+    }
     await super.setString(key, value);
   }
 
