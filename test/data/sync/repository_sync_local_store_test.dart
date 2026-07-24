@@ -42,6 +42,25 @@ void main() {
   );
 
   test(
+    'readReadOnly does not create default categories for an empty store',
+    () async {
+      final categories = _FakeCategoriesRepository([]);
+      final store = RepositorySyncLocalStore(
+        records: _FakeRecordsRepository([]),
+        categories: categories,
+        revision: _FakeRevisionStore(DateTime.utc(2026, 7, 24)),
+        readOnlyRecords: () async => [],
+        readOnlyCategories: () async => [],
+      );
+
+      final snapshot = await store.readReadOnly();
+
+      expect(snapshot.categories, isEmpty);
+      expect(categories.writeCalls, 0);
+    },
+  );
+
+  test(
     'replaces the complete local dataset before storing remote revision',
     () async {
       final records = _FakeRecordsRepository([recordFor(oldCategory.id)]);
@@ -249,26 +268,35 @@ class _FakeCategoriesRepository implements CategoriesRepository {
     : _categories = {for (final category in initial) category.id: category};
 
   final Map<String, Category> _categories;
+  int writeCalls = 0;
 
   @override
   Future<Category> add(Category category) async {
+    writeCalls++;
     _categories[category.id] = category;
     return category;
   }
 
   @override
   Future<void> delete(String id) async {
+    writeCalls++;
     _categories.remove(id);
   }
 
   @override
-  List<Category> getAll() => _categories.values.toList();
+  List<Category> getAll() {
+    if (_categories.isEmpty) {
+      add(const Category(id: 'default', name: '默认分类', color: '#123456'));
+    }
+    return _categories.values.toList();
+  }
 
   @override
   Category? getById(String id) => _categories[id];
 
   @override
   Future<void> update(Category category) async {
+    writeCalls++;
     _categories[category.id] = category;
   }
 }

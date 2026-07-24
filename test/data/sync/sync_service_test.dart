@@ -94,6 +94,8 @@ void main() {
         remote.pushed.single.records.map((item) => item.id),
         contains('remote'),
       );
+      expect(local.readOnlyCalls, 1);
+      expect(local.readCalls, 0);
     },
   );
 }
@@ -115,11 +117,23 @@ class _Local implements SyncLocalStore {
   _Local(this.snapshot);
   SyncSnapshot snapshot;
   bool advanceBeforeFirstReplace = false;
+  int readCalls = 0;
+  int readOnlyCalls = 0;
   @override
   Future<T> runExclusive<T>(Future<T> Function() operation) => operation();
 
   @override
-  Future<SyncSnapshot> read() async => snapshot;
+  Future<SyncSnapshot> read() async {
+    readCalls++;
+    return snapshot;
+  }
+
+  @override
+  Future<SyncSnapshot> readReadOnly() async {
+    readOnlyCalls++;
+    return snapshot;
+  }
+
   @override
   Future<void> replace(SyncSnapshot value) async => snapshot = value;
   @override

@@ -1,3 +1,4 @@
+import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
@@ -14,6 +15,9 @@ abstract interface class SyncLocalStore {
 
   /// Returns the complete local dataset and its last local mutation timestamp.
   Future<SyncSnapshot> read();
+
+  /// Returns a local snapshot without repository-side initialization.
+  Future<SyncSnapshot> readReadOnly();
 
   /// Validates and replaces the complete local dataset or restores the old one.
   Future<void> replace(SyncSnapshot snapshot);
@@ -40,17 +44,24 @@ class RepositorySyncLocalStore implements SyncLocalStore {
     required SyncRevisionStore revision,
     SyncMetadataStore? metadata,
     SyncDataGate? gate,
+    Future<List<TimeRecord>> Function()? readOnlyRecords,
+    Future<List<Category>> Function()? readOnlyCategories,
   }) : _records = records,
        _categories = categories,
        _revision = revision,
        _metadata = metadata,
-       _gate = gate ?? SyncDataGate();
+       _gate = gate ?? SyncDataGate(),
+       _readOnlyRecords = readOnlyRecords ?? (() async => records.getAll()),
+       _readOnlyCategories =
+           readOnlyCategories ?? (() async => categories.getAll());
 
   final RecordsRepository _records;
   final CategoriesRepository _categories;
   final SyncRevisionStore _revision;
   final SyncMetadataStore? _metadata;
   final SyncDataGate _gate;
+  final Future<List<TimeRecord>> Function() _readOnlyRecords;
+  final Future<List<Category>> Function() _readOnlyCategories;
 
   @override
   Future<T> runExclusive<T>(Future<T> Function() operation) =>
@@ -58,6 +69,16 @@ class RepositorySyncLocalStore implements SyncLocalStore {
 
   @override
   Future<SyncSnapshot> read() => _gate.run(_readUnlocked);
+
+  @override
+  Future<SyncSnapshot> readReadOnly() => _gate.run(() async {
+    return SyncSnapshot(
+      records: await _readOnlyRecords(),
+      categories: await _readOnlyCategories(),
+      updatedAt: await _revision.readUpdatedAt(),
+      metadata: await _metadata?.read() ?? const SyncMetadata(),
+    );
+  });
 
   Future<SyncSnapshot> _readUnlocked() async {
     final snapshot = SyncSnapshot(

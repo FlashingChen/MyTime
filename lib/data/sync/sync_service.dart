@@ -59,7 +59,9 @@ class SyncService {
     SyncLock? lock;
     try {
       for (var attempt = 0; attempt < 3; attempt++) {
-        final local = await _local.read();
+        final local = await (applyMergedLocal
+            ? _local.read()
+            : _local.readReadOnly());
         local.validate();
         final remote = await _remote.pull();
         if (remote != null && remote.eTag == null) {

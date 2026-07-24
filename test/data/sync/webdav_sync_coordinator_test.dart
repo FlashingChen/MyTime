@@ -59,6 +59,9 @@ class _LocalStore implements SyncLocalStore {
   Future<SyncSnapshot> read() async => snapshot;
 
   @override
+  Future<SyncSnapshot> readReadOnly() async => snapshot;
+
+  @override
   Future<void> replace(SyncSnapshot snapshot) async {}
 
   @override

@@ -33,18 +33,22 @@ void callbackDispatcher() {
             preferences: preferences,
           ).load();
           if (!settings.hasWebDavConfiguration) return;
-          final records = RecordRepository.withStore(
-            HiveRecordDataStore(await HiveHelper.openRecordsBox()),
+          final recordStore = HiveRecordDataStore(
+            await HiveHelper.openRecordsBox(),
           );
-          final categories = CategoryRepository.withStore(
-            HiveCategoryDataStore(await HiveHelper.openCategoriesBox()),
+          final categoryStore = HiveCategoryDataStore(
+            await HiveHelper.openCategoriesBox(),
           );
+          final records = RecordRepository.withStore(recordStore);
+          final categories = CategoryRepository.withStore(categoryStore);
           final local = RepositorySyncLocalStore(
             records: records,
             categories: categories,
             revision: PreferencesSyncRevisionStore(preferences),
             metadata: PreferencesSyncMetadataStore(preferences),
             gate: SyncDataGate(),
+            readOnlyRecords: () async => recordStore.values.toList(),
+            readOnlyCategories: () async => categoryStore.values.toList(),
           );
           await WebDavSyncCoordinator(local: local).synchronize(
             WebDavConfiguration(
