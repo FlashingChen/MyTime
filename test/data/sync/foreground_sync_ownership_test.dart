@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mytime/data/providers/preferences_store.dart';
+import 'package:mytime/data/sync/foreground_sync_mutation_dispatcher.dart';
 import 'package:mytime/data/sync/foreground_sync_ownership.dart';
+import 'package:mytime/data/sync/sync_scheduler.dart';
 import 'package:mytime/main.dart';
 
 void main() {
@@ -149,6 +151,41 @@ void main() {
 
     await inactive.future;
   });
+
+  test(
+    'ignores a queued deactivation when the app immediately resumes',
+    () async {
+      final store = _MemoryPreferences();
+      final active = Completer<void>();
+      final syncFailed = Completer<void>();
+      final scheduler = _CountingScheduler();
+      final ownership = ForegroundSyncOwnership(preferences: store);
+      final dispatcher = ForegroundSyncMutationDispatcher(
+        foregroundIsActive: ownership.isForegroundActive,
+        synchronize: () async => throw StateError('sync failed'),
+        scheduler: scheduler,
+        reportError: (_, _) => syncFailed.complete(),
+      );
+      final owner = ForegroundSyncLifecycleOwner(
+        ownership,
+        onForegroundActive: () async {
+          dispatcher.foregroundBecameActive();
+          active.complete();
+        },
+        onForegroundInactive: dispatcher.foregroundBecameInactive,
+      );
+
+      owner.didChangeAppLifecycleState(AppLifecycleState.paused);
+      owner.didChangeAppLifecycleState(AppLifecycleState.resumed);
+
+      await active.future;
+      expect(store.values[ForegroundSyncOwnership.heartbeatKey], isNotNull);
+      dispatcher.mutationCommitted();
+      await syncFailed.future;
+
+      expect(scheduler.calls, 0);
+    },
+  );
 }
 
 class _MemoryPreferences implements PreferencesStore {
@@ -207,4 +244,11 @@ class _FailingRefreshPreferences extends _MemoryPreferences {
     await super.remove(key);
     deactivated.complete();
   }
+}
+
+class _CountingScheduler implements SyncScheduler {
+  int calls = 0;
+
+  @override
+  Future<void> schedule() async => calls++;
 }

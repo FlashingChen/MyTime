@@ -46,12 +46,11 @@ class ForegroundSyncMutationDispatcher {
   }
 
   Future<void> _dispatch() async {
-    if (!await _foregroundIsActive()) {
-      await _scheduleBackground();
-      return;
-    }
-
     try {
+      if (!await _foregroundIsActive()) {
+        await _scheduleBackground();
+        return;
+      }
       while (true) {
         try {
           await _synchronize();
@@ -64,6 +63,8 @@ class ForegroundSyncMutationDispatcher {
         _followUpNeeded = false;
       }
       _hasPendingMutation = false;
+    } catch (error, stackTrace) {
+      _reportError?.call(error, stackTrace);
     } finally {
       _dispatching = false;
       if (_backgroundHandoffRequested && _hasPendingMutation) {

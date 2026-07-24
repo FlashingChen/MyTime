@@ -101,6 +101,57 @@ void main() {
       expect(syncCalls, 2);
     },
   );
+
+  test(
+    'releases dispatching after inactive admission so a later active mutation synchronizes',
+    () async {
+      final scheduler = _CountingScheduler();
+      final synchronized = Completer<void>();
+      var foregroundActive = false;
+      final dispatcher = ForegroundSyncMutationDispatcher(
+        foregroundIsActive: () async => foregroundActive,
+        synchronize: () async => synchronized.complete(),
+        scheduler: scheduler,
+      );
+
+      dispatcher.mutationCommitted();
+      await _waitFor(() => scheduler.calls == 1);
+      foregroundActive = true;
+      dispatcher.mutationCommitted();
+
+      await synchronized.future;
+      expect(scheduler.calls, 1);
+    },
+  );
+
+  test(
+    'releases dispatching after an ownership check error so a later active mutation synchronizes',
+    () async {
+      final synchronized = Completer<void>();
+      var throwsOwnershipError = true;
+      final dispatcher = ForegroundSyncMutationDispatcher(
+        foregroundIsActive: () async {
+          if (throwsOwnershipError) throw StateError('ownership unavailable');
+          return true;
+        },
+        synchronize: () async => synchronized.complete(),
+        scheduler: _CountingScheduler(),
+      );
+
+      dispatcher.mutationCommitted();
+      await Future<void>.delayed(Duration.zero);
+      throwsOwnershipError = false;
+      dispatcher.mutationCommitted();
+
+      await synchronized.future;
+    },
+  );
+}
+
+Future<void> _waitFor(bool Function() condition) async {
+  while (!condition()) {
+    await Future<void>.delayed(Duration.zero);
+  }
 }
 
 class _MemoryRevisionStore implements SyncRevisionStore {

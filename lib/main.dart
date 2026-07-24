@@ -219,9 +219,9 @@ class ForegroundSyncLifecycleOwner with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
-        _onForegroundActive?.call();
+        _generation++;
         _startRefreshTimer();
-        _queueRefresh();
+        _queueForegroundActivation();
       case AppLifecycleState.inactive:
         _queueRefresh();
       case AppLifecycleState.paused:
@@ -230,8 +230,11 @@ class ForegroundSyncLifecycleOwner with WidgetsBindingObserver {
         _refreshTimer?.cancel();
         _refreshTimer = null;
         _generation++;
+        final generation = _generation;
         _queueOperation(() async {
+          if (generation != _generation) return;
           await _ownership.deactivate();
+          if (generation != _generation) return;
           await _onForegroundInactive?.call();
         });
     }
@@ -250,6 +253,16 @@ class ForegroundSyncLifecycleOwner with WidgetsBindingObserver {
       if (generation == _generation) {
         await _ownership.refresh();
       }
+    });
+  }
+
+  void _queueForegroundActivation() {
+    final generation = _generation;
+    _queueOperation(() async {
+      if (generation != _generation) return;
+      await _ownership.refresh();
+      if (generation != _generation) return;
+      await _onForegroundActive?.call();
     });
   }
 
