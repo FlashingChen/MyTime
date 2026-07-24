@@ -43,11 +43,11 @@ class DataTransferService {
         records: backup.records,
         categories: backup.categories,
       );
-      await _refreshSnapshot?.call();
       return ImportResult(backup.records.length, backup.categories.length);
     } catch (_) {
       await _categories.replaceAll(previousCategories);
       await _records.replaceAll(previousRecords);
+      await _refreshSnapshot?.call();
       rethrow;
     }
   }
@@ -59,6 +59,18 @@ class DataTransferService {
     required List<Category> categories,
   }) async {
     final marker = _mutationMarker;
+    if (marker is SyncImportMutationMarker) {
+      await marker.markImportedChanges(
+        _importChanges(
+          previousRecords: previousRecords,
+          previousCategories: previousCategories,
+          records: records,
+          categories: categories,
+        ),
+        refreshSnapshot: _refreshSnapshot,
+      );
+      return;
+    }
     if (marker is! SyncEntityMutationMarker) {
       await marker?.markLocalChanged();
       return;
@@ -81,6 +93,31 @@ class DataTransferService {
     for (final id in categoryIds) {
       await marker.markChanged(SyncEntityKind.category, id);
     }
+    await _refreshSnapshot?.call();
+  }
+
+  List<SyncEntityChange> _importChanges({
+    required List<TimeRecord> previousRecords,
+    required List<Category> previousCategories,
+    required List<TimeRecord> records,
+    required List<Category> categories,
+  }) {
+    final previousRecordIds = previousRecords.map((item) => item.id).toSet();
+    final previousCategoryIds = previousCategories
+        .map((item) => item.id)
+        .toSet();
+    final recordIds = records.map((item) => item.id).toSet();
+    final categoryIds = categories.map((item) => item.id).toSet();
+    return [
+      for (final id in previousRecordIds.difference(recordIds))
+        SyncEntityChange(SyncEntityKind.record, id, deleted: true),
+      for (final id in previousCategoryIds.difference(categoryIds))
+        SyncEntityChange(SyncEntityKind.category, id, deleted: true),
+      for (final id in recordIds)
+        SyncEntityChange(SyncEntityKind.record, id, deleted: false),
+      for (final id in categoryIds)
+        SyncEntityChange(SyncEntityKind.category, id, deleted: false),
+    ];
   }
 
   _Backup _parse(String source) {

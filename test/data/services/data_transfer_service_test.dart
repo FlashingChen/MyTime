@@ -5,7 +5,10 @@ import 'package:mytime/data/providers/hive_data_stores.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/services/data_transfer_service.dart';
+import 'package:mytime/data/sync/sync_metadata.dart';
+import 'package:mytime/data/sync/sync_metadata_store.dart';
 import 'package:mytime/data/sync/sync_mutation_tracker.dart';
+import 'package:mytime/data/sync/sync_revision_store.dart';
 
 void main() {
   late _MemoryCategoryStore categoryStore;
@@ -115,6 +118,75 @@ void main() {
 
     expect(marker.calls, 0);
   });
+
+  test('restores sync state when an import mutation refresh fails', () async {
+    await categoryStore.put(
+      'old',
+      const Category(id: 'old', name: '旧分类', color: '#111111'),
+    );
+    await recordStore.put(
+      'old-record',
+      TimeRecord(
+        id: 'old-record',
+        categoryId: 'old',
+        startTime: DateTime.utc(2026, 7, 9, 9),
+        endTime: DateTime.utc(2026, 7, 9, 10),
+      ),
+    );
+    final revision = _MemoryRevisionStore(DateTime.utc(2026, 7, 1));
+    final oldMetadata = SyncMetadata(
+      records: {
+        'old-record': SyncEntityMetadata(
+          kind: SyncEntityKind.record,
+          id: 'old-record',
+          updatedAt: DateTime.utc(2026, 6, 30),
+        ),
+      },
+      categories: {
+        'removed-category': SyncEntityMetadata(
+          kind: SyncEntityKind.category,
+          id: 'removed-category',
+          deletedAt: DateTime.utc(2026, 6, 29),
+        ),
+      },
+    );
+    final metadata = _MemoryMetadataStore(oldMetadata);
+    var snapshot = 'old snapshot';
+    var refreshAttempts = 0;
+    final marker = SyncMutationTracker(
+      revision: revision,
+      metadata: metadata,
+      clock: () => DateTime.utc(2026, 7, 2),
+    );
+    service = DataTransferService(
+      RecordRepository.withStore(recordStore),
+      CategoryRepository.withStore(categoryStore),
+      mutationMarker: marker,
+      refreshSnapshot: () async {
+        refreshAttempts++;
+        snapshot = categoryStore.values.single.id == 'old'
+            ? 'old snapshot'
+            : 'new snapshot';
+        if (refreshAttempts == 1) {
+          throw StateError('snapshot refresh failed');
+        }
+      },
+    );
+
+    await expectLater(
+      service.importJson('''
+          {"version":1,"categories":[{"id":"new","name":"新分类","color":"#222222"}],"records":[{"id":"new-record","categoryId":"new","startTime":"2026-07-10T09:00:00.000Z","endTime":"2026-07-10T10:00:00.000Z","note":null}]}
+        '''),
+      throwsStateError,
+    );
+
+    expect(refreshAttempts, 2);
+    expect(categoryStore.values.single.id, 'old');
+    expect(recordStore.values.single.id, 'old-record');
+    expect(await revision.readUpdatedAt(), DateTime.utc(2026, 7, 1));
+    expect(await metadata.read(), oldMetadata);
+    expect(snapshot, 'old snapshot');
+  });
 }
 
 class _FakeMutationTracker implements SyncMutationMarker {
@@ -124,6 +196,44 @@ class _FakeMutationTracker implements SyncMutationMarker {
   Future<void> markLocalChanged() async {
     calls++;
   }
+}
+
+class _MemoryRevisionStore implements SyncRevisionStore {
+  _MemoryRevisionStore(this.value);
+
+  DateTime value;
+
+  @override
+  Future<DateTime> readUpdatedAt() async => value;
+
+  @override
+  Future<void> writeUpdatedAt(DateTime updatedAt) async => value = updatedAt;
+}
+
+class _MemoryMetadataStore implements SyncMetadataStore {
+  _MemoryMetadataStore(this.value);
+
+  SyncMetadata value;
+
+  @override
+  Future<void> markChanged(
+    SyncEntityKind kind,
+    String id,
+    DateTime changedAt,
+  ) async {}
+
+  @override
+  Future<void> markDeleted(
+    SyncEntityKind kind,
+    String id,
+    DateTime deletedAt,
+  ) async {}
+
+  @override
+  Future<SyncMetadata> read() async => value;
+
+  @override
+  Future<void> write(SyncMetadata metadata) async => value = metadata;
 }
 
 class _MemoryRecordStore implements RecordDataStore {

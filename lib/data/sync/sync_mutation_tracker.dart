@@ -15,11 +15,29 @@ abstract interface class SyncEntityMutationMarker extends SyncMutationMarker {
   Future<void> markDeleted(SyncEntityKind kind, String id);
 }
 
+/// Applies all entity mutations caused by an imported backup as one unit.
+abstract interface class SyncImportMutationMarker
+    implements SyncEntityMutationMarker {
+  Future<void> markImportedChanges(
+    List<SyncEntityChange> changes, {
+    Future<void> Function()? refreshSnapshot,
+  });
+}
+
+/// One entity update or tombstone produced by a backup import.
+class SyncEntityChange {
+  const SyncEntityChange(this.kind, this.id, {required this.deleted});
+
+  final SyncEntityKind kind;
+  final String id;
+  final bool deleted;
+}
+
 /// Advances a [SyncRevisionStore] monotonically after local data changes.
 ///
 /// The resulting timestamp is always later than the previous value, including
 /// when the device clock moves backwards or a remote device has a future clock.
-class SyncMutationTracker implements SyncEntityMutationMarker {
+class SyncMutationTracker implements SyncImportMutationMarker {
   SyncMutationTracker({
     required SyncRevisionStore revision,
     SyncMetadataStore? metadata,
@@ -57,6 +75,41 @@ class SyncMutationTracker implements SyncEntityMutationMarker {
   Future<void> markDeleted(SyncEntityKind kind, String id) =>
       _track(kind, id, deleted: true);
 
+  @override
+  Future<void> markImportedChanges(
+    List<SyncEntityChange> changes, {
+    Future<void> Function()? refreshSnapshot,
+  }) {
+    final mutation = _pendingMutation.then<void>((_) async {
+      final previousRevision = await _revision.readUpdatedAt();
+      final metadata = _metadata;
+      final previousMetadata = await metadata?.read();
+      try {
+        await _advance();
+        if (metadata != null) {
+          var next = previousMetadata!;
+          final now = _clock().toUtc();
+          for (final change in changes) {
+            next = _applyChange(next, change, now);
+          }
+          await metadata.write(next);
+        }
+        try {
+          await _scheduler.schedule();
+        } catch (_) {
+          // A durable entity revision remains pending for the next trigger.
+        }
+        await (refreshSnapshot ?? _refreshSnapshot)?.call();
+      } catch (error, stackTrace) {
+        await _revision.writeUpdatedAt(previousRevision);
+        if (metadata != null) await metadata.write(previousMetadata!);
+        Error.throwWithStackTrace(error, stackTrace);
+      }
+    });
+    _pendingMutation = mutation.then<void>((_) {}, onError: (_, __) {});
+    return mutation;
+  }
+
   Future<void> _track(SyncEntityKind kind, String id, {required bool deleted}) {
     final mutation = _pendingMutation.then<void>((_) async {
       await _advance();
@@ -87,5 +140,35 @@ class SyncMutationTracker implements SyncEntityMutationMarker {
         ? now
         : current.add(const Duration(microseconds: 1));
     await _revision.writeUpdatedAt(next);
+  }
+
+  SyncMetadata _applyChange(
+    SyncMetadata metadata,
+    SyncEntityChange change,
+    DateTime changedAt,
+  ) {
+    final values = Map<String, SyncEntityMetadata>.from(
+      change.kind == SyncEntityKind.record
+          ? metadata.records
+          : metadata.categories,
+    );
+    final existing = values[change.id];
+    values[change.id] = SyncEntityMetadata(
+      kind: change.kind,
+      id: change.id,
+      updatedAt: change.deleted
+          ? existing?.updatedAt
+          : existing?.updatedAt?.isAfter(changedAt) ?? false
+          ? existing!.updatedAt
+          : changedAt,
+      deletedAt: change.deleted
+          ? existing?.deletedAt?.isAfter(changedAt) ?? false
+                ? existing!.deletedAt
+                : changedAt
+          : null,
+    );
+    return change.kind == SyncEntityKind.record
+        ? metadata.copyWith(records: values)
+        : metadata.copyWith(categories: values);
   }
 }
