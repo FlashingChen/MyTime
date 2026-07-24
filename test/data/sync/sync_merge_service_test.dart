@@ -21,6 +21,83 @@ void main() {
     expect(merged.records.singleWhere((item) => item.id == 'a').note, '本机');
   });
 
+  test('background policy keeps the remote entity for a same-ID conflict', () {
+    final local = _snapshot(record: _record('a', '后台旧版本'));
+    final remote = _snapshot(record: _record('a', '前台新版本'));
+
+    final merged = service.merge(
+      local: local,
+      remote: remote,
+      conflictPolicy: SyncConflictPolicy.preferRemote,
+    );
+
+    expect(merged.records.single.note, '前台新版本');
+  });
+
+  test('background policy keeps a valid remote tombstone over an entity', () {
+    final local = _snapshot(record: _record('a', '后台旧版本'));
+    final remote = _snapshot(
+      metadata: SyncMetadata(
+        records: {
+          'a': SyncEntityMetadata(
+            kind: SyncEntityKind.record,
+            id: 'a',
+            deletedAt: DateTime.utc(2026, 7, 21),
+          ),
+        },
+      ),
+    );
+
+    final merged = service.merge(
+      local: local,
+      remote: remote,
+      conflictPolicy: SyncConflictPolicy.preferRemote,
+    );
+
+    expect(merged.records, isEmpty);
+    expect(merged.metadata.records['a']!.deletedAt, DateTime.utc(2026, 7, 21));
+  });
+
+  test('background policy keeps a remote entity over a local tombstone', () {
+    final local = _snapshot(
+      metadata: SyncMetadata(
+        records: {
+          'a': SyncEntityMetadata(
+            kind: SyncEntityKind.record,
+            id: 'a',
+            deletedAt: DateTime.utc(2026, 7, 21),
+          ),
+        },
+      ),
+    );
+    final remote = _snapshot(record: _record('a', '前台重新创建'));
+
+    final merged = service.merge(
+      local: local,
+      remote: remote,
+      conflictPolicy: SyncConflictPolicy.preferRemote,
+    );
+
+    expect(merged.records.single.note, '前台重新创建');
+    expect(merged.metadata.records['a'], isNull);
+  });
+
+  test(
+    'background policy uploads an entity absent from the remote document',
+    () {
+      final local = _snapshot(record: _record('a', '后台创建'));
+      final remote = _snapshot();
+
+      final merged = service.merge(
+        local: local,
+        remote: remote,
+        conflictPolicy: SyncConflictPolicy.preferRemote,
+      );
+
+      expect(merged.records.single.note, '后台创建');
+    },
+  );
+
   test(
     'tombstone prevents an old remote record from returning for 90 days',
     () {

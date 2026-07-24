@@ -3,6 +3,9 @@ import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/sync/sync_metadata.dart';
 import 'package:mytime/data/sync/sync_port.dart';
 
+/// Selects which version survives a same-ID entity conflict.
+enum SyncConflictPolicy { preferLocal, preferRemote }
+
 /// Deterministically merges two complete documents by entity identifier.
 class SyncMergeService {
   SyncMergeService({DateTime Function()? clock})
@@ -12,6 +15,7 @@ class SyncMergeService {
   SyncSnapshot merge({
     required SyncSnapshot local,
     required SyncSnapshot remote,
+    SyncConflictPolicy conflictPolicy = SyncConflictPolicy.preferLocal,
   }) {
     final recordResult = _merge<TimeRecord>(
       local.records,
@@ -19,6 +23,7 @@ class SyncMergeService {
       local.metadata.records,
       remote.metadata.records,
       _sameRecord,
+      conflictPolicy,
     );
     final categoryResult = _merge<Category>(
       local.categories,
@@ -26,6 +31,7 @@ class SyncMergeService {
       local.metadata.categories,
       remote.metadata.categories,
       (a, b) => a == b,
+      conflictPolicy,
     );
     final categories = categoryResult.items;
     if (categories.isEmpty) {
@@ -56,6 +62,7 @@ class SyncMergeService {
     Map<String, SyncEntityMetadata> localMetadata,
     Map<String, SyncEntityMetadata> remoteMetadata,
     bool Function(T, T) same,
+    SyncConflictPolicy conflictPolicy,
   ) {
     final left = {for (final item in local) _id(item): item};
     final right = {for (final item in remote) _id(item): item};
@@ -72,19 +79,25 @@ class SyncMergeService {
     }) {
       final localMeta = localMetadata[id];
       final remoteMeta = remoteMetadata[id];
-      final deleted = _effectiveDeletion(localMeta, remoteMeta);
+      final remoteWins = conflictPolicy == SyncConflictPolicy.preferRemote;
+      final remoteEntityWins = remoteWins && right[id] != null;
+      final deleted = remoteEntityWins && remoteMeta?.deletedAt == null
+          ? null
+          : _effectiveDeletion(localMeta, remoteMeta);
       if (deleted != null) {
         metadata[id] = deleted;
         continue;
       }
       final a = left[id];
       final b = right[id];
-      if (a != null) {
-        result.add(a);
-      } else if (b != null) {
-        result.add(b);
-      }
-      final chosen = localMeta ?? remoteMeta;
+      final item = remoteWins ? b ?? a : a ?? b;
+      if (item != null) result.add(item);
+      if (remoteEntityWins) metadata.remove(id);
+      final chosen = remoteEntityWins
+          ? remoteMeta
+          : remoteWins
+          ? remoteMeta ?? localMeta
+          : localMeta ?? remoteMeta;
       if (chosen != null) metadata[id] = chosen;
     }
     return _Merge(result, metadata);

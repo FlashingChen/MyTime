@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/sync/sync_local_store.dart';
+import 'package:mytime/data/sync/sync_merge_service.dart';
 import 'package:mytime/data/sync/sync_port.dart';
 import 'package:mytime/data/sync/sync_service.dart';
 
@@ -159,15 +160,36 @@ void main() {
       expect(local.readCalls, 0);
     },
   );
+
+  test(
+    'background retry does not upload a stale entity after remote changes',
+    () async {
+      final remote = _RemoteChangingAfterPreconditionFailure(
+        initial: _snapshot('record', note: '远端旧版本'),
+        afterFailure: _snapshot('record', note: '前台新版本'),
+      );
+
+      await SyncService(
+        local: _Local(_snapshot('record', note: '后台旧版本')),
+        remote: remote,
+        applyMergedLocal: false,
+        conflictPolicy: SyncConflictPolicy.preferRemote,
+      ).synchronize();
+
+      expect(remote.pushed, hasLength(2));
+      expect(remote.pushed.last.records.single.note, '前台新版本');
+    },
+  );
 }
 
-SyncSnapshot _snapshot(String id) => SyncSnapshot(
+SyncSnapshot _snapshot(String id, {String? note}) => SyncSnapshot(
   updatedAt: DateTime.utc(2026, 7, 22),
   categories: const [Category(id: 'work', name: '工作', color: '#123456')],
   records: [
     TimeRecord(
       id: id,
       categoryId: 'work',
+      note: note,
       startTime: DateTime.utc(2026, 7, 22, 9),
       endTime: DateTime.utc(2026, 7, 22, 10),
     ),
@@ -290,6 +312,44 @@ class _RemoteThatConfirmsDifferentDocument implements SyncPort {
   }) async {
     pushCount++;
     throw const SyncPreconditionFailed();
+  }
+
+  @override
+  Future<SyncLock?> lock() async => null;
+
+  @override
+  Future<void> unlock(SyncLock lock) async {}
+}
+
+class _RemoteChangingAfterPreconditionFailure implements SyncPort {
+  _RemoteChangingAfterPreconditionFailure({
+    required this.initial,
+    required this.afterFailure,
+  }) : _current = initial;
+
+  final SyncSnapshot initial;
+  final SyncSnapshot afterFailure;
+  SyncSnapshot _current;
+  int _pushes = 0;
+  final List<SyncSnapshot> pushed = [];
+
+  @override
+  Future<RemoteSyncDocument?> pull() async =>
+      RemoteSyncDocument(snapshot: _current, eTag: '"v${_pushes + 1}"');
+
+  @override
+  Future<String?> push(
+    SyncSnapshot snapshot, {
+    required String? ifMatch,
+    required bool ifNoneMatch,
+  }) async {
+    pushed.add(snapshot);
+    if (_pushes++ == 0) {
+      _current = afterFailure;
+      throw const SyncPreconditionFailed();
+    }
+    _current = snapshot;
+    return '"v3"';
   }
 
   @override

@@ -6,6 +6,7 @@ import 'package:mytime/data/repositories/settings_repository.dart';
 import 'package:mytime/data/sync/foreground_sync_ownership.dart';
 import 'package:mytime/data/sync/preferences_sync_snapshot_store.dart';
 import 'package:mytime/data/sync/sync_local_store.dart';
+import 'package:mytime/data/sync/sync_merge_service.dart';
 import 'package:mytime/data/sync/sync_scheduler.dart';
 import 'package:mytime/data/sync/webdav_background_runner.dart';
 import 'package:mytime/data/sync/webdav_sync_coordinator.dart';
@@ -43,6 +44,7 @@ void callbackDispatcher() {
               password: settings.webDavPassword!,
             ),
             applyMergedLocal: false,
+            conflictPolicy: SyncConflictPolicy.preferRemote,
           );
         },
       ).run();

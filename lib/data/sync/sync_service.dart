@@ -24,6 +24,7 @@ class SyncService {
     required SyncPort remote,
     SyncMergeService? merger,
     this.applyMergedLocal = true,
+    this.conflictPolicy = SyncConflictPolicy.preferLocal,
   }) : _local = local,
        _remote = remote,
        _merger = merger ?? SyncMergeService();
@@ -32,6 +33,7 @@ class SyncService {
   final SyncPort _remote;
   final SyncMergeService _merger;
   final bool applyMergedLocal;
+  final SyncConflictPolicy conflictPolicy;
   Future<SyncResult>? _inFlight;
 
   /// Performs one pull/compare/apply-or-push cycle.
@@ -72,7 +74,11 @@ class SyncService {
         if (remote != null) lock ??= await _remote.lock();
         final merged = remote == null
             ? local
-            : _merger.merge(local: local, remote: remote.snapshot);
+            : _merger.merge(
+                local: local,
+                remote: remote.snapshot,
+                conflictPolicy: conflictPolicy,
+              );
         try {
           final eTag = await _remote.push(
             merged,
