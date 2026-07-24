@@ -93,7 +93,8 @@ class WebDavSyncAdapter implements SyncPort {
       '''<?xml version="1.0" encoding="utf-8"?><D:lockinfo xmlns:D="DAV:"><D:lockscope><D:exclusive/></D:lockscope><D:locktype><D:write/></D:locktype><D:owner>MyTime</D:owner></D:lockinfo>''',
     );
     if (response.statusCode == HttpStatus.notImplemented ||
-        response.statusCode == HttpStatus.methodNotAllowed) {
+        response.statusCode == HttpStatus.methodNotAllowed ||
+        response.statusCode == HttpStatus.locked) {
       return null;
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {

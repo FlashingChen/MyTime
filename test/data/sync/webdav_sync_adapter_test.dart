@@ -234,6 +234,35 @@ void main() {
     expect(requests['PUT']!['If'], '(<opaquelocktoken:token>)');
     expect(requests['UNLOCK']!['Lock-Token'], 'opaquelocktoken:token');
   });
+
+  test('falls back to an ETag-only conditional PUT when LOCK is unavailable', () async {
+    Map<String, String>? putHeaders;
+    final adapter = WebDavSyncAdapter(
+      endpoint: Uri.parse('https://example.com/mytime.json'),
+      username: 'user',
+      password: 'secret',
+      request: (method, _, headers, __) async {
+        if (method == 'LOCK') return const WebDavResponse(423, '');
+        if (method == 'PUT') {
+          putHeaders = headers;
+          return const WebDavResponse(204, '', {'etag': '"v2"'});
+        }
+        throw StateError('Unexpected request: $method');
+      },
+    );
+
+    final lock = await adapter.lock();
+    final eTag = await adapter.push(
+      _snapshot(),
+      ifMatch: '"v1"',
+      ifNoneMatch: false,
+    );
+
+    expect(lock, isNull);
+    expect(eTag, '"v2"');
+    expect(putHeaders!['If-Match'], '"v1"');
+    expect(putHeaders, isNot(contains('If')));
+  });
 }
 
 SyncSnapshot _snapshot() => SyncSnapshot(
