@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
+import 'package:mytime/data/models/app_settings.dart';
 import 'package:mytime/data/providers/preferences_store.dart';
 import 'package:mytime/data/repositories/settings_repository.dart';
+import 'package:mytime/data/services/import_recovery_journal.dart';
 import 'package:mytime/data/sync/foreground_sync_ownership.dart';
 import 'package:mytime/data/sync/preferences_sync_snapshot_store.dart';
 import 'package:mytime/data/sync/sync_local_store.dart';
@@ -23,30 +25,10 @@ void callbackDispatcher() {
       final ownership = ForegroundSyncOwnership(preferences: preferences);
       return await WebDavBackgroundRunner(
         ownership: ownership,
-        initializeAndSynchronize: () async {
-          final settings = await SettingsRepository(
-            preferences: preferences,
-          ).load();
-          if (!settings.hasWebDavConfiguration) return;
-          final snapshotStore = PreferencesSyncSnapshotStore(preferences);
-          try {
-            await snapshotStore.readReadOnly();
-          } on StateError {
-            return;
-          }
-          if (await ownership.isForegroundActive()) return;
-          await WebDavSyncCoordinator(
-            local: ReadOnlySyncLocalStore(snapshotStore),
-          ).synchronize(
-            WebDavConfiguration(
-              endpoint: settings.webDavEndpoint,
-              username: settings.webDavUsername,
-              password: settings.webDavPassword!,
-            ),
-            applyMergedLocal: false,
-            conflictPolicy: SyncConflictPolicy.preferRemote,
-          );
-        },
+        initializeAndSynchronize: WebDavBackgroundTask.fromPreferences(
+          preferences: preferences,
+          foregroundIsActive: ownership.isForegroundActive,
+        ).run,
       ).run();
     } on FormatException {
       return true;
@@ -60,4 +42,63 @@ void callbackDispatcher() {
       return false;
     }
   });
+}
+
+/// Performs the Hive-free background WebDAV sequence after worker admission.
+class WebDavBackgroundTask {
+  WebDavBackgroundTask({
+    required Future<bool> Function() hasPendingRecovery,
+    required Future<AppSettings> Function() loadSettings,
+    required Future<void> Function() readSnapshot,
+    required Future<void> Function(AppSettings settings) synchronize,
+    Future<bool> Function()? foregroundIsActive,
+  }) : _hasPendingRecovery = hasPendingRecovery,
+       _loadSettings = loadSettings,
+       _readSnapshot = readSnapshot,
+       _synchronize = synchronize,
+       _foregroundIsActive = foregroundIsActive;
+
+  factory WebDavBackgroundTask.fromPreferences({
+    required PreferencesStore preferences,
+    required Future<bool> Function() foregroundIsActive,
+  }) {
+    final snapshotStore = PreferencesSyncSnapshotStore(preferences);
+    return WebDavBackgroundTask(
+      hasPendingRecovery: ImportRecoveryJournal(preferences).hasPendingRecovery,
+      loadSettings: () => SettingsRepository(preferences: preferences).load(),
+      readSnapshot: snapshotStore.readReadOnly,
+      foregroundIsActive: foregroundIsActive,
+      synchronize: (settings) =>
+          WebDavSyncCoordinator(
+            local: ReadOnlySyncLocalStore(snapshotStore),
+          ).synchronize(
+            WebDavConfiguration(
+              endpoint: settings.webDavEndpoint,
+              username: settings.webDavUsername,
+              password: settings.webDavPassword!,
+            ),
+            applyMergedLocal: false,
+            conflictPolicy: SyncConflictPolicy.preferRemote,
+          ),
+    );
+  }
+
+  final Future<bool> Function() _hasPendingRecovery;
+  final Future<AppSettings> Function() _loadSettings;
+  final Future<void> Function() _readSnapshot;
+  final Future<void> Function(AppSettings settings) _synchronize;
+  final Future<bool> Function()? _foregroundIsActive;
+
+  Future<void> run() async {
+    if (await _hasPendingRecovery()) return;
+    final settings = await _loadSettings();
+    if (!settings.hasWebDavConfiguration) return;
+    try {
+      await _readSnapshot();
+    } on StateError {
+      return;
+    }
+    if (await _foregroundIsActive?.call() ?? false) return;
+    await _synchronize(settings);
+  }
 }
