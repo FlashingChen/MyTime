@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mytime/blocs/categories/categories.dart';
@@ -13,6 +15,7 @@ import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/repositories/settings_repository.dart';
 import 'package:mytime/data/services/data_transfer_service.dart';
 import 'package:mytime/data/sync/revision_tracking_repositories.dart';
+import 'package:mytime/data/sync/foreground_sync_ownership.dart';
 import 'package:mytime/data/sync/sync_local_store.dart';
 import 'package:mytime/data/sync/sync_mutation_tracker.dart';
 import 'package:mytime/data/sync/sync_data_gate.dart';
@@ -33,6 +36,11 @@ void main() async {
   final recordsBox = await HiveHelper.openRecordsBox();
   final categoriesBox = await HiveHelper.openCategoriesBox();
   final preferences = SharedPreferencesStore();
+  final foregroundSyncOwnership = ForegroundSyncOwnership(
+    preferences: preferences,
+  );
+  await foregroundSyncOwnership.activate();
+  _ForegroundSyncLifecycleOwner(foregroundSyncOwnership).start();
   final rawRecordRepository = RecordRepository.withStore(
     HiveRecordDataStore(recordsBox),
   );
@@ -104,4 +112,40 @@ void main() async {
       ),
     ),
   );
+}
+
+class _ForegroundSyncLifecycleOwner with WidgetsBindingObserver {
+  _ForegroundSyncLifecycleOwner(this._ownership);
+
+  final ForegroundSyncOwnership _ownership;
+  Timer? _refreshTimer;
+
+  void start() {
+    WidgetsBinding.instance.addObserver(this);
+    _startRefreshTimer();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _startRefreshTimer();
+        unawaited(_ownership.refresh());
+      case AppLifecycleState.inactive:
+        unawaited(_ownership.refresh());
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        _refreshTimer?.cancel();
+        _refreshTimer = null;
+        unawaited(_ownership.deactivate());
+    }
+  }
+
+  void _startRefreshTimer() {
+    _refreshTimer ??= Timer.periodic(
+      ForegroundSyncOwnership.refreshInterval,
+      (_) => unawaited(_ownership.refresh()),
+    );
+  }
 }
