@@ -105,8 +105,9 @@ class WebDavSyncAdapter implements SyncPort {
         'WebDAV LOCK response did not include Lock-Token',
       );
     }
-    _activeLockToken = token;
-    return SyncLock(token);
+    final normalizedToken = _normalizeLockToken(token);
+    _activeLockToken = normalizedToken;
+    return SyncLock(normalizedToken);
   }
 
   @override
@@ -182,6 +183,13 @@ class WebDavSyncAdapter implements SyncPort {
       throw ArgumentError.value(password, 'password', 'must not be blank');
     }
     return 'Basic ${base64Encode(utf8.encode('$username:$password'))}';
+  }
+
+  static String _normalizeLockToken(String token) {
+    if (token.startsWith('<') && token.endsWith('>')) {
+      return token.substring(1, token.length - 1);
+    }
+    return token;
   }
 
   static Map<String, Object?> _encode(SyncSnapshot snapshot) => {

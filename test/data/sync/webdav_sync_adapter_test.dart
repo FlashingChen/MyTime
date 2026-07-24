@@ -236,6 +236,32 @@ void main() {
     expect(requests['UNLOCK']!['Lock-Token'], 'opaquelocktoken:token');
   });
 
+  test('normalizes a bracketed lock token for PUT and unlock', () async {
+    final requests = <String, Map<String, String>>{};
+    final adapter = WebDavSyncAdapter(
+      endpoint: Uri.parse('https://example.com/mytime.json'),
+      username: 'user',
+      password: 'secret',
+      request: (method, _, headers, __) async {
+        requests[method] = headers;
+        return switch (method) {
+          'LOCK' => const WebDavResponse(200, '', {
+            'lock-token': '<opaquelocktoken:token>',
+          }),
+          'PUT' => const WebDavResponse(204, '', {'etag': '"v2"'}),
+          _ => const WebDavResponse(204, ''),
+        };
+      },
+    );
+
+    final lock = await adapter.lock();
+    await adapter.push(_snapshot(), ifMatch: '"v1"', ifNoneMatch: false);
+    await adapter.unlock(lock!);
+
+    expect(requests['PUT']!['If'], '(<opaquelocktoken:token>)');
+    expect(requests['UNLOCK']!['Lock-Token'], 'opaquelocktoken:token');
+  });
+
   test('throws for LOCK contention without sending a PUT', () async {
     var putRequests = 0;
     final adapter = WebDavSyncAdapter(
