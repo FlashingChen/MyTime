@@ -37,7 +37,9 @@ void main() {
     expect(find.text('休息'), findsOneWidget);
   });
 
-  testWidgets('tapping unselected category appends it to selection', (tester) async {
+  testWidgets('tapping unselected category appends it to selection', (
+    tester,
+  ) async {
     List<String>? result;
     await tester.pumpWidget(
       MaterialApp(
@@ -72,7 +74,9 @@ void main() {
     expect(result, ['work', 'read']);
   });
 
-  testWidgets('tapping selected category removes it (keeping at least one)', (tester) async {
+  testWidgets('tapping selected category removes it (keeping at least one)', (
+    tester,
+  ) async {
     List<String>? result;
     await tester.pumpWidget(
       MaterialApp(

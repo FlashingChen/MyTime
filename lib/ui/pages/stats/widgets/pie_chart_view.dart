@@ -130,9 +130,9 @@ class _PieChartViewState extends State<PieChartView> {
                     ),
                   ),
                   if (selectedItem != null)
-                      _Tooltip(item: selectedItem)
-                    else
-                      _CenterTotal(total: totalSeconds),
+                    _Tooltip(item: selectedItem)
+                  else
+                    _CenterTotal(total: totalSeconds),
                 ],
               ),
             ),

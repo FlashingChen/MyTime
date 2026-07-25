@@ -1,187 +1,422 @@
-import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/sync/sync_local_store.dart';
+import 'package:mytime/data/sync/sync_merge_service.dart';
+import 'package:mytime/data/sync/sync_metadata.dart';
 import 'package:mytime/data/sync/sync_port.dart';
 import 'package:mytime/data/sync/sync_service.dart';
 
 void main() {
-  final category = const Category(id: 'work', name: '工作', color: '#123456');
+  test('merges unrelated records and writes with the remote ETag', () async {
+    final local = _Local(_snapshot('local'));
+    final remote = _Remote(_snapshot('remote'));
 
-  SyncSnapshot snapshotAt(int hour) => SyncSnapshot(
-    updatedAt: DateTime.utc(2026, 7, 12, hour),
-    categories: [category],
-    records: [
-      TimeRecord(
-        id: 'record-$hour',
-        categoryId: category.id,
-        startTime: DateTime.utc(2026, 7, 12, hour),
-        endTime: DateTime.utc(2026, 7, 12, hour + 1),
-        createdAt: DateTime.utc(2026, 7, 12, hour),
-      ),
-    ],
-  );
+    final result = await SyncService(
+      local: local,
+      remote: remote,
+    ).synchronize();
 
-  test(
-    'applies a strictly newer remote snapshot without pushing it back',
-    () async {
-      final local = _FakeLocalStore(snapshotAt(9));
-      final remote = _FakeSyncPort(remote: snapshotAt(10));
-      final service = SyncService(local: local, remote: remote);
-
-      final result = await service.synchronize();
-
-      expect(result.resolution, SyncResolution.appliedRemote);
-      expect(local.snapshot.updatedAt, DateTime.utc(2026, 7, 12, 10));
-      expect(remote.pushed, isEmpty);
-    },
-  );
-
-  test('pushes the local snapshot when it is newer than remote', () async {
-    final local = _FakeLocalStore(snapshotAt(11));
-    final remote = _FakeSyncPort(remote: snapshotAt(10));
-    final service = SyncService(local: local, remote: remote);
-
-    final result = await service.synchronize();
-
-    expect(result.resolution, SyncResolution.pushedLocal);
-    expect(remote.pushed.single.updatedAt, DateTime.utc(2026, 7, 12, 11));
-    expect(local.replaceCalls, 0);
+    expect(result.resolution, SyncResolution.merged);
+    expect(
+      remote.pushed.single.records.map((item) => item.id),
+      containsAll(['local', 'remote']),
+    );
+    expect(remote.ifMatches, ['"v1"']);
   });
 
-  test('resolves equal timestamps in favor of the local snapshot', () async {
-    final local = _FakeLocalStore(snapshotAt(10));
-    final remote = _FakeSyncPort(remote: snapshotAt(10));
-    final service = SyncService(local: local, remote: remote);
+  test('re-pulls and retries after a precondition failure', () async {
+    final local = _Local(_snapshot('local'));
+    final remote = _Remote(_snapshot('remote'), failures: 1);
 
-    final result = await service.synchronize();
+    final result = await SyncService(
+      local: local,
+      remote: remote,
+    ).synchronize();
 
-    expect(result.resolution, SyncResolution.pushedLocal);
-    expect(remote.pushed, hasLength(1));
-    expect(local.replaceCalls, 0);
+    expect(result.retryCount, 1);
+    expect(remote.pullCount, 2);
+    expect(remote.pushed, hasLength(2));
   });
 
-  test('pushes a local snapshot when no remote document exists', () async {
-    final local = _FakeLocalStore(snapshotAt(10));
-    final remote = _FakeSyncPort();
-    final service = SyncService(local: local, remote: remote);
+  test('retries when a PUT confirmation GET has another document', () async {
+    final remote = _RemoteThatConfirmsDifferentDocument();
 
-    final result = await service.synchronize();
-
-    expect(result.resolution, SyncResolution.pushedLocal);
-    expect(remote.pushed, hasLength(1));
-  });
-
-  test(
-    'does not overwrite a local mutation that occurs while pulling',
-    () async {
-      final local = _FakeLocalStore(snapshotAt(9));
-      final pullStarted = Completer<void>();
-      final releasePull = Completer<void>();
-      final remote = _FakeSyncPort(
-        remote: snapshotAt(10),
-        onPull: () async {
-          pullStarted.complete();
-          await releasePull.future;
-        },
-      );
-      final service = SyncService(local: local, remote: remote);
-
-      final synchronization = service.synchronize();
-      await pullStarted.future;
-      local.snapshot = snapshotAt(11);
-      releasePull.complete();
-
-      final result = await synchronization;
-
-      expect(result.resolution, SyncResolution.pushedLocal);
-      expect(local.snapshot.updatedAt, DateTime.utc(2026, 7, 12, 11));
-      expect(remote.pushed.single.updatedAt, DateTime.utc(2026, 7, 12, 11));
-      expect(local.replaceCalls, 0);
-    },
-  );
-
-  test(
-    'rejects an invalid remote snapshot before changing local data',
-    () async {
-      final local = _FakeLocalStore(snapshotAt(9));
-      final invalidRemote = SyncSnapshot(
-        updatedAt: DateTime.utc(2026, 7, 12, 10),
-        categories: [category],
-        records: [
-          TimeRecord(
-            id: 'invalid',
-            categoryId: category.id,
-            startTime: DateTime.utc(2026, 7, 12, 10),
-            endTime: DateTime.utc(2026, 7, 12, 9),
-          ),
-        ],
-      );
-      final remote = _FakeSyncPort(remote: invalidRemote);
-      final service = SyncService(local: local, remote: remote);
-
-      await expectLater(service.synchronize(), throwsArgumentError);
-
-      expect(local.snapshot.updatedAt, DateTime.utc(2026, 7, 12, 9));
-      expect(local.replaceCalls, 0);
-      expect(remote.pushed, isEmpty);
-    },
-  );
-
-  test('rejects a snapshot that would leave the application category-free', () {
-    final empty = SyncSnapshot(
-      updatedAt: DateTime.utc(2026, 7, 12),
-      categories: const [],
-      records: const [],
+    await expectLater(
+      SyncService(
+        local: _Local(_snapshot('local')),
+        remote: remote,
+      ).synchronize(),
+      throwsA(isA<SyncPreconditionFailed>()),
     );
 
-    expect(empty.validate, throwsArgumentError);
+    expect(remote.pullCount, 3);
+    expect(remote.pushCount, 3);
   });
+
+  test('unlocks a supported WebDAV lock after synchronization', () async {
+    final remote = _Remote(_snapshot('remote'), lock: const SyncLock('token'));
+
+    await SyncService(
+      local: _Local(_snapshot('local')),
+      remote: remote,
+    ).synchronize();
+
+    expect(remote.unlocked, ['token']);
+  });
+
+  test(
+    'keeps a successful synchronization when unlock throws SocketException',
+    () async {
+      final local = _Local(_snapshot('local'));
+      final remote = _Remote(
+        _snapshot('remote'),
+        lock: const SyncLock('token'),
+        unlockError: const SocketException('unlock failed'),
+      );
+
+      final result = await SyncService(
+        local: local,
+        remote: remote,
+      ).synchronize();
+
+      expect(result.resolution, SyncResolution.merged);
+      expect(
+        local.snapshot.records.map((record) => record.id),
+        contains('remote'),
+      );
+      expect(remote.unlocked, ['token']);
+    },
+  );
+
+  test('preserves a push failure when unlock throws SocketException', () async {
+    final pushError = const HttpException('push failed');
+    final remote = _Remote(
+      _snapshot('remote'),
+      lock: const SyncLock('token'),
+      pushError: pushError,
+      unlockError: const SocketException('unlock failed'),
+    );
+
+    await expectLater(
+      SyncService(
+        local: _Local(_snapshot('local')),
+        remote: remote,
+      ).synchronize(),
+      throwsA(same(pushError)),
+    );
+
+    expect(remote.unlocked, ['token']);
+  });
+
+  test(
+    'retries from the newest local snapshot when replacement sees a write',
+    () async {
+      final local = _Local(_snapshot('local'))
+        ..advanceBeforeFirstReplace = true;
+      final remote = _Remote(_snapshot('remote'));
+
+      await SyncService(local: local, remote: remote).synchronize();
+
+      expect(remote.pushed, hasLength(2));
+      expect(
+        remote.pushed.last.records.map((item) => item.id),
+        contains('newer'),
+      );
+    },
+  );
+
+  test('rejects an existing remote document without an ETag', () async {
+    final local = _Local(_snapshot('local'));
+    final remote = _Remote(_snapshot('remote'), eTag: null);
+
+    await expectLater(
+      SyncService(local: local, remote: remote).synchronize(),
+      throwsFormatException,
+    );
+
+    expect(remote.pushed, isEmpty);
+  });
+
+  test(
+    'background synchronization does not replace the local snapshot',
+    () async {
+      final local = _Local(_snapshot('local'));
+      final remote = _Remote(_snapshot('remote'));
+
+      await SyncService(
+        local: local,
+        remote: remote,
+        applyMergedLocal: false,
+      ).synchronize();
+
+      expect(local.snapshot.records.single.id, 'local');
+      expect(
+        remote.pushed.single.records.map((item) => item.id),
+        contains('remote'),
+      );
+      expect(local.readOnlyCalls, 1);
+      expect(local.readCalls, 0);
+    },
+  );
+
+  test(
+    'background retry does not upload a stale entity after remote changes',
+    () async {
+      final remote = _RemoteChangingAfterPreconditionFailure(
+        initial: _snapshot('record', note: '远端旧版本'),
+        afterFailure: _snapshot('record', note: '前台新版本'),
+      );
+
+      await SyncService(
+        local: _Local(_snapshot('record', note: '后台旧版本')),
+        remote: remote,
+        applyMergedLocal: false,
+        conflictPolicy: SyncConflictPolicy.preferRemote,
+      ).synchronize();
+
+      expect(remote.pushed, hasLength(2));
+      expect(remote.pushed.last.records.single.note, '前台新版本');
+    },
+  );
+
+  test(
+    'background retry does not revive a newer remote tombstone from its old snapshot',
+    () async {
+      final remote = _RemoteChangingAfterPreconditionFailure(
+        initial: _snapshot(
+          'record',
+          note: '远端旧版本',
+          updatedAt: DateTime.utc(2026, 7, 20),
+        ),
+        afterFailure: _tombstonedSnapshot(DateTime.utc(2026, 7, 21)),
+      );
+
+      await SyncService(
+        local: _Local(
+          _snapshot(
+            'record',
+            note: 'Worker旧版本',
+            updatedAt: DateTime.utc(2026, 7, 20),
+          ),
+        ),
+        remote: remote,
+        applyMergedLocal: false,
+        conflictPolicy: SyncConflictPolicy.preferRemote,
+      ).synchronize();
+
+      expect(remote.pushed, hasLength(2));
+      expect(remote.pushed.last.records, isEmpty);
+      expect(
+        remote.pushed.last.metadata.records['record']!.deletedAt,
+        DateTime.utc(2026, 7, 21),
+      );
+    },
+  );
 }
 
-class _FakeLocalStore implements SyncLocalStore {
-  _FakeLocalStore(this.snapshot);
+SyncSnapshot _snapshot(String id, {String? note, DateTime? updatedAt}) =>
+    SyncSnapshot(
+      updatedAt: DateTime.utc(2026, 7, 22),
+      categories: const [Category(id: 'work', name: '工作', color: '#123456')],
+      records: [
+        TimeRecord(
+          id: id,
+          categoryId: 'work',
+          note: note,
+          startTime: DateTime.utc(2026, 7, 22, 9),
+          endTime: DateTime.utc(2026, 7, 22, 10),
+        ),
+      ],
+      metadata: updatedAt == null
+          ? const SyncMetadata()
+          : SyncMetadata(
+              records: {
+                id: SyncEntityMetadata(
+                  kind: SyncEntityKind.record,
+                  id: id,
+                  updatedAt: updatedAt,
+                ),
+              },
+            ),
+    );
 
+SyncSnapshot _tombstonedSnapshot(DateTime deletedAt) => SyncSnapshot(
+  updatedAt: DateTime.utc(2026, 7, 22),
+  categories: const [Category(id: 'work', name: '工作', color: '#123456')],
+  records: const [],
+  metadata: SyncMetadata(
+    records: {
+      'record': SyncEntityMetadata(
+        kind: SyncEntityKind.record,
+        id: 'record',
+        deletedAt: deletedAt,
+      ),
+    },
+  ),
+);
+
+class _Local implements SyncLocalStore {
+  _Local(this.snapshot);
   SyncSnapshot snapshot;
-  int replaceCalls = 0;
+  bool advanceBeforeFirstReplace = false;
+  int readCalls = 0;
+  int readOnlyCalls = 0;
+  @override
+  Future<T> runExclusive<T>(Future<T> Function() operation) => operation();
 
   @override
-  Future<SyncSnapshot> read() async => snapshot;
-
-  @override
-  Future<void> replace(SyncSnapshot value) async {
-    replaceCalls++;
-    snapshot = value;
+  Future<SyncSnapshot> read() async {
+    readCalls++;
+    return snapshot;
   }
 
+  @override
+  Future<SyncSnapshot> readReadOnly() async {
+    readOnlyCalls++;
+    return snapshot;
+  }
+
+  @override
+  Future<void> replace(SyncSnapshot value) async => snapshot = value;
   @override
   Future<bool> replaceIfCurrent(
     DateTime expectedUpdatedAt,
     SyncSnapshot value,
   ) async {
-    if (snapshot.updatedAt != expectedUpdatedAt) return false;
-    await replace(value);
+    if (advanceBeforeFirstReplace) {
+      advanceBeforeFirstReplace = false;
+      snapshot = _snapshot(
+        'newer',
+      ).copyWithUpdatedAt(DateTime.utc(2026, 7, 23));
+    }
+    if (snapshot.updatedAt != expectedUpdatedAt) {
+      return false;
+    }
+    snapshot = value;
     return true;
   }
 }
 
-class _FakeSyncPort implements SyncPort {
-  _FakeSyncPort({this.remote, this.onPull});
+extension on SyncSnapshot {
+  SyncSnapshot copyWithUpdatedAt(DateTime updatedAt) => SyncSnapshot(
+    records: records,
+    categories: categories,
+    updatedAt: updatedAt,
+    metadata: metadata,
+  );
+}
 
-  final SyncSnapshot? remote;
-  final Future<void> Function()? onPull;
+class _Remote implements SyncPort {
+  _Remote(
+    this.remote, {
+    this.failures = 0,
+    SyncLock? lock,
+    this.eTag = '"v1"',
+    this.pushError,
+    this.unlockError,
+  }) : _lock = lock;
+  final SyncSnapshot remote;
+  int failures;
+  final SyncLock? _lock;
+  final String? eTag;
+  final Object? pushError;
+  final Object? unlockError;
+  int pullCount = 0;
+  final List<SyncSnapshot> pushed = [];
+  final List<String?> ifMatches = [];
+  final List<String> unlocked = [];
+  @override
+  Future<RemoteSyncDocument?> pull() async {
+    pullCount++;
+    return RemoteSyncDocument(snapshot: remote, eTag: eTag);
+  }
+
+  @override
+  Future<String?> push(
+    SyncSnapshot snapshot, {
+    required String? ifMatch,
+    required bool ifNoneMatch,
+  }) async {
+    pushed.add(snapshot);
+    ifMatches.add(ifMatch);
+    if (pushError != null) throw pushError!;
+    if (failures-- > 0) throw const SyncPreconditionFailed();
+    return '"v2"';
+  }
+
+  @override
+  Future<SyncLock?> lock() async => _lock;
+  @override
+  Future<void> unlock(SyncLock value) async {
+    unlocked.add(value.token);
+    if (unlockError != null) throw unlockError!;
+  }
+}
+
+class _RemoteThatConfirmsDifferentDocument implements SyncPort {
+  int pullCount = 0;
+  int pushCount = 0;
+
+  @override
+  Future<RemoteSyncDocument?> pull() async {
+    pullCount++;
+    return null;
+  }
+
+  @override
+  Future<String?> push(
+    SyncSnapshot snapshot, {
+    required String? ifMatch,
+    required bool ifNoneMatch,
+  }) async {
+    pushCount++;
+    throw const SyncPreconditionFailed();
+  }
+
+  @override
+  Future<SyncLock?> lock() async => null;
+
+  @override
+  Future<void> unlock(SyncLock lock) async {}
+}
+
+class _RemoteChangingAfterPreconditionFailure implements SyncPort {
+  _RemoteChangingAfterPreconditionFailure({
+    required this.initial,
+    required this.afterFailure,
+  }) : _current = initial;
+
+  final SyncSnapshot initial;
+  final SyncSnapshot afterFailure;
+  SyncSnapshot _current;
+  int _pushes = 0;
   final List<SyncSnapshot> pushed = [];
 
   @override
-  Future<SyncSnapshot?> pull() async {
-    await onPull?.call();
-    return remote;
+  Future<RemoteSyncDocument?> pull() async =>
+      RemoteSyncDocument(snapshot: _current, eTag: '"v${_pushes + 1}"');
+
+  @override
+  Future<String?> push(
+    SyncSnapshot snapshot, {
+    required String? ifMatch,
+    required bool ifNoneMatch,
+  }) async {
+    pushed.add(snapshot);
+    if (_pushes++ == 0) {
+      _current = afterFailure;
+      throw const SyncPreconditionFailed();
+    }
+    _current = snapshot;
+    return '"v3"';
   }
 
   @override
-  Future<void> push(SyncSnapshot snapshot) async {
-    pushed.add(snapshot);
-  }
+  Future<SyncLock?> lock() async => null;
+
+  @override
+  Future<void> unlock(SyncLock lock) async {}
 }

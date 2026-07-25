@@ -90,7 +90,9 @@ void main() {
 
     expect(find.text('自定义分类'), findsOneWidget);
   });
-testWidgets('shows center total when no category is selected', (tester) async {
+  testWidgets('shows center total when no category is selected', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(

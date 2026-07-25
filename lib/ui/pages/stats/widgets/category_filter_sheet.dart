@@ -35,7 +35,9 @@ class CategoryFilterSheet extends StatelessWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: context.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                color: context.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.3,
+                ),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -91,8 +93,9 @@ class CategoryFilterSheet extends StatelessWidget {
                   width: 2,
                 ),
                 color: selected
-                    ? Color(int.parse(cat.color.replaceFirst('#', '0xFF')))
-                        .withValues(alpha: 0.2)
+                    ? Color(
+                        int.parse(cat.color.replaceFirst('#', '0xFF')),
+                      ).withValues(alpha: 0.2)
                     : Colors.transparent,
               ),
               child: selected
@@ -100,7 +103,9 @@ class CategoryFilterSheet extends StatelessWidget {
                       child: Icon(
                         Icons.check,
                         size: 14,
-                        color: Color(int.parse(cat.color.replaceFirst('#', '0xFF'))),
+                        color: Color(
+                          int.parse(cat.color.replaceFirst('#', '0xFF')),
+                        ),
                       ),
                     )
                   : null,

@@ -1,4 +1,5 @@
 import 'package:mytime/data/sync/sync_local_store.dart';
+import 'package:mytime/data/sync/sync_merge_service.dart';
 import 'package:mytime/data/sync/sync_port.dart';
 import 'package:mytime/data/sync/sync_service.dart';
 import 'package:mytime/data/sync/webdav_sync_adapter.dart';
@@ -33,13 +34,19 @@ class WebDavSyncCoordinator {
   Future<SyncResult>? _inFlight;
 
   /// Synchronizes the current local snapshot with [configuration]'s document.
-  Future<SyncResult> synchronize(WebDavConfiguration configuration) {
+  Future<SyncResult> synchronize(
+    WebDavConfiguration configuration, {
+    bool applyMergedLocal = true,
+    SyncConflictPolicy conflictPolicy = SyncConflictPolicy.preferLocal,
+  }) {
     final inFlight = _inFlight;
     if (inFlight != null) return inFlight;
 
     final attempt = SyncService(
       local: _local,
       remote: _portFactory(configuration),
+      applyMergedLocal: applyMergedLocal,
+      conflictPolicy: conflictPolicy,
     ).synchronize();
     _inFlight = attempt;
     attempt.then<void>(

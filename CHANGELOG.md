@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+- WebDAV 现在持久化每个已发布本地快照的待同步 UTC revision；前台和启动同步仅能以 compare-and-clear 清除自己捕获的 token，失败或生命周期交接会保留责任并重新请求后台任务。导入恢复日志同时保护该 token；前台心跳使 Worker 返回 retry，避免消耗唯一 WorkManager 重试。
+- WebDAV 同步支持编辑后网络约束后台任务、ETag 条件写入、可选文件锁、记录/分类逐 ID 合并和保留 90 天的删除墓碑；前台同一记录冲突时保留本机版本，使用不可变快照的后台 Worker 则保留远端版本，避免 412 重试覆盖前台刚同步的编辑。
+- 前台在初始化 Hive 前激活 90 秒同步所有权心跳；WorkManager 仅在心跳失效后以只读方式读取 SharedPreferences 中完整的 v2 同步快照，不初始化或访问 Hive。后台可合并并上传 WebDAV 文档，但绝不写回快照、ETag 或元数据；隔离的 Hive 访问和不可变后台快照是安全边界，无需原生执行锁。下次前台同步会拉取远端结果并以当前前台快照合并持久化。
+- 应用启动后通过前台协调器异步同步 WebDAV；后台任务在读取配置和快照后再次确认前台未激活，避免已观察到前台接管后继续网络同步。
+- JSON 导入会先提交实体、同步元数据和后台快照，再调度后台同步；失败时直接恢复导入前的序列化快照。
+- JSON 导入在覆盖 Hive 前写入恢复日志；若回滚持久化失败，应用启动会在任何快照协调或 WebDAV 同步前独立恢复记录、分类和精确同步偏好状态。
+- 后台 WebDAV Worker 会在读取配置或快照前检查导入恢复日志；恢复待处理时安全跳过，损坏日志则请求 WorkManager 重试，避免上传失败导入阶段的快照。
+- 有效删除墓碑与同 ID 实体冲突时按 UTC 删除/更新版本裁决：较新版本优先，版本相等或实体缺少版本时才使用前台本机优先或后台远端优先策略，避免旧 Worker 快照复活已删除数据。
+
 ### Added
 - 领域模型与 Hive DTO 分离；记录和分类通过 DataStore Adapter 持久化，BLoC 通过 Repository Port 访问数据。
 - `PreferencesStore` 抽象普通设置与活动计时的 SharedPreferences 访问；为后续替换存储实现保留边界。
@@ -65,6 +74,8 @@
 - `main.dart` 通过 `HiveHelper` 初始化并同时打开 `records` 与 `categories` 两个 Hive box，全局提供 `CategoriesBloc`
 
 ### Fixed
+- Android 后台 Worker 在委托构造或停止回调中同步重入停止时不再死锁；外层交接会停止已启动委托并仅释放一次执行锁 token。
+- WebDAV `LOCK` response tokens now normalize standard angle-bracket syntax before constructing `If` and `UNLOCK` headers.
 - “我的 → 记录管理”将新增入口移入顶部栏，并重构为无悬浮遮挡的记录卡片，底部记录的编辑和删除操作保持可见、可点击。
 - 记录编辑器的开始与结束端点均可独立选择日期和时间，支持跨天记录，并在结束不晚于开始时阻止保存。
 - AI 服务仅允许 HTTPS 地址，避免 Bearer Token 经明文 HTTP 传输。

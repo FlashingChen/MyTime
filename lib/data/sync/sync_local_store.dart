@@ -1,14 +1,25 @@
+import 'dart:async';
+
+import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/sync/sync_port.dart';
 import 'package:mytime/data/sync/sync_data_gate.dart';
 import 'package:mytime/data/sync/sync_revision_store.dart';
+import 'package:mytime/data/sync/sync_metadata_store.dart';
+import 'package:mytime/data/sync/sync_metadata.dart';
 
 /// Storage-agnostic boundary for reading and failure-safely replacing local data.
 abstract interface class SyncLocalStore {
+  /// Runs a complete sync transaction without interleaved local mutations.
+  Future<T> runExclusive<T>(Future<T> Function() operation);
+
   /// Returns the complete local dataset and its last local mutation timestamp.
   Future<SyncSnapshot> read();
+
+  /// Returns a local snapshot without repository-side initialization.
+  Future<SyncSnapshot> readReadOnly();
 
   /// Validates and replaces the complete local dataset or restores the old one.
   Future<void> replace(SyncSnapshot snapshot);
@@ -23,6 +34,32 @@ abstract interface class SyncLocalStore {
   );
 }
 
+/// Read-only [SyncLocalStore] view for synchronization that must not persist.
+class ReadOnlySyncLocalStore implements SyncLocalStore {
+  const ReadOnlySyncLocalStore(this._delegate);
+
+  final SyncLocalStore _delegate;
+
+  @override
+  Future<T> runExclusive<T>(Future<T> Function() operation) => operation();
+
+  @override
+  Future<SyncSnapshot> read() => _delegate.readReadOnly();
+
+  @override
+  Future<SyncSnapshot> readReadOnly() => _delegate.readReadOnly();
+
+  @override
+  Future<void> replace(SyncSnapshot snapshot) =>
+      Future<void>.error(UnsupportedError('Read-only sync local store'));
+
+  @override
+  Future<bool> replaceIfCurrent(
+    DateTime expectedUpdatedAt,
+    SyncSnapshot snapshot,
+  ) async => false;
+}
+
 /// [SyncLocalStore] adapter backed by the application repository ports.
 ///
 /// It avoids direct Hive access and stages an upsert-before-delete replacement.
@@ -33,23 +70,58 @@ class RepositorySyncLocalStore implements SyncLocalStore {
     required RecordsRepository records,
     required CategoriesRepository categories,
     required SyncRevisionStore revision,
+    SyncMetadataStore? metadata,
     SyncDataGate? gate,
+    Future<void> Function()? refreshSnapshot,
+    Future<List<TimeRecord>> Function()? readOnlyRecords,
+    Future<List<Category>> Function()? readOnlyCategories,
   }) : _records = records,
        _categories = categories,
        _revision = revision,
-       _gate = gate ?? SyncDataGate();
+       _metadata = metadata,
+       _gate = gate ?? SyncDataGate(),
+       _refreshSnapshot = refreshSnapshot,
+       _readOnlyRecords = readOnlyRecords ?? (() async => records.getAll()),
+       _readOnlyCategories =
+           readOnlyCategories ?? (() async => categories.getAll());
 
   final RecordsRepository _records;
   final CategoriesRepository _categories;
   final SyncRevisionStore _revision;
+  final SyncMetadataStore? _metadata;
   final SyncDataGate _gate;
+  final Future<void> Function()? _refreshSnapshot;
+  final Future<List<TimeRecord>> Function() _readOnlyRecords;
+  final Future<List<Category>> Function() _readOnlyCategories;
+  static final Object _exclusiveStoreZoneKey = Object();
 
   @override
-  Future<SyncSnapshot> read() async {
+  Future<T> runExclusive<T>(Future<T> Function() operation) => _gate.run(
+    () => runZoned<Future<T>>(
+      operation,
+      zoneValues: {_exclusiveStoreZoneKey: this},
+    ),
+  );
+
+  @override
+  Future<SyncSnapshot> read() => _runGuarded(_readUnlocked);
+
+  @override
+  Future<SyncSnapshot> readReadOnly() => _runGuarded(() async {
+    return SyncSnapshot(
+      records: await _readOnlyRecords(),
+      categories: await _readOnlyCategories(),
+      updatedAt: await _revision.readUpdatedAt(),
+      metadata: await _metadata?.read() ?? const SyncMetadata(),
+    );
+  });
+
+  Future<SyncSnapshot> _readUnlocked() async {
     final snapshot = SyncSnapshot(
       records: _records.getAll(),
       categories: _categories.getAll(),
       updatedAt: await _revision.readUpdatedAt(),
+      metadata: await _metadata?.read() ?? const SyncMetadata(),
     );
     snapshot.validate();
     return snapshot;
@@ -57,14 +129,14 @@ class RepositorySyncLocalStore implements SyncLocalStore {
 
   @override
   Future<void> replace(SyncSnapshot snapshot) =>
-      _gate.run(() => _replaceUnlocked(snapshot));
+      _runGuarded(() => _replaceUnlocked(snapshot));
 
   @override
   Future<bool> replaceIfCurrent(
     DateTime expectedUpdatedAt,
     SyncSnapshot snapshot,
   ) {
-    return _gate.run(() async {
+    return _runGuarded(() async {
       final current = await _revision.readUpdatedAt();
       if (current.toUtc() != expectedUpdatedAt.toUtc()) return false;
       await _replaceUnlocked(snapshot);
@@ -72,17 +144,25 @@ class RepositorySyncLocalStore implements SyncLocalStore {
     });
   }
 
+  Future<T> _runGuarded<T>(Future<T> Function() operation) {
+    if (Zone.current[_exclusiveStoreZoneKey] == this) return operation();
+    return _gate.run(operation);
+  }
+
   Future<void> _replaceUnlocked(SyncSnapshot snapshot) async {
     snapshot.validate();
-    final previous = await read();
+    final previous = await _readUnlocked();
 
     try {
       await _writeSnapshot(snapshot);
       await _revision.writeUpdatedAt(snapshot.updatedAt);
+      await _metadata?.write(snapshot.metadata);
+      await _refreshSnapshot?.call();
     } catch (error, stackTrace) {
       try {
         await _writeSnapshot(previous);
         await _revision.writeUpdatedAt(previous.updatedAt);
+        await _metadata?.write(previous.metadata);
       } catch (rollbackError, rollbackStackTrace) {
         throw SyncRollbackException(
           cause: error,

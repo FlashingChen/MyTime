@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mytime/blocs/categories/categories.dart';
+import 'package:mytime/blocs/records/records.dart';
 import 'package:mytime/blocs/settings/settings_bloc.dart';
 import 'package:mytime/blocs/settings/settings_event.dart';
 import 'package:mytime/core/theme/app_theme_ext.dart';
@@ -23,6 +24,7 @@ class WebDavSyncSheet extends StatefulWidget {
     final settingsBloc = context.read<SettingsBloc>();
     final coordinator = context.read<WebDavSyncCoordinator>();
     final categoriesBloc = context.read<CategoriesBloc>();
+    final recordsBloc = context.read<RecordsBloc>();
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -33,6 +35,7 @@ class WebDavSyncSheet extends StatefulWidget {
           providers: [
             BlocProvider.value(value: settingsBloc),
             BlocProvider.value(value: categoriesBloc),
+            BlocProvider.value(value: recordsBloc),
           ],
           child: WebDavSyncSheet(settings: settings),
         ),
@@ -145,14 +148,12 @@ class _WebDavSyncSheetState extends State<WebDavSyncSheet> {
       if (!mounted) return;
       setState(() {
         _result = switch (result.resolution) {
-          SyncResolution.appliedRemote => '同步成功：已应用较新的远端数据。',
-          SyncResolution.pushedLocal => '同步成功：已上传本机数据。',
+          SyncResolution.merged => '同步成功：已合并记录并安全上传。',
         };
         _resultIsError = false;
       });
-      if (result.resolution == SyncResolution.appliedRemote) {
-        context.read<CategoriesBloc>().add(const LoadCategories());
-      }
+      context.read<CategoriesBloc>().add(const LoadCategories());
+      context.read<RecordsBloc>().add(LoadRecords());
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -213,7 +214,7 @@ class _WebDavSyncSheetState extends State<WebDavSyncSheet> {
             ),
             const SizedBox(height: 6),
             Text(
-              '仅在你点击“立即同步”时连接远端。冲突采用整个数据集的较新版本优先策略。',
+              '本地编辑后将在网络可用时自动同步。同一记录冲突时保留本机版本。',
               style: TextStyle(
                 fontSize: 12,
                 color: context.colorScheme.onSurfaceVariant,

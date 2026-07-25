@@ -156,9 +156,11 @@ class _StatsPageState extends State<StatsPage> {
       ),
     );
     if (result != null && mounted) {
-      setState(() => _selectedCategoryIds
-        ..clear()
-        ..addAll(result));
+      setState(
+        () => _selectedCategoryIds
+          ..clear()
+          ..addAll(result),
+      );
     }
   }
 
@@ -168,17 +170,17 @@ class _StatsPageState extends State<StatsPage> {
       case 'pie':
         return PieChartView(categoryDurations: metrics.byCategory);
       case 'bar':
-          return Column(
-            children: [
-              _buildFilterButton(context),
-              Expanded(
-                child: BarChartView(
-                  points: metrics.trend,
-                  selectedCategoryIds: _selectedCategoryIds,
-                ),
+        return Column(
+          children: [
+            _buildFilterButton(context),
+            Expanded(
+              child: BarChartView(
+                points: metrics.trend,
+                selectedCategoryIds: _selectedCategoryIds,
               ),
-            ],
-          );
+            ),
+          ],
+        );
       case 'ai':
         return BlocBuilder<SettingsBloc, SettingsState>(
           builder: (context, settingsState) => AiInsightView(

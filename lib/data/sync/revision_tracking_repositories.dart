@@ -4,6 +4,7 @@ import 'package:mytime/data/repositories/category_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/sync/sync_mutation_tracker.dart';
 import 'package:mytime/data/sync/sync_data_gate.dart';
+import 'package:mytime/data/sync/sync_metadata.dart';
 
 /// Decorates [RecordsRepository] without changing its application-facing port.
 ///
@@ -37,31 +38,76 @@ class RevisionTrackingRecordsRepository implements RecordsRepository {
       _delegate.getByRange(start, end);
 
   @override
-  Future<TimeRecord> add(TimeRecord record) =>
-      _afterLocalWrite(() => _delegate.add(record));
+  Future<TimeRecord> add(TimeRecord record) async {
+    return _gate.run(() async {
+      final result = await _delegate.add(record);
+      if (_marker case final SyncEntityMutationMarker marker) {
+        await marker.markChanged(SyncEntityKind.record, result.id);
+      } else {
+        await _marker.markLocalChanged();
+      }
+      return result;
+    });
+  }
 
   @override
   Future<void> delete(String id) =>
-      _afterLocalWrite(() => _delegate.delete(id));
+      _afterLocalWrite(() => _delegate.delete(id), id, deleted: true);
 
   @override
   Future<void> update(TimeRecord record) =>
-      _afterLocalWrite(() => _delegate.update(record));
+      _afterLocalWrite(() => _delegate.update(record), record.id);
 
   @override
   Future<void> reassignCategory(String fromCategoryId, String toCategoryId) =>
-      _afterLocalWrite(
+      _afterAffectedRecords(
         () => _delegate.reassignCategory(fromCategoryId, toCategoryId),
+        fromCategoryId,
       );
 
   @override
-  Future<void> clearCategory(String categoryId) =>
-      _afterLocalWrite(() => _delegate.clearCategory(categoryId));
+  Future<void> clearCategory(String categoryId) => _afterAffectedRecords(
+    () => _delegate.clearCategory(categoryId),
+    categoryId,
+  );
 
-  Future<T> _afterLocalWrite<T>(Future<T> Function() operation) async {
+  Future<void> _afterAffectedRecords(
+    Future<void> Function() operation,
+    String categoryId,
+  ) async {
+    return _gate.run(() async {
+      final affected = _delegate
+          .getAll()
+          .where((record) => record.categoryId == categoryId)
+          .map((record) => record.id)
+          .toList();
+      await operation();
+      if (_marker case final SyncEntityMutationMarker marker) {
+        for (final id in affected) {
+          await marker.markChanged(SyncEntityKind.record, id);
+        }
+      } else {
+        await _marker.markLocalChanged();
+      }
+    });
+  }
+
+  Future<T> _afterLocalWrite<T>(
+    Future<T> Function() operation,
+    String id, {
+    bool deleted = false,
+  }) async {
     return _gate.run(() async {
       final result = await operation();
-      await _marker.markLocalChanged();
+      if (_marker case final SyncEntityMutationMarker marker) {
+        if (deleted) {
+          await marker.markDeleted(SyncEntityKind.record, id);
+        } else {
+          await marker.markChanged(SyncEntityKind.record, id);
+        }
+      } else {
+        await _marker.markLocalChanged();
+      }
       return result;
     });
   }
@@ -89,21 +135,42 @@ class RevisionTrackingCategoriesRepository implements CategoriesRepository {
   Category? getById(String id) => _delegate.getById(id);
 
   @override
-  Future<Category> add(Category category) =>
-      _afterLocalWrite(() => _delegate.add(category));
+  Future<Category> add(Category category) async {
+    return _gate.run(() async {
+      final result = await _delegate.add(category);
+      if (_marker case final SyncEntityMutationMarker marker) {
+        await marker.markChanged(SyncEntityKind.category, result.id);
+      } else {
+        await _marker.markLocalChanged();
+      }
+      return result;
+    });
+  }
 
   @override
   Future<void> update(Category category) =>
-      _afterLocalWrite(() => _delegate.update(category));
+      _afterLocalWrite(() => _delegate.update(category), category.id);
 
   @override
   Future<void> delete(String id) =>
-      _afterLocalWrite(() => _delegate.delete(id));
+      _afterLocalWrite(() => _delegate.delete(id), id, deleted: true);
 
-  Future<T> _afterLocalWrite<T>(Future<T> Function() operation) async {
+  Future<T> _afterLocalWrite<T>(
+    Future<T> Function() operation,
+    String id, {
+    bool deleted = false,
+  }) async {
     return _gate.run(() async {
       final result = await operation();
-      await _marker.markLocalChanged();
+      if (_marker case final SyncEntityMutationMarker marker) {
+        if (deleted) {
+          await marker.markDeleted(SyncEntityKind.category, id);
+        } else {
+          await marker.markChanged(SyncEntityKind.category, id);
+        }
+      } else {
+        await _marker.markLocalChanged();
+      }
       return result;
     });
   }

@@ -30,7 +30,7 @@ void main() {
     expect(captured.endpoint, 'https://dav.example.com/mytime.json');
     expect(captured.username, 'alice');
     expect(remote.pushed, hasLength(1));
-    expect(result.resolution, SyncResolution.pushedLocal);
+    expect(result.resolution, SyncResolution.merged);
   });
 }
 
@@ -53,7 +53,13 @@ class _LocalStore implements SyncLocalStore {
   final SyncSnapshot snapshot;
 
   @override
+  Future<T> runExclusive<T>(Future<T> Function() operation) => operation();
+
+  @override
   Future<SyncSnapshot> read() async => snapshot;
+
+  @override
+  Future<SyncSnapshot> readReadOnly() async => snapshot;
 
   @override
   Future<void> replace(SyncSnapshot snapshot) async {}
@@ -69,10 +75,21 @@ class _RemoteStore implements SyncPort {
   final List<SyncSnapshot> pushed = [];
 
   @override
-  Future<SyncSnapshot?> pull() async => null;
+  Future<RemoteSyncDocument?> pull() async => null;
 
   @override
-  Future<void> push(SyncSnapshot snapshot) async {
+  Future<String?> push(
+    SyncSnapshot snapshot, {
+    required String? ifMatch,
+    required bool ifNoneMatch,
+  }) async {
     pushed.add(snapshot);
+    return '"etag"';
   }
+
+  @override
+  Future<SyncLock?> lock() async => null;
+
+  @override
+  Future<void> unlock(SyncLock lock) async {}
 }

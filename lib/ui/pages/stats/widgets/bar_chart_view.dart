@@ -17,16 +17,13 @@ class BarChartView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxY = points.fold<double>(
-      0,
-      (m, p) {
-        final total = selectedCategoryIds.fold<double>(
-          0,
-          (sum, id) => sum + (p.categoryDurations[id]?.inMinutes ?? 0) / 60,
-        );
-        return total > m ? total : m;
-      },
-    );
+    final maxY = points.fold<double>(0, (m, p) {
+      final total = selectedCategoryIds.fold<double>(
+        0,
+        (sum, id) => sum + (p.categoryDurations[id]?.inMinutes ?? 0) / 60,
+      );
+      return total > m ? total : m;
+    });
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -74,12 +71,7 @@ class BarChartView extends StatelessWidget {
                         : '';
                     final stackItem = rod.rodStackItems[rodIndex];
                     return BarTooltipItem(
-                      '${point.label}\n$catName ${formatStatsDuration(
-                        Duration(
-                          minutes: ((stackItem.toY - stackItem.fromY) * 60)
-                              .round(),
-                        ),
-                      )}',
+                      '${point.label}\n$catName ${formatStatsDuration(Duration(minutes: ((stackItem.toY - stackItem.fromY) * 60).round()))}',
                       TextStyle(
                         color: context.colorScheme.onPrimary,
                         fontSize: 11,
@@ -119,7 +111,8 @@ class BarChartView extends StatelessWidget {
                       return Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Semantics(
-                          label: '${point.label}，${formatStatsDuration(point.duration)}',
+                          label:
+                              '${point.label}，${formatStatsDuration(point.duration)}',
                           child: Text(
                             showLabel ? point.label : '',
                             style: TextStyle(
@@ -143,12 +136,15 @@ class BarChartView extends StatelessWidget {
     );
   }
 
-  List<BarChartRodData> _buildRods(BuildContext context, StatsTrendPoint point) {
+  List<BarChartRodData> _buildRods(
+    BuildContext context,
+    StatsTrendPoint point,
+  ) {
     final activeIds = selectedCategoryIds.isEmpty
         ? point.categoryDurations.keys.toList()
         : selectedCategoryIds
-            .where((id) => point.categoryDurations.containsKey(id))
-            .toList();
+              .where((id) => point.categoryDurations.containsKey(id))
+              .toList();
     double total = 0;
     final stackItems = <BarChartRodStackItem>[];
     double cumulative = 0;
@@ -187,7 +183,9 @@ class BarChartView extends StatelessWidget {
   ) {
     final activeIds = selectedIds.isEmpty
         ? point.categoryDurations.keys.toList()
-        : selectedIds.where((id) => point.categoryDurations.containsKey(id)).toList();
+        : selectedIds
+              .where((id) => point.categoryDurations.containsKey(id))
+              .toList();
     var idx = 0;
     for (final catId in activeIds) {
       final value = point.categoryDurations[catId]?.inMinutes ?? 0;

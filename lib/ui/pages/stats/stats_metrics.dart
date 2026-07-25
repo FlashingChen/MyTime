@@ -160,8 +160,7 @@ class StatsMetrics {
         if (d == Duration.zero) continue;
         total += d;
         final key = record.categoryId ?? 'uncategorized';
-        categoryDurations[key] =
-            (categoryDurations[key] ?? Duration.zero) + d;
+        categoryDurations[key] = (categoryDurations[key] ?? Duration.zero) + d;
       }
       final label = switch (range) {
         StatsRange.day => index.toString().padLeft(2, '0'),
