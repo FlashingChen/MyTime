@@ -12,21 +12,15 @@ class SharedPreferencesStore implements PreferencesStore {
 
   final Future<SharedPreferences> _preferences;
 
-  Future<SharedPreferences> _freshPreferences() async {
-    final preferences = await _preferences;
-    await preferences.reload();
-    return preferences;
-  }
-
   @override
   Future<String?> getString(String key) async =>
-      (await _freshPreferences()).getString(key);
+      (await _preferences).getString(key);
 
   @override
   Future<void> setString(String key, String value) async =>
-      (await _freshPreferences()).setString(key, value);
+      (await _preferences).setString(key, value);
 
   @override
   Future<void> remove(String key) async =>
-      (await _freshPreferences()).remove(key);
+      (await _preferences).remove(key);
 }

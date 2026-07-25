@@ -71,7 +71,14 @@ class SyncService {
             'WebDAV GET response did not include ETag',
           );
         }
-        if (remote != null) lock ??= await _remote.lock();
+        if (remote != null && lock == null) {
+          try {
+            lock = await _remote.lock();
+          } on SyncLockContention {
+            if (attempt == 2) rethrow;
+            continue;
+          }
+        }
         final merged = remote == null
             ? local
             : _merger.merge(

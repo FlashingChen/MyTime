@@ -148,6 +148,7 @@ class SyncMergeService {
       if (comparison > 0) return deletion;
       if (comparison < 0) return null;
     }
+    // No usable version info — fall through to conflict policy.
     final preferredDeletion = remoteWins ? remoteDeletion : localDeletion;
     return preferredDeletion;
   }

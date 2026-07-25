@@ -389,7 +389,7 @@ void main() {
     ''');
       await scheduler.scheduled.future;
 
-      expect(events, ['snapshot', 'pending', 'schedule']);
+      expect(events, ['pending', 'snapshot', 'schedule']);
       expect(await journal.hasPendingRecovery(), isFalse);
     },
   );

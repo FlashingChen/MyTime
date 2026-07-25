@@ -100,6 +100,9 @@ class WebDavSyncAdapter implements SyncPort {
         response.statusCode == HttpStatus.methodNotAllowed) {
       return null;
     }
+    if (response.statusCode == HttpStatus.locked) {
+      throw const SyncLockContention();
+    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw HttpException('WebDAV LOCK failed: ${response.statusCode}');
     }

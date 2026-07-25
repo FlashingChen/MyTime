@@ -72,8 +72,8 @@ class SyncMutationTracker implements SyncImportMutationMarker {
   Future<void> markLocalChanged() {
     final mutation = _pendingMutation.then<void>((_) async {
       await _advance();
-      await _refreshSnapshot?.call();
       await _pending.markPending(await _revision.readUpdatedAt());
+      await _refreshSnapshot?.call();
       _notifyCommittedMutation();
     });
     _pendingMutation = mutation.then<void>(
@@ -101,6 +101,7 @@ class SyncMutationTracker implements SyncImportMutationMarker {
       final previousRevision = await _revision.readUpdatedAt();
       final metadata = _metadata;
       final previousMetadata = await metadata?.read();
+      DateTime? newRevision;
       try {
         await _advance();
         if (metadata != null) {
@@ -111,13 +112,17 @@ class SyncMutationTracker implements SyncImportMutationMarker {
           }
           await metadata.write(next);
         }
+        newRevision = await _revision.readUpdatedAt();
+        await _pending.markPending(newRevision);
         await (refreshSnapshot ?? _refreshSnapshot)?.call();
-        await _pending.markPending(await _revision.readUpdatedAt());
         await beforeSchedule?.call();
         _notifyCommittedMutation();
       } catch (error, stackTrace) {
         await _revision.writeUpdatedAt(previousRevision);
         if (metadata != null) await metadata.write(previousMetadata!);
+        if (newRevision != null) {
+          await _pending.clearIfMatches(newRevision);
+        }
         Error.throwWithStackTrace(error, stackTrace);
       }
     });
@@ -137,8 +142,8 @@ class SyncMutationTracker implements SyncImportMutationMarker {
           await metadata.markChanged(kind, id, now);
         }
       }
-      await _refreshSnapshot?.call();
       await _pending.markPending(await _revision.readUpdatedAt());
+      await _refreshSnapshot?.call();
       _notifyCommittedMutation();
     });
     _pendingMutation = mutation.then<void>((_) {}, onError: (_, __) {});

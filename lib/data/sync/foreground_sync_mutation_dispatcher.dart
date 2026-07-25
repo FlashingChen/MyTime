@@ -82,6 +82,7 @@ class ForegroundSyncMutationDispatcher {
 
   Future<void> _scheduleBackground() async {
     var hasPending = _hasPendingMutation;
+    _hasPendingMutation = false;
     try {
       hasPending = hasPending || await _pending.readPendingRevision() != null;
     } catch (error, stackTrace) {

@@ -21,6 +21,11 @@ class SyncPreconditionFailed implements Exception {
   const SyncPreconditionFailed();
 }
 
+/// The remote resource is locked by another client.
+class SyncLockContention implements Exception {
+  const SyncLockContention();
+}
+
 /// Immutable local dataset exchanged with a remote sync provider.
 class SyncSnapshot extends Equatable {
   SyncSnapshot({

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mytime/data/models/category.dart';
@@ -330,13 +329,7 @@ void main() {
 
     await expectLater(
       adapter.lock(),
-      throwsA(
-        isA<HttpException>().having(
-          (error) => error.message,
-          'message',
-          'WebDAV LOCK failed: 423',
-        ),
-      ),
+      throwsA(isA<SyncLockContention>()),
     );
 
     expect(putRequests, 0);
