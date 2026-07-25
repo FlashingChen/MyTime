@@ -327,10 +327,7 @@ void main() {
       },
     );
 
-    await expectLater(
-      adapter.lock(),
-      throwsA(isA<SyncLockContention>()),
-    );
+    await expectLater(adapter.lock(), throwsA(isA<SyncLockContention>()));
 
     expect(putRequests, 0);
   });

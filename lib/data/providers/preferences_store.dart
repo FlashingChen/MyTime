@@ -21,6 +21,5 @@ class SharedPreferencesStore implements PreferencesStore {
       (await _preferences).setString(key, value);
 
   @override
-  Future<void> remove(String key) async =>
-      (await _preferences).remove(key);
+  Future<void> remove(String key) async => (await _preferences).remove(key);
 }
