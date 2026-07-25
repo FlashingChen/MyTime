@@ -23,9 +23,9 @@ class DataTransferService {
   }) : _mutationMarker = mutationMarker,
        _gate = gate ?? SyncDataGate(),
        _refreshSnapshot = refreshSnapshot,
-        _captureSnapshot = captureSnapshot,
-        _restoreSnapshot = restoreSnapshot,
-        _recoveryJournal = recoveryJournal;
+       _captureSnapshot = captureSnapshot,
+       _restoreSnapshot = restoreSnapshot,
+       _recoveryJournal = recoveryJournal;
 
   final RecordsSnapshotRepository _records;
   final CategoriesSnapshotRepository _categories;
