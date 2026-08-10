@@ -16,6 +16,7 @@
 - Android Gradle JVM 启用 TLSv1.2/TLSv1.3，兼容仅支持旧 TLS 协议的 WebDAV 服务器。
 
 ### Added
+- iOS 灵动岛 / 锁屏实时活动：计时进行中自动在灵动岛显示秒级跳动的已计时长（开始 / 停止 / 恢复时同步，应用被杀后由系统继续展示），基于 ActivityKit 原生实现，无新增第三方依赖；iOS 16.2 以下自动降级为无操作。
 - 领域模型与 Hive DTO 分离；记录和分类通过 DataStore Adapter 持久化，BLoC 通过 Repository Port 访问数据。
 - `PreferencesStore` 抽象普通设置与活动计时的 SharedPreferences 访问；为后续替换存储实现保留边界。
 - WebDAV 手动同步：设置页可保存 HTTPS 文档地址、用户名与系统安全存储中的密码；远端较新时下载，否则上传本机完整快照。

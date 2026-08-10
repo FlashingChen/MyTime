@@ -8,6 +8,7 @@ import 'package:mytime/blocs/timer/timer_event.dart';
 import 'package:mytime/blocs/timer/timer_state.dart';
 import 'package:mytime/core/constants/app_colors.dart';
 import 'package:mytime/core/theme/app_theme_ext.dart';
+import 'package:mytime/data/services/live_activity_bridge.dart';
 import 'package:mytime/ui/pages/home/widgets/confirm_bottom_sheet.dart';
 import 'package:mytime/ui/pages/home/widgets/recent_records_list.dart';
 import 'package:mytime/ui/pages/home/widgets/timer_circle.dart';
@@ -24,11 +25,28 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   bool _isConfirmationSheetOpen = false;
   bool _isSavingRecord = false;
+  final LiveActivityBridge _liveActivityBridge = LiveActivityBridge();
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
+        BlocListener<TimerBloc, TimerState>(
+          // Only react to running <-> not-running transitions; per-second
+          // tick states carry the same running flag and are skipped.
+          listenWhen: (previous, current) {
+            final wasRunning = previous is TimerRunInProgress;
+            final isRunning = current is TimerRunInProgress;
+            return isRunning != wasRunning;
+          },
+          listener: (context, state) {
+            if (state is TimerRunInProgress) {
+              _liveActivityBridge.start(startTime: state.startTime);
+            } else {
+              _liveActivityBridge.end();
+            }
+          },
+        ),
         BlocListener<TimerBloc, TimerState>(
           listenWhen: (previous, current) =>
               current is TimerRunComplete && previous is! TimerRunComplete,

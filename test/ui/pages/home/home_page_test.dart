@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mytime/blocs/records/records_bloc.dart';
@@ -11,6 +12,7 @@ import 'package:mytime/blocs/timer/timer_state.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/repositories/active_timer_repository.dart';
 import 'package:mytime/data/repositories/record_repository.dart';
+import 'package:mytime/data/services/live_activity_bridge.dart';
 import 'package:mytime/ui/pages/home/home_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -126,6 +128,63 @@ void main() {
       expect(find.text('记录详情'), findsNothing);
       expect(timerBloc.state, isA<TimerInitial>());
       expect(repo.getAll(), hasLength(1));
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'starting and stopping the timer drives the live activity channel',
+    (tester) async {
+      const channel = MethodChannel(LiveActivityBridge.channelName);
+      final calls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null),
+      );
+
+      final timerBloc = TimerBloc(ActiveTimerRepository());
+      final recordsBloc = RecordsBloc(repo);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider.value(value: timerBloc),
+              BlocProvider.value(value: recordsBloc),
+            ],
+            child: const HomePage(),
+          ),
+        ),
+      );
+
+      timerBloc.add(TimerStarted());
+      await tester.pump();
+
+      expect(calls.where((call) => call.method == 'start'), hasLength(1));
+      final startCall = calls.firstWhere((call) => call.method == 'start');
+      final startTime = (startCall.arguments as Map)['startTime'] as int;
+      expect(startTime, closeTo(DateTime.now().millisecondsSinceEpoch, 2000));
+
+      // Per-second ticks must not re-trigger the channel.
+      await tester.pump(const Duration(seconds: 2));
+      expect(calls.where((call) => call.method == 'start'), hasLength(1));
+
+      timerBloc.add(TimerStopped());
+      await tester.pumpAndSettle();
+
+      expect(calls.where((call) => call.method == 'end'), hasLength(1));
+
+      await tester.tap(find.text('放弃记录'));
+      await tester.pumpAndSettle();
+      // Resetting to idle must not end the activity a second time.
+      expect(calls.where((call) => call.method == 'end'), hasLength(1));
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
