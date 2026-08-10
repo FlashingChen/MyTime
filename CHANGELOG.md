@@ -56,6 +56,7 @@
 - 数据导入导出：设置页支持将记录与分类导出为 JSON 到剪贴板，或从剪贴板导入 JSON
 - `CategoryLookup` 工具类，让分类消费者优先从 `CategoriesBloc` 读取真实数据，无 Bloc 时回退到系统默认
 - iOS 工程迁移至 Swift Package Manager；不再提交 CocoaPods 工程文件，并用本机忽略的 `Private.xcconfig` 承载签名信息。
+- 时间线新增周视图（7 天按分类堆积柱状图）；统计趋势图重做为可按分类顺序筛选的堆积柱状图，摘要卡片补齐变化百分比，饼图中心显示总计时长。
 
 ### Changed
 - 计时器由 100ms 刷新改为秒级刷新，显示精度与 UI 一致并降低无效重建。
