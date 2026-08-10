@@ -12,6 +12,30 @@ class WebDavConfiguration {
     required this.password,
   });
 
+  static const syncPath = '/sync.json';
+
+  factory WebDavConfiguration.fromServer({
+    required String server,
+    required String username,
+    required String password,
+  }) {
+    final trimmed = server.trim();
+    if (trimmed.endsWith('.json')) {
+      return WebDavConfiguration(
+        endpoint: trimmed,
+        username: username,
+        password: password,
+      );
+    }
+    final normalized =
+        trimmed.endsWith('/') ? trimmed.substring(0, trimmed.length - 1) : trimmed;
+    return WebDavConfiguration(
+      endpoint: '$normalized$syncPath',
+      username: username,
+      password: password,
+    );
+  }
+
   final String endpoint;
   final String username;
   final String password;

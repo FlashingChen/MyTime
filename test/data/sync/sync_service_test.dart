@@ -128,16 +128,13 @@ void main() {
     },
   );
 
-  test('rejects an existing remote document without an ETag', () async {
+  test('syncs an existing remote document without an ETag', () async {
     final local = _Local(_snapshot('local'));
     final remote = _Remote(_snapshot('remote'), eTag: null);
 
-    await expectLater(
-      SyncService(local: local, remote: remote).synchronize(),
-      throwsFormatException,
-    );
+    await SyncService(local: local, remote: remote).synchronize();
 
-    expect(remote.pushed, isEmpty);
+    expect(remote.pushed, hasLength(1));
   });
 
   test(

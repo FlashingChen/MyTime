@@ -1099,9 +1099,9 @@ function ProfileScreen({ onOpenCategoryManagement, onOpenRecordManagement }) {
           <div style={{ width: '100%', background: '#fff', borderRadius: '24px 24px 0 0', padding: '20px 24px 32px' }}>
             <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 6 }}>WebDAV 同步</div>
             <div style={{ fontSize: 12, color: '#86868B', lineHeight: 1.5, marginBottom: 16 }}>
-              本地编辑后将在网络可用时自动同步。同一记录冲突时保留本机版本；密码仅保存到系统安全存储。
+              本地编辑后将在网络可用时自动同步到 /sync.json。同一记录冲突时保留本机版本；密码仅保存到系统安全存储。
             </div>
-            <input placeholder="文档地址，例如 https://dav.example.com/mytime.json" style={{ width: '100%', boxSizing: 'border-box', padding: 12, marginBottom: 10, border: '1px solid #E8E8ED', borderRadius: 10 }} />
+            <input placeholder="服务器地址，例如 https://dav.jianguoyun.com" style={{ width: '100%', boxSizing: 'border-box', padding: 12, marginBottom: 10, border: '1px solid #E8E8ED', borderRadius: 10 }} />
             <input placeholder="用户名" style={{ width: '100%', boxSizing: 'border-box', padding: 12, marginBottom: 10, border: '1px solid #E8E8ED', borderRadius: 10 }} />
             <input type="password" placeholder="密码" style={{ width: '100%', boxSizing: 'border-box', padding: 12, marginBottom: 16, border: '1px solid #E8E8ED', borderRadius: 10 }} />
             <div style={{ display: 'flex', gap: 10 }}>

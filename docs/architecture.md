@@ -51,12 +51,12 @@ DTO 保留既有的 Hive type ID 和字段编号（记录为 `0`，分类为 `1`
 `lib/data/sync/` 包含 `SyncPort`、`SyncSnapshot`、`WebDavSyncAdapter`、`WebDavSyncCoordinator` 与本地快照 Adapter：
 
 - Adapter 只接受 HTTPS WebDAV 地址，并以一个版本化 JSON 文档进行 `GET` / `PUT`。
-- 设置页允许保存文档地址、用户名和安全存储中的密码；用户仍可点按“立即同步”，本地编辑后也会在网络可用时自动同步。
+- 设置页允许保存服务器地址、用户名和安全存储中的密码；服务器地址自动追加 `/sync.json`，以 `.json` 结尾时视为完整文档地址。用户仍可点按“立即同步”，本地编辑后也会在网络可用时自动同步。
 - `PreferencesSyncRevisionStore` 记录本地快照水位；记录/分类的 Revision Tracking Decorator 仅在成功本地写入后前进水位。远端应用使用未经装饰的 Repository，避免把远端版本误记为本地改动。
 - `PreferencesSyncPendingStateStore` 以 `webdav.sync.pending_revision` 保存最新已发布但尚未确认的 UTC revision。坏值自动删除；新 token 只前进；同步 attempt 仅能 compare-and-clear 自己捕获的 token，因此新的本地发布不会被较早成功请求清除。
 - 本地记录或分类变更会提交唯一、网络约束的 Android WorkManager 任务；连续编辑合并为一次后台同步。后台 isolate 只初始化偏好和安全存储，不初始化 Hive。
 - 同步文档按记录和分类 ID 合并：不同 ID 双向保留，前台同 ID 内容冲突时本机优先；使用不可变快照的后台 Worker 则显式远端优先，防止其重试覆盖前台刚上传的同 ID 编辑。远端缺少的 ID 仍保留后台本地实体或 90 天墓碑以上传；有效墓碑与实体冲突时，先按 UTC `deletedAt` 和实体 `updatedAt` 选择严格较新的版本，时间相等或实体缺少版本时才应用前台本机优先/后台远端优先策略。已删除分类会使保留记录的 `categoryId` 清空。
-- GET 返回 ETag，PUT 使用 `If-Match` 或首次创建时的 `If-None-Match: *`。`412` 时重新拉取、合并并最多重试三次；服务支持时申请短时 WebDAV 锁，锁不支持时自动降级。
+- 远端文档有 ETag 时，PUT 使用 `If-Match`，首次创建使用 `If-None-Match: *`；远端无 ETag 时仍允许同步，PUT 成功后以 GET 确认内容与上传快照一致。`412` 时重新拉取、合并并最多重试三次；服务支持时申请短时 WebDAV 锁，锁不支持时自动降级。
 - 同步错误在设置页按配置、网络/认证、远端格式和本机回滚失败分级显示；地址拒绝 URL 内嵌凭据，设置保存成功后才会显示成功或发起同步。
 - 本地写入、导入和远端快照替换共享进程内写入锁。远端拉取完成后，替换会再次原子确认本地修订版本；期间有新本地写入时改为上传最新本机快照，避免覆盖用户刚新增的数据。
 

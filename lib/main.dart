@@ -182,8 +182,8 @@ Future<void> synchronizeWebDavOnStartup({
     if (!settings.hasWebDavConfiguration) return;
     final attempt = await pending?.readPendingRevision();
     await synchronize(
-      WebDavConfiguration(
-        endpoint: settings.webDavEndpoint,
+      WebDavConfiguration.fromServer(
+        server: settings.webDavEndpoint,
         username: settings.webDavUsername,
         password: settings.webDavPassword!,
       ),

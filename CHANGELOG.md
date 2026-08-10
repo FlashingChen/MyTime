@@ -12,6 +12,8 @@
 - JSON 导入在覆盖 Hive 前写入恢复日志；若回滚持久化失败，应用启动会在任何快照协调或 WebDAV 同步前独立恢复记录、分类和精确同步偏好状态。
 - 后台 WebDAV Worker 会在读取配置或快照前检查导入恢复日志；恢复待处理时安全跳过，损坏日志则请求 WorkManager 重试，避免上传失败导入阶段的快照。
 - 有效删除墓碑与同 ID 实体冲突时按 UTC 删除/更新版本裁决：较新版本优先，版本相等或实体缺少版本时才使用前台本机优先或后台远端优先策略，避免旧 Worker 快照复活已删除数据。
+- WebDAV 设置由“文档地址”改为“服务器地址”：输入普通服务器地址时自动追加 `/sync.json`，以 `.json` 结尾时视为完整文档地址；远端文档无 ETag 时仍允许同步，PUT 成功后以 GET 内容确认。
+- Android Gradle JVM 启用 TLSv1.2/TLSv1.3，兼容仅支持旧 TLS 协议的 WebDAV 服务器。
 
 ### Added
 - 领域模型与 Hive DTO 分离；记录和分类通过 DataStore Adapter 持久化，BLoC 通过 Repository Port 访问数据。

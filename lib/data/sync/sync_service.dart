@@ -66,11 +66,6 @@ class SyncService {
             : _local.readReadOnly());
         local.validate();
         final remote = await _remote.pull();
-        if (remote != null && remote.eTag == null) {
-          throw const FormatException(
-            'WebDAV GET response did not include ETag',
-          );
-        }
         if (remote != null && lock == null) {
           try {
             lock = await _remote.lock();

@@ -14,7 +14,7 @@ void main() {
     );
 
     expect(find.text('WebDAV 同步'), findsOneWidget);
-    expect(find.text('文档地址'), findsOneWidget);
+    expect(find.text('服务器地址'), findsOneWidget);
     expect(find.text('用户名'), findsOneWidget);
     expect(find.text('密码'), findsOneWidget);
     expect(find.text('保存配置'), findsOneWidget);

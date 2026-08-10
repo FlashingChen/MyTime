@@ -6,6 +6,9 @@ import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/sync/sync_port.dart';
 import 'package:mytime/data/sync/sync_metadata.dart';
 
+/// Content-Type for JSON payloads.
+const _jsonContentType = 'application/json';
+
 /// Normalized response returned by an injectable WebDAV transport.
 class WebDavResponse {
   const WebDavResponse(this.statusCode, this.body, [this.headers = const {}]);
@@ -77,7 +80,6 @@ class WebDavSyncAdapter implements SyncPort {
     if (eTag != null) return eTag;
     final confirmation = await pull();
     if (confirmation == null ||
-        confirmation.eTag == null ||
         confirmation.snapshot != snapshot) {
       throw const SyncPreconditionFailed();
     }
@@ -133,7 +135,7 @@ class WebDavSyncAdapter implements SyncPort {
 
   Map<String, String> get _headers => {
     HttpHeaders.authorizationHeader: _authorization,
-    HttpHeaders.contentTypeHeader: ContentType.json.mimeType,
+    HttpHeaders.contentTypeHeader: _jsonContentType,
   };
 
   static Future<WebDavResponse> _httpRequest(
@@ -147,7 +149,11 @@ class WebDavSyncAdapter implements SyncPort {
       final request = await client.openUrl(method, uri);
       request.followRedirects = false;
       headers.forEach(request.headers.set);
-      if (body != null) request.write(body);
+      if (body != null) {
+        final bytes = utf8.encode(body);
+        request.contentLength = bytes.length;
+        request.add(bytes);
+      }
       final response = await request.close().timeout(
         const Duration(minutes: 2),
       );

@@ -87,8 +87,8 @@ class _WebDavSyncSheetState extends State<WebDavSyncSheet> {
         _password.text.isNotEmpty;
   }
 
-  WebDavConfiguration get _configuration => WebDavConfiguration(
-    endpoint: _endpoint.text.trim(),
+  WebDavConfiguration get _configuration => WebDavConfiguration.fromServer(
+    server: _endpoint.text.trim(),
     username: _username.text.trim(),
     password: _password.text,
   );
@@ -166,16 +166,17 @@ class _WebDavSyncSheetState extends State<WebDavSyncSheet> {
   }
 
   String _messageFor(Object error) {
+    debugPrint('[WebDAV] Sync error: $error');
     if (error is ArgumentError || error is FormatException) {
-      return '同步失败：配置或远端数据格式无效。';
+      return '同步失败：$error';
     }
     if (error is SocketException || error is HttpException) {
-      return '同步失败：无法连接 WebDAV 服务，请检查地址、账户、密码和网络。';
+      return '同步失败：无法连接 WebDAV 服务 ($error)';
     }
     if (error is SyncRollbackException) {
       return '同步失败：远端数据未能安全写入本机，原有数据已尝试恢复。';
     }
-    return '同步失败：本机数据未更改，请稍后重试。';
+    return '同步失败：$error';
   }
 
   @override
@@ -214,7 +215,7 @@ class _WebDavSyncSheetState extends State<WebDavSyncSheet> {
             ),
             const SizedBox(height: 6),
             Text(
-              '本地编辑后将在网络可用时自动同步。同一记录冲突时保留本机版本。',
+              '本地编辑后将在网络可用时自动同步到 /sync.json。同一记录冲突时保留本机版本。',
               style: TextStyle(
                 fontSize: 12,
                 color: context.colorScheme.onSurfaceVariant,
@@ -224,8 +225,8 @@ class _WebDavSyncSheetState extends State<WebDavSyncSheet> {
             const SizedBox(height: 16),
             _field(
               controller: _endpoint,
-              label: '文档地址',
-              hint: 'https://dav.example.com/mytime.json',
+              label: '服务器地址',
+              hint: 'https://dav.jianguoyun.com',
               keyboardType: TextInputType.url,
             ),
             const SizedBox(height: 12),

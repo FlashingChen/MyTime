@@ -72,8 +72,8 @@ class WebDavBackgroundTask {
           WebDavSyncCoordinator(
             local: ReadOnlySyncLocalStore(snapshotStore),
           ).synchronize(
-            WebDavConfiguration(
-              endpoint: settings.webDavEndpoint,
+            WebDavConfiguration.fromServer(
+              server: settings.webDavEndpoint,
               username: settings.webDavUsername,
               password: settings.webDavPassword!,
             ),
