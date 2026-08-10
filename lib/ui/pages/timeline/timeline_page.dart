@@ -8,8 +8,8 @@ import 'package:mytime/blocs/records/records_state.dart';
 import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/ui/pages/timeline/timeline_layout.dart';
-import 'package:mytime/ui/pages/timeline/widgets/date_navigator.dart';
 import 'package:mytime/ui/pages/timeline/widgets/timeline_card.dart';
+import 'package:mytime/widgets/date_navigator.dart';
 import 'package:mytime/ui/pages/timeline/widgets/week_view.dart';
 
 enum _TimelineViewMode { day, week }

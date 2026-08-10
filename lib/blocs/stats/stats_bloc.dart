@@ -14,7 +14,9 @@ class StatsBloc extends Bloc<StatsEvent, StatsState> {
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now,
        super(const StatsInitial()) {
+    _anchorDate = _clock();
     on<StatsRangeChanged>(_onRangeChanged);
+    on<StatsDayChanged>(_onDayChanged);
     on<StatsRecordsChanged>(_onRecordsChanged);
     _recordsSubscription = recordsSource.stream.listen((state) {
       if (state case RecordsLoaded(:final records)) {
@@ -32,9 +34,15 @@ class StatsBloc extends Bloc<StatsEvent, StatsState> {
   late final StreamSubscription<RecordsState> _recordsSubscription;
   List<TimeRecord> _records = const [];
   StatsRange _range = StatsRange.week;
+  late DateTime _anchorDate;
 
   void _onRangeChanged(StatsRangeChanged event, Emitter<StatsState> emit) {
     _range = event.range;
+    _emitMetrics(emit);
+  }
+
+  void _onDayChanged(StatsDayChanged event, Emitter<StatsState> emit) {
+    _anchorDate = event.date;
     _emitMetrics(emit);
   }
 
@@ -44,7 +52,16 @@ class StatsBloc extends Bloc<StatsEvent, StatsState> {
   }
 
   void _emitMetrics(Emitter<StatsState> emit) {
-    emit(StatsLoaded(StatsMetrics.forRange(_records, _range, _clock())));
+    emit(
+      StatsLoaded(
+        StatsMetrics.forRange(
+          _records,
+          _range,
+          _clock(),
+          anchorDate: _anchorDate,
+        ),
+      ),
+    );
   }
 
   @override

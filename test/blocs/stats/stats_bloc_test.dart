@@ -68,6 +68,53 @@ void main() {
     );
 
     blocTest<StatsBloc, StatsState>(
+      'recomputes day metrics when the day anchor changes',
+      build: () => StatsBloc(
+        _RecordsStateCubit(
+          RecordsLoaded([
+            TimeRecord(
+              id: 'today',
+              startTime: DateTime(2026, 7, 12, 9),
+              endTime: DateTime(2026, 7, 12, 10, 30),
+            ),
+            TimeRecord(
+              id: 'yesterday',
+              startTime: DateTime(2026, 7, 11, 20),
+              endTime: DateTime(2026, 7, 11, 21),
+            ),
+          ]),
+        ),
+        clock: () => now,
+      ),
+      act: (bloc) {
+        bloc.add(const StatsRangeChanged(StatsRange.day));
+        bloc.add(StatsDayChanged(DateTime(2026, 7, 11)));
+      },
+      expect: () => [
+        isA<StatsLoaded>(),
+        isA<StatsLoaded>()
+            .having((state) => state.metrics.range, 'range', StatsRange.day)
+            .having(
+              (state) => state.metrics.total,
+              'total',
+              const Duration(minutes: 90),
+            ),
+        isA<StatsLoaded>()
+            .having(
+              (state) => state.metrics.total,
+              'total',
+              const Duration(minutes: 60),
+            )
+            .having(
+              (state) => state.metrics.anchorDate,
+              'anchorDate',
+              DateTime(2026, 7, 11),
+            )
+            .having((state) => state.metrics.isToday, 'isToday', isFalse),
+      ],
+    );
+
+    blocTest<StatsBloc, StatsState>(
       'recomputes when RecordsBloc publishes an updated record list',
       build: () {
         source = _RecordsStateCubit(const RecordsLoaded([]));

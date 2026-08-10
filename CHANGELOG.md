@@ -16,6 +16,7 @@
 - Android Gradle JVM 启用 TLSv1.2/TLSv1.3，兼容仅支持旧 TLS 协议的 WebDAV 服务器。
 
 ### Added
+- 统计页“本日”模式支持通过日期导航器（‹ ›）向前/向后浏览任意一天的统计：汇总卡片、占比、趋势与 AI 建议均跟随所选日期，非今日时文案自动切换为“当日/前一日”。
 - iOS 灵动岛 / 锁屏实时活动：计时进行中自动在灵动岛显示秒级跳动的已计时长（开始 / 停止 / 恢复时同步，应用被杀后由系统继续展示），基于 ActivityKit 原生实现，无新增第三方依赖；iOS 16.2 以下自动降级为无操作。
 - 领域模型与 Hive DTO 分离；记录和分类通过 DataStore Adapter 持久化，BLoC 通过 Repository Port 访问数据。
 - `PreferencesStore` 抽象普通设置与活动计时的 SharedPreferences 访问；为后续替换存储实现保留边界。

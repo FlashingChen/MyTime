@@ -20,6 +20,16 @@ class StatsRangeChanged extends StatsEvent {
   List<Object?> get props => [range];
 }
 
+/// Anchors the day range to a specific calendar date.
+class StatsDayChanged extends StatsEvent {
+  const StatsDayChanged(this.date);
+
+  final DateTime date;
+
+  @override
+  List<Object?> get props => [date];
+}
+
 /// Supplies a fresh immutable snapshot from the saved-record state source.
 class StatsRecordsChanged extends StatsEvent {
   const StatsRecordsChanged(this.records);

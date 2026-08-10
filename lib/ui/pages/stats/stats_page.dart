@@ -15,6 +15,7 @@ import 'package:mytime/ui/pages/stats/widgets/summary_cards.dart';
 import 'package:mytime/core/utils/category_lookup.dart';
 import 'package:mytime/ui/pages/stats/widgets/category_filter_sheet.dart';
 import 'package:mytime/ui/pages/stats/stats_metrics.dart';
+import 'package:mytime/widgets/date_navigator.dart';
 
 /// Statistics page with proportion, trend, and AI insight tabs.
 class StatsPage extends StatefulWidget {
@@ -28,6 +29,7 @@ class _StatsPageState extends State<StatsPage> {
   late final StatsBloc _statsBloc;
   List<String> _selectedCategoryIds = [];
   String _tab = 'pie';
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
@@ -89,6 +91,12 @@ class _StatsPageState extends State<StatsPage> {
                       ],
                     ),
                   ),
+                  if (range == StatsRange.day)
+                    DateNavigator(
+                      date: _selectedDate,
+                      onPrev: () => _changeDay(-1),
+                      onNext: () => _changeDay(1),
+                    ),
                   if (metrics != null) _buildSummaryCards(metrics),
                   const SizedBox(height: 12),
                   Container(
@@ -129,6 +137,13 @@ class _StatsPageState extends State<StatsPage> {
 
   void _onRangeChanged(StatsRange range) {
     _statsBloc.add(StatsRangeChanged(range));
+  }
+
+  void _changeDay(int days) {
+    setState(() {
+      _selectedDate = _selectedDate.add(Duration(days: days));
+    });
+    _statsBloc.add(StatsDayChanged(_selectedDate));
   }
 
   Widget _buildFilterButton(BuildContext context) {
@@ -189,7 +204,9 @@ class _StatsPageState extends State<StatsPage> {
                 ? settingsState.settings
                 : const AppSettings(),
             periodLabel: range == StatsRange.day
-                ? '今日'
+                ? (metrics.isToday
+                      ? '今日'
+                      : '${metrics.anchorDate.month}月${metrics.anchorDate.day}日')
                 : range == StatsRange.week
                 ? '本周'
                 : '本月',
@@ -209,19 +226,22 @@ class _StatsPageState extends State<StatsPage> {
               100 ~/
               metrics.previousTotal.inMinutes);
     final isDay = metrics.range == StatsRange.day;
+    final isToday = metrics.isToday;
     final changeStr = '${change >= 0 ? '+' : ''}$change%';
     return SummaryCards(
       label1: isDay
-          ? '今日总时长'
+          ? (isToday ? '今日总时长' : '当日总时长')
           : metrics.range == StatsRange.week
           ? '本周总时长'
           : '本月总时长',
       value1: format(metrics.total),
       change1: changeStr,
-      label2: isDay ? '昨日总时长' : '日均',
+      label2: isDay
+          ? (isToday ? '昨日总时长' : '前一日总时长')
+          : '日均',
       value2: format(isDay ? metrics.previousTotal : metrics.average),
       change2: changeStr,
-      label3: isDay ? '较昨日变化' : '较上一周期',
+      label3: isDay ? (isToday ? '较昨日变化' : '较前一日变化') : '较上一周期',
       value3: format(metrics.previousTotal),
       change3: changeStr,
     );

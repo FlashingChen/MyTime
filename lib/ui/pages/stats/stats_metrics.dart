@@ -27,6 +27,8 @@ class StatsMetrics {
     required this.byCategory,
     required this.categoryRecordCounts,
     required this.trend,
+    required this.anchorDate,
+    required this.isToday,
   });
 
   final StatsRange range;
@@ -40,12 +42,19 @@ class StatsMetrics {
   final Map<String, int> categoryRecordCounts;
   final List<StatsTrendPoint> trend;
 
+  /// Midnight of the day being viewed; only meaningful for [StatsRange.day].
+  final DateTime anchorDate;
+
+  /// Whether the day-range anchor is the current calendar day.
+  final bool isToday;
+
   static StatsMetrics forRange(
     List<TimeRecord> records,
     StatsRange range,
-    DateTime now,
-  ) {
-    final period = _periodFor(range, now);
+    DateTime now, {
+    DateTime? anchorDate,
+  }) {
+    final period = _periodFor(range, now, anchorDate);
     final previous = _previousPeriodFor(range, period);
     final categoryDurations = <String, Duration>{};
     final categoryCounts = <String, int>{};
@@ -92,11 +101,18 @@ class StatsMetrics {
       byCategory: Map.unmodifiable(categoryDurations),
       categoryRecordCounts: Map.unmodifiable(categoryCounts),
       trend: List.unmodifiable(_trend(records, range, period)),
+      anchorDate: period.start,
+      isToday: period.start == DateTime(now.year, now.month, now.day),
     );
   }
 
-  static _DateRange _periodFor(StatsRange range, DateTime now) {
-    final day = DateTime(now.year, now.month, now.day);
+  static _DateRange _periodFor(
+    StatsRange range,
+    DateTime now,
+    DateTime? anchorDate,
+  ) {
+    final base = range == StatsRange.day ? (anchorDate ?? now) : now;
+    final day = DateTime(base.year, base.month, base.day);
     switch (range) {
       case StatsRange.day:
         return _DateRange(day, day.add(const Duration(days: 1)));

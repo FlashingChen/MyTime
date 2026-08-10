@@ -170,4 +170,46 @@ void main() {
     // hour 14 should have no work
     expect(metrics.trend[14].categoryDurations['work'], isNull);
   });
+
+  test('day range honors an explicit anchor date', () {
+    final now = DateTime(2026, 7, 10, 12);
+    final yesterday = DateTime(2026, 7, 9);
+    final records = [
+      TimeRecord(
+        id: 'today',
+        categoryId: 'work',
+        startTime: DateTime(2026, 7, 10, 9),
+        endTime: DateTime(2026, 7, 10, 10),
+      ),
+      TimeRecord(
+        id: 'yesterday',
+        categoryId: 'read',
+        startTime: DateTime(2026, 7, 9, 20),
+        endTime: DateTime(2026, 7, 9, 22),
+      ),
+    ];
+
+    final metrics = StatsMetrics.forRange(
+      records,
+      StatsRange.day,
+      now,
+      anchorDate: yesterday,
+    );
+
+    expect(metrics.total, const Duration(hours: 2));
+    expect(metrics.records, hasLength(1));
+    expect(metrics.records.single.id, 'yesterday');
+    expect(metrics.anchorDate, yesterday);
+    expect(metrics.isToday, isFalse);
+    expect(
+      metrics.previousTotal,
+      Duration.zero,
+      reason: 'The day before the anchor has no records',
+    );
+
+    final todayMetrics = StatsMetrics.forRange(records, StatsRange.day, now);
+    expect(todayMetrics.total, const Duration(hours: 1));
+    expect(todayMetrics.records.single.id, 'today');
+    expect(todayMetrics.isToday, isTrue);
+  });
 }
