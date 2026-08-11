@@ -89,13 +89,91 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final switchFinder = find.byType(Switch);
+      // First switch is the dark mode toggle; the second is the timer
+      // reminder toggle.
+      final switchFinder = find.byType(Switch).first;
       expect(switchFinder, findsOneWidget);
 
       await tester.tap(switchFinder);
       await tester.pumpAndSettle();
 
       expect(find.text('深色模式'), findsOneWidget);
+    });
+
+    testWidgets('shows the timer reminder toggle', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final settingsRepo = SettingsRepository(secureStorage: _MemoryStore());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider(
+                create: (_) =>
+                    SettingsBloc(settingsRepo)..add(const LoadSettings()),
+              ),
+              BlocProvider(
+                create: (_) =>
+                    CategoriesBloc(categoryRepo)..add(LoadCategories()),
+              ),
+            ],
+            child: const SettingsPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('计时提醒'), findsOneWidget);
+      // Interval row is hidden until reminders are enabled.
+      expect(find.text('提醒间隔'), findsNothing);
+    });
+
+    testWidgets('enables timer reminders and picks an interval', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final settingsRepo = SettingsRepository(secureStorage: _MemoryStore());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider(
+                create: (_) =>
+                    SettingsBloc(settingsRepo)..add(const LoadSettings()),
+              ),
+              BlocProvider(
+                create: (_) =>
+                    CategoriesBloc(categoryRepo)..add(LoadCategories()),
+              ),
+            ],
+            child: const SettingsPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Enable reminders.
+      await tester.tap(find.byType(Switch).last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('提醒间隔'), findsOneWidget);
+      expect(find.text('30 分钟'), findsOneWidget);
+
+      // Open the interval picker and choose 15 minutes.
+      await tester.tap(find.text('提醒间隔'));
+      await tester.pumpAndSettle();
+      expect(find.text('15 分钟'), findsOneWidget);
+
+      await tester.tap(find.text('15 分钟'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('15 分钟'), findsOneWidget);
+
+      // The choice was persisted.
+      final reloaded = await SettingsRepository(
+        secureStorage: _MemoryStore(),
+      ).load();
+      expect(reloaded.reminderEnabled, isTrue);
+      expect(reloaded.reminderIntervalMinutes, 15);
     });
 
     testWidgets('opens the about dialog', (tester) async {

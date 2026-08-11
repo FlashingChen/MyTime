@@ -83,6 +83,78 @@ void main() {
     ],
   );
 
+  blocTest<SettingsBloc, SettingsState>(
+    'stores the timer reminder configuration together',
+    setUp: () => SharedPreferences.setMockInitialValues({}),
+    build: () =>
+        SettingsBloc(SettingsRepository(secureStorage: _MemoryStore())),
+    act: (bloc) async {
+      bloc.add(const LoadSettings());
+      await Future<void>.delayed(Duration.zero);
+      bloc.add(
+        const ReminderSettingsChanged(enabled: true, intervalMinutes: 15),
+      );
+    },
+    expect: () => [
+      const SettingsLoading(),
+      const SettingsLoaded(AppSettings()),
+      const SettingsLoaded(
+        AppSettings(reminderEnabled: true, reminderIntervalMinutes: 15),
+      ),
+    ],
+    verify: (bloc) async {
+      final reloaded = await SettingsRepository(
+        secureStorage: _MemoryStore(),
+      ).load();
+      expect(reloaded.reminderEnabled, isTrue);
+      expect(reloaded.reminderIntervalMinutes, 15);
+    },
+  );
+
+  test('notifies the reminder scheduler when settings load or change', () async {
+    SharedPreferences.setMockInitialValues({});
+    final notifications = <AppSettings>[];
+    final bloc = SettingsBloc(
+      SettingsRepository(secureStorage: _MemoryStore()),
+      onSettingsChanged: notifications.add,
+    );
+
+    bloc.add(const LoadSettings());
+    await Future<void>.delayed(Duration.zero);
+    expect(notifications, hasLength(1));
+    expect(notifications.single.reminderEnabled, isFalse);
+
+    bloc.add(
+      const ReminderSettingsChanged(enabled: true, intervalMinutes: 60),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(notifications, hasLength(2));
+    expect(notifications.last.reminderEnabled, isTrue);
+    expect(notifications.last.reminderIntervalMinutes, 60);
+
+    await bloc.close();
+  });
+
+  test('does not notify the reminder scheduler when saving fails', () async {
+    final notifications = <AppSettings>[];
+    final bloc = SettingsBloc(
+      _FailingSettingsRepository(),
+      onSettingsChanged: notifications.add,
+    );
+
+    bloc.add(const LoadSettings());
+    await Future<void>.delayed(Duration.zero);
+    expect(notifications, hasLength(1));
+
+    bloc.add(
+      const ReminderSettingsChanged(enabled: true, intervalMinutes: 15),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(notifications, hasLength(1)); // failed save: no notification.
+    await bloc.close();
+  });
+
   test(
     'completes a WebDAV save caller with an error when storage fails',
     () async {

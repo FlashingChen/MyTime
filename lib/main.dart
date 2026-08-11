@@ -16,6 +16,8 @@ import 'package:mytime/data/repositories/record_repository.dart';
 import 'package:mytime/data/repositories/settings_repository.dart';
 import 'package:mytime/data/services/data_transfer_service.dart';
 import 'package:mytime/data/services/import_recovery_journal.dart';
+import 'package:mytime/data/services/timer_notification_service.dart';
+import 'package:mytime/data/services/timer_reminder_scheduler.dart';
 import 'package:mytime/data/sync/revision_tracking_repositories.dart';
 import 'package:mytime/data/sync/foreground_sync_ownership.dart';
 import 'package:mytime/data/sync/foreground_sync_mutation_dispatcher.dart';
@@ -110,6 +112,9 @@ void main() async {
     gate: syncDataGate,
   );
   final activeTimerRepo = ActiveTimerRepository(preferences: preferences);
+  final timerNotificationService = LocalNotificationsService();
+  final reminderScheduler = TimerReminderScheduler(timerNotificationService);
+  await timerNotificationService.initialize();
   final dataTransferService = DataTransferService(
     rawRecordRepository,
     rawCategoryRepository,
@@ -136,7 +141,10 @@ void main() async {
       child: MultiBlocProvider(
         providers: [
           BlocProvider(
-            create: (_) => TimerBloc(activeTimerRepo)..add(RestoreTimer()),
+            create: (_) => TimerBloc(
+              activeTimerRepo,
+              reminderScheduler: reminderScheduler,
+            )..add(RestoreTimer()),
           ),
           BlocProvider(
             create: (_) => RecordsBloc(recordRepo)..add(LoadRecords()),
@@ -146,7 +154,10 @@ void main() async {
                 CategoriesBloc(categoryRepo, recordRepo)..add(LoadCategories()),
           ),
           BlocProvider(
-            create: (_) => SettingsBloc(settingsRepo)..add(LoadSettings()),
+            create: (_) => SettingsBloc(
+              settingsRepo,
+              onSettingsChanged: reminderScheduler.configure,
+            )..add(LoadSettings()),
           ),
         ],
         child: const AppShell(),

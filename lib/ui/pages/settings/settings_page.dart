@@ -161,6 +161,114 @@ class SettingsPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          // Timer reminder settings
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              decoration: BoxDecoration(
+                color: context.colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                      alpha: context.isDark ? 0.22 : 0.04,
+                    ),
+                    blurRadius: 3,
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.notifications_active_outlined,
+                            size: 18,
+                            color: context.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            '计时提醒',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Switch(
+                        value: state.settings.reminderEnabled,
+                        onChanged: (v) {
+                          context.read<SettingsBloc>().add(
+                            ReminderSettingsChanged(
+                              enabled: v,
+                              intervalMinutes:
+                                  state.settings.reminderIntervalMinutes,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  if (state.settings.reminderEnabled) ...[
+                    const SizedBox(height: 4),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => _pickReminderInterval(
+                          context,
+                          state.settings.reminderIntervalMinutes,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '提醒间隔',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color:
+                                      context.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  Text(
+                                    '${state.settings.reminderIntervalMinutes} 分钟',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  SvgIcons.chevronRight(),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '计时开始后每隔一段时间提醒一次，避免忘记停止计时。',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           // Settings list
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -293,6 +401,76 @@ class SettingsPage extends StatelessWidget {
       backgroundColor: Colors.transparent,
       builder: (_) => const DataExchangeSheet(),
     );
+  }
+
+  /// Preset reminder intervals offered in the picker, in minutes.
+  static const _reminderIntervals = [10, 15, 20, 30, 45, 60, 90, 120];
+
+  Future<void> _pickReminderInterval(
+    BuildContext context,
+    int current,
+  ) async {
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => SafeArea(
+        child: Material(
+          color: Theme.of(sheetContext).colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
+                  child: Text(
+                    '提醒间隔',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: _reminderIntervals
+                        .map(
+                          (minutes) => ListTile(
+                            dense: true,
+                            title: Text('$minutes 分钟'),
+                            trailing: minutes == current
+                                ? Icon(
+                                    Icons.check,
+                                    size: 18,
+                                    color: Theme.of(
+                                      sheetContext,
+                                    ).colorScheme.primary,
+                                  )
+                                : null,
+                            onTap: () =>
+                                Navigator.of(sheetContext).pop(minutes),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (picked != null && context.mounted) {
+      context.read<SettingsBloc>().add(
+        ReminderSettingsChanged(enabled: true, intervalMinutes: picked),
+      );
+    }
   }
 
   void _showAbout(BuildContext context) {

@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mytime/blocs/timer/timer_bloc.dart';
 import 'package:mytime/blocs/timer/timer_event.dart';
 import 'package:mytime/blocs/timer/timer_state.dart';
+import 'package:mytime/data/models/app_settings.dart';
 import 'package:mytime/data/repositories/active_timer_repository.dart';
+import 'package:mytime/data/services/timer_reminder_scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -230,10 +232,143 @@ void main() {
       wait: const Duration(milliseconds: 50),
       expect: () => [],
     );
+
+    group('reminder scheduling', () {
+      test('TimerStarted syncs the reminder scheduler with the new start',
+          () async {
+        final scheduler = _SpyReminderScheduler();
+        final bloc = TimerBloc(
+          _ControlledActiveTimerRepository(),
+          reminderScheduler: scheduler,
+        );
+        addTearDown(bloc.close);
+
+        bloc.add(TimerStarted());
+        await _settleEvents();
+
+        expect(scheduler.syncCount, 1);
+        expect(scheduler.lastStartTime, isNotNull);
+        expect(scheduler.cancelCount, 0);
+      });
+
+      test('TimerTicked advances the scheduler while running', () async {
+        final scheduler = _SpyReminderScheduler();
+        final bloc = TimerBloc(
+          _ControlledActiveTimerRepository(),
+          reminderScheduler: scheduler,
+        );
+        addTearDown(bloc.close);
+
+        bloc.add(TimerStarted());
+        await _settleEvents();
+        bloc.add(const TimerTicked(Duration(minutes: 30)));
+        await _settleEvents();
+
+        expect(scheduler.onTickCount, 1);
+      });
+
+      test('TimerTicked does not advance the scheduler when not running',
+          () async {
+        final scheduler = _SpyReminderScheduler();
+        final bloc = TimerBloc(
+          _ControlledActiveTimerRepository(),
+          reminderScheduler: scheduler,
+        );
+        addTearDown(bloc.close);
+
+        bloc.add(const TimerTicked(Duration(minutes: 30)));
+        await _settleEvents();
+
+        expect(scheduler.onTickCount, 0);
+      });
+
+      test('TimerStopped cancels reminders', () async {
+        final scheduler = _SpyReminderScheduler();
+        final bloc = TimerBloc(
+          _ControlledActiveTimerRepository(),
+          reminderScheduler: scheduler,
+        );
+        addTearDown(bloc.close);
+
+        bloc.add(TimerStarted());
+        await _settleEvents();
+        bloc.add(TimerStopped());
+        await _settleEvents();
+
+        expect(scheduler.cancelCount, 1);
+      });
+
+      test('TimerReset cancels reminders', () async {
+        final scheduler = _SpyReminderScheduler();
+        final bloc = TimerBloc(
+          _ControlledActiveTimerRepository(),
+          reminderScheduler: scheduler,
+        );
+        addTearDown(bloc.close);
+
+        bloc.add(TimerStarted());
+        await _settleEvents();
+        bloc.add(TimerReset());
+        await _settleEvents();
+
+        expect(scheduler.cancelCount, 1);
+      });
+
+      test('RestoreTimer syncs reminders for a restored running session',
+          () async {
+        final store = _ControlledActiveTimerRepository();
+        final scheduler = _SpyReminderScheduler();
+        final bloc = TimerBloc(
+          store,
+          reminderScheduler: scheduler,
+        );
+        addTearDown(bloc.close);
+
+        bloc.add(RestoreTimer());
+        await _settleEvents();
+        expect(scheduler.syncCount, 0); // read still pending
+
+        // A session that began 10 minutes ago is running again.
+        store.completePendingRead(
+          DateTime.now().subtract(const Duration(minutes: 10)),
+        );
+        await _settleEvents();
+
+        expect(scheduler.syncCount, 1);
+        expect(scheduler.lastStartTime, isNotNull);
+        expect(scheduler.cancelCount, 0);
+      });
+    });
   });
 }
 
 Future<void> _settleEvents() => Future<void>.delayed(Duration.zero);
+
+class _SpyReminderScheduler implements ReminderScheduler {
+  int syncCount = 0;
+  int onTickCount = 0;
+  int cancelCount = 0;
+  DateTime? lastStartTime;
+
+  @override
+  void configure(AppSettings settings) {}
+
+  @override
+  void sync(DateTime startTime, DateTime now) {
+    syncCount++;
+    lastStartTime = startTime;
+  }
+
+  @override
+  void onTick(DateTime now) {
+    onTickCount++;
+  }
+
+  @override
+  void cancel() {
+    cancelCount++;
+  }
+}
 
 class _ControlledActiveTimerRepository extends ActiveTimerRepository {
   final Completer<void> _saveCompleter = Completer<void>();
