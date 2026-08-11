@@ -9,13 +9,11 @@ void main() {
   late DateTime start;
   late DateTime now; // Injected clock; configure() must be deterministic.
 
-  AppSettings settings({
-    bool enabled = true,
-    int intervalMinutes = 30,
-  }) => AppSettings(
-    reminderEnabled: enabled,
-    reminderIntervalMinutes: intervalMinutes,
-  );
+  AppSettings settings({bool enabled = true, int intervalMinutes = 30}) =>
+      AppSettings(
+        reminderEnabled: enabled,
+        reminderIntervalMinutes: intervalMinutes,
+      );
 
   setUp(() {
     notifications = _RecordingNotificationService();
@@ -92,13 +90,15 @@ void main() {
       expect(notifications.scheduled, isEmpty);
     });
 
-    test('cancels a pending reminder when reminders are turned off mid-run',
-        () {
-      scheduler.sync(start, start);
-      scheduler.configure(settings(enabled: false));
+    test(
+      'cancels a pending reminder when reminders are turned off mid-run',
+      () {
+        scheduler.sync(start, start);
+        scheduler.configure(settings(enabled: false));
 
-      expect(notifications.cancelCount, 1);
-    });
+        expect(notifications.cancelCount, 1);
+      },
+    );
 
     test('requests permission when reminders become enabled', () {
       // Fresh scheduler whose initial configure is also disabled, so no
@@ -157,10 +157,10 @@ void main() {
       scheduler.onTick(start.add(const Duration(minutes: 16)));
 
       expect(notifications.scheduled, hasLength(2));
-      expect(
-        notifications.scheduled.map((r) => r.when),
-        [start.add(const Duration(minutes: 15)), start.add(const Duration(minutes: 30))],
-      );
+      expect(notifications.scheduled.map((r) => r.when), [
+        start.add(const Duration(minutes: 15)),
+        start.add(const Duration(minutes: 30)),
+      ]);
     });
   });
 }

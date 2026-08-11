@@ -128,7 +128,9 @@ void main() {
       expect(find.text('提醒间隔'), findsNothing);
     });
 
-    testWidgets('enables timer reminders and picks an interval', (tester) async {
+    testWidgets('enables timer reminders and picks an interval', (
+      tester,
+    ) async {
       SharedPreferences.setMockInitialValues({});
       final settingsRepo = SettingsRepository(secureStorage: _MemoryStore());
 

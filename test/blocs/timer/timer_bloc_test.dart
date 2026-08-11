@@ -234,22 +234,24 @@ void main() {
     );
 
     group('reminder scheduling', () {
-      test('TimerStarted syncs the reminder scheduler with the new start',
-          () async {
-        final scheduler = _SpyReminderScheduler();
-        final bloc = TimerBloc(
-          _ControlledActiveTimerRepository(),
-          reminderScheduler: scheduler,
-        );
-        addTearDown(bloc.close);
+      test(
+        'TimerStarted syncs the reminder scheduler with the new start',
+        () async {
+          final scheduler = _SpyReminderScheduler();
+          final bloc = TimerBloc(
+            _ControlledActiveTimerRepository(),
+            reminderScheduler: scheduler,
+          );
+          addTearDown(bloc.close);
 
-        bloc.add(TimerStarted());
-        await _settleEvents();
+          bloc.add(TimerStarted());
+          await _settleEvents();
 
-        expect(scheduler.syncCount, 1);
-        expect(scheduler.lastStartTime, isNotNull);
-        expect(scheduler.cancelCount, 0);
-      });
+          expect(scheduler.syncCount, 1);
+          expect(scheduler.lastStartTime, isNotNull);
+          expect(scheduler.cancelCount, 0);
+        },
+      );
 
       test('TimerTicked advances the scheduler while running', () async {
         final scheduler = _SpyReminderScheduler();
@@ -267,20 +269,22 @@ void main() {
         expect(scheduler.onTickCount, 1);
       });
 
-      test('TimerTicked does not advance the scheduler when not running',
-          () async {
-        final scheduler = _SpyReminderScheduler();
-        final bloc = TimerBloc(
-          _ControlledActiveTimerRepository(),
-          reminderScheduler: scheduler,
-        );
-        addTearDown(bloc.close);
+      test(
+        'TimerTicked does not advance the scheduler when not running',
+        () async {
+          final scheduler = _SpyReminderScheduler();
+          final bloc = TimerBloc(
+            _ControlledActiveTimerRepository(),
+            reminderScheduler: scheduler,
+          );
+          addTearDown(bloc.close);
 
-        bloc.add(const TimerTicked(Duration(minutes: 30)));
-        await _settleEvents();
+          bloc.add(const TimerTicked(Duration(minutes: 30)));
+          await _settleEvents();
 
-        expect(scheduler.onTickCount, 0);
-      });
+          expect(scheduler.onTickCount, 0);
+        },
+      );
 
       test('TimerStopped cancels reminders', () async {
         final scheduler = _SpyReminderScheduler();
@@ -314,30 +318,29 @@ void main() {
         expect(scheduler.cancelCount, 1);
       });
 
-      test('RestoreTimer syncs reminders for a restored running session',
-          () async {
-        final store = _ControlledActiveTimerRepository();
-        final scheduler = _SpyReminderScheduler();
-        final bloc = TimerBloc(
-          store,
-          reminderScheduler: scheduler,
-        );
-        addTearDown(bloc.close);
+      test(
+        'RestoreTimer syncs reminders for a restored running session',
+        () async {
+          final store = _ControlledActiveTimerRepository();
+          final scheduler = _SpyReminderScheduler();
+          final bloc = TimerBloc(store, reminderScheduler: scheduler);
+          addTearDown(bloc.close);
 
-        bloc.add(RestoreTimer());
-        await _settleEvents();
-        expect(scheduler.syncCount, 0); // read still pending
+          bloc.add(RestoreTimer());
+          await _settleEvents();
+          expect(scheduler.syncCount, 0); // read still pending
 
-        // A session that began 10 minutes ago is running again.
-        store.completePendingRead(
-          DateTime.now().subtract(const Duration(minutes: 10)),
-        );
-        await _settleEvents();
+          // A session that began 10 minutes ago is running again.
+          store.completePendingRead(
+            DateTime.now().subtract(const Duration(minutes: 10)),
+          );
+          await _settleEvents();
 
-        expect(scheduler.syncCount, 1);
-        expect(scheduler.lastStartTime, isNotNull);
-        expect(scheduler.cancelCount, 0);
-      });
+          expect(scheduler.syncCount, 1);
+          expect(scheduler.lastStartTime, isNotNull);
+          expect(scheduler.cancelCount, 0);
+        },
+      );
     });
   });
 }

@@ -141,10 +141,9 @@ void main() async {
       child: MultiBlocProvider(
         providers: [
           BlocProvider(
-            create: (_) => TimerBloc(
-              activeTimerRepo,
-              reminderScheduler: reminderScheduler,
-            )..add(RestoreTimer()),
+            create: (_) =>
+                TimerBloc(activeTimerRepo, reminderScheduler: reminderScheduler)
+                  ..add(RestoreTimer()),
           ),
           BlocProvider(
             create: (_) => RecordsBloc(recordRepo)..add(LoadRecords()),

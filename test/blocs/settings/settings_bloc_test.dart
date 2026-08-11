@@ -111,29 +111,32 @@ void main() {
     },
   );
 
-  test('notifies the reminder scheduler when settings load or change', () async {
-    SharedPreferences.setMockInitialValues({});
-    final notifications = <AppSettings>[];
-    final bloc = SettingsBloc(
-      SettingsRepository(secureStorage: _MemoryStore()),
-      onSettingsChanged: notifications.add,
-    );
+  test(
+    'notifies the reminder scheduler when settings load or change',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final notifications = <AppSettings>[];
+      final bloc = SettingsBloc(
+        SettingsRepository(secureStorage: _MemoryStore()),
+        onSettingsChanged: notifications.add,
+      );
 
-    bloc.add(const LoadSettings());
-    await Future<void>.delayed(Duration.zero);
-    expect(notifications, hasLength(1));
-    expect(notifications.single.reminderEnabled, isFalse);
+      bloc.add(const LoadSettings());
+      await Future<void>.delayed(Duration.zero);
+      expect(notifications, hasLength(1));
+      expect(notifications.single.reminderEnabled, isFalse);
 
-    bloc.add(
-      const ReminderSettingsChanged(enabled: true, intervalMinutes: 60),
-    );
-    await Future<void>.delayed(Duration.zero);
-    expect(notifications, hasLength(2));
-    expect(notifications.last.reminderEnabled, isTrue);
-    expect(notifications.last.reminderIntervalMinutes, 60);
+      bloc.add(
+        const ReminderSettingsChanged(enabled: true, intervalMinutes: 60),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(notifications, hasLength(2));
+      expect(notifications.last.reminderEnabled, isTrue);
+      expect(notifications.last.reminderIntervalMinutes, 60);
 
-    await bloc.close();
-  });
+      await bloc.close();
+    },
+  );
 
   test('does not notify the reminder scheduler when saving fails', () async {
     final notifications = <AppSettings>[];
@@ -146,9 +149,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(notifications, hasLength(1));
 
-    bloc.add(
-      const ReminderSettingsChanged(enabled: true, intervalMinutes: 15),
-    );
+    bloc.add(const ReminderSettingsChanged(enabled: true, intervalMinutes: 15));
     await Future<void>.delayed(Duration.zero);
 
     expect(notifications, hasLength(1)); // failed save: no notification.

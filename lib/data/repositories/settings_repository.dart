@@ -66,8 +66,7 @@ class SettingsRepository {
       webDavEndpoint: await _preferences.getString(_webDavEndpoint) ?? '',
       webDavUsername: await _preferences.getString(_webDavUsername) ?? '',
       webDavPassword: webDavPassword,
-      reminderEnabled:
-          await _preferences.getString(_reminderEnabled) == 'true',
+      reminderEnabled: await _preferences.getString(_reminderEnabled) == 'true',
       reminderIntervalMinutes:
           int.tryParse(
             await _preferences.getString(_reminderIntervalMinutes) ?? '',

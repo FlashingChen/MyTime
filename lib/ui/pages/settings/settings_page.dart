@@ -237,8 +237,7 @@ class SettingsPage extends StatelessWidget {
                                 '提醒间隔',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color:
-                                      context.colorScheme.onSurfaceVariant,
+                                  color: context.colorScheme.onSurfaceVariant,
                                 ),
                               ),
                               Row(
@@ -406,10 +405,7 @@ class SettingsPage extends StatelessWidget {
   /// Preset reminder intervals offered in the picker, in minutes.
   static const _reminderIntervals = [10, 15, 20, 30, 45, 60, 90, 120];
 
-  Future<void> _pickReminderInterval(
-    BuildContext context,
-    int current,
-  ) async {
+  Future<void> _pickReminderInterval(BuildContext context, int current) async {
     final picked = await showModalBottomSheet<int>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -429,10 +425,7 @@ class SettingsPage extends StatelessWidget {
                   padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
                   child: Text(
                     '提醒间隔',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ),
                 Flexible(

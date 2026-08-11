@@ -16,11 +16,9 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
   Future<void> _storageQueue = Future<void>.value();
   int _sessionVersion = 0;
 
-  TimerBloc(
-    this._activeTimerStore, {
-    ReminderScheduler? reminderScheduler,
-  }) : _reminderScheduler = reminderScheduler ?? const NoopReminderScheduler(),
-       super(const TimerInitial()) {
+  TimerBloc(this._activeTimerStore, {ReminderScheduler? reminderScheduler})
+    : _reminderScheduler = reminderScheduler ?? const NoopReminderScheduler(),
+      super(const TimerInitial()) {
     on<TimerStarted>(_onStarted);
     on<TimerStopped>(_onStopped);
     on<TimerReset>(_onReset);
