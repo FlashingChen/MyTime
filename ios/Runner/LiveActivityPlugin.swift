@@ -20,28 +20,53 @@ struct MyTimeTimerAttributes: ActivityAttributes {
 /// Channel: `mytime/live_activity`
 /// - `start` { startTime: millisecondsSinceEpoch } — starts the activity
 /// - `end` — ends the activity
+/// - (native → Dart) `stopTimer` — the user pressed stop on the activity
 ///
 /// The extension renders the elapsed time from the absolute `startDate`, so
 /// no per-second updates are needed and the tick does not consume the Live
 /// Activity update budget.
+///
+/// Interactive Live Activity controls require iOS 17.0; on earlier versions
+/// every call is a best-effort no-op and the timer never depends on this
+/// feature.
 final class LiveActivityPlugin: NSObject, FlutterPlugin {
+  private let channel: FlutterMethodChannel
+
+  private init(channel: FlutterMethodChannel) {
+    self.channel = channel
+  }
+
   static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(
       name: "mytime/live_activity",
       binaryMessenger: registrar.messenger()
     )
-    let instance = LiveActivityPlugin()
+    let instance = LiveActivityPlugin(channel: channel)
     registrar.addMethodCallDelegate(instance, channel: channel)
+    // The stop button's intent executes in this process; when the engine is
+    // attached it forwards the request to Dart over the channel. Without an
+    // attached engine there is no observer and the intent's persisted state
+    // covers the stop.
+    NotificationCenter.default.addObserver(
+      instance,
+      selector: #selector(timerStopRequested),
+      name: mytimeLiveActivityDidStopNotification,
+      object: nil
+    )
+  }
+
+  @objc private func timerStopRequested() {
+    channel.invokeMethod("stopTimer", arguments: nil)
   }
 
   func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "start":
-      guard #available(iOS 16.2, *) else {
+      guard #available(iOS 17.0, *) else {
         result(
           FlutterError(
             code: "unsupported",
-            message: "Live Activities require iOS 16.2 or later.",
+            message: "Live Activities require iOS 17.0 or later.",
             details: nil
           )
         )
@@ -63,7 +88,7 @@ final class LiveActivityPlugin: NSObject, FlutterPlugin {
       let startDate = Date(timeIntervalSince1970: milliseconds.doubleValue / 1000.0)
       startActivity(startDate: startDate, result: result)
     case "end":
-      guard #available(iOS 16.2, *) else {
+      guard #available(iOS 17.0, *) else {
         result(nil)
         return
       }
@@ -73,7 +98,7 @@ final class LiveActivityPlugin: NSObject, FlutterPlugin {
     }
   }
 
-  @available(iOS 16.2, *)
+  @available(iOS 17.0, *)
   private func startActivity(startDate: Date, result: @escaping FlutterResult) {
     let attributes = MyTimeTimerAttributes()
     let content = ActivityContent(
@@ -83,7 +108,7 @@ final class LiveActivityPlugin: NSObject, FlutterPlugin {
     Task {
       // Retire any leftover activities from a previous app run so at most one
       // MyTime activity exists (the system only surfaces the newest anyway).
-      await endAllActivities()
+      await LiveActivityPlugin.endAllActivities()
       do {
         _ = try Activity.request(
           attributes: attributes,
@@ -103,16 +128,17 @@ final class LiveActivityPlugin: NSObject, FlutterPlugin {
     }
   }
 
-  @available(iOS 16.2, *)
+  @available(iOS 17.0, *)
   private func endActivity(result: @escaping FlutterResult) {
     Task {
-      await endAllActivities()
+      await LiveActivityPlugin.endAllActivities()
       result(nil)
     }
   }
 
-  @available(iOS 16.2, *)
-  private func endAllActivities() async {
+  /// Ends every MyTime activity, matching the "at most one activity" policy.
+  @available(iOS 17.0, *)
+  static func endAllActivities() async {
     let endContent: ActivityContent<MyTimeTimerAttributes.ContentState>? = nil
     for activity in Activity<MyTimeTimerAttributes>.activities {
       await activity.end(endContent, dismissalPolicy: .immediate)

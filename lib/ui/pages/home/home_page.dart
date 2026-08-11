@@ -28,6 +28,19 @@ class _HomePageState extends State<HomePage> {
   final LiveActivityBridge _liveActivityBridge = LiveActivityBridge();
 
   @override
+  void initState() {
+    super.initState();
+    // Stop button on the Dynamic Island / Lock Screen → stop the timer like
+    // the in-app stop button. The native side persists the stop time itself
+    // when the app is not running, so a dead app still recovers correctly.
+    _liveActivityBridge.onStopRequested = () {
+      if (mounted) {
+        context.read<TimerBloc>().add(TimerStopped());
+      }
+    };
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
