@@ -33,6 +33,11 @@ class SettingsRepository {
   static const _webDavEndpoint = 'webdav_endpoint';
   static const _webDavUsername = 'webdav_username';
   static const _secureWebDavPassword = 'secure_webdav_password';
+  static const _reminderEnabled = 'reminder_enabled';
+  static const _reminderIntervalMinutes = 'reminder_interval_minutes';
+
+  /// Default interval between timer reminders, in minutes.
+  static const defaultReminderIntervalMinutes = 30;
 
   SettingsRepository({
     SecureKeyValueStore? secureStorage,
@@ -61,6 +66,12 @@ class SettingsRepository {
       webDavEndpoint: await _preferences.getString(_webDavEndpoint) ?? '',
       webDavUsername: await _preferences.getString(_webDavUsername) ?? '',
       webDavPassword: webDavPassword,
+      reminderEnabled: await _preferences.getString(_reminderEnabled) == 'true',
+      reminderIntervalMinutes:
+          int.tryParse(
+            await _preferences.getString(_reminderIntervalMinutes) ?? '',
+          ) ??
+          defaultReminderIntervalMinutes,
     );
   }
 
@@ -82,6 +93,14 @@ class SettingsRepository {
     }
     await _preferences.setString(_webDavEndpoint, settings.webDavEndpoint);
     await _preferences.setString(_webDavUsername, settings.webDavUsername);
+    await _preferences.setString(
+      _reminderEnabled,
+      settings.reminderEnabled ? 'true' : 'false',
+    );
+    await _preferences.setString(
+      _reminderIntervalMinutes,
+      '${settings.reminderIntervalMinutes}',
+    );
     if (settings.webDavPassword != null &&
         settings.webDavPassword!.isNotEmpty) {
       await _secureStorage.write(

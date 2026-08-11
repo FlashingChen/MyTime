@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mytime/blocs/timer/timer_event.dart';
 import 'package:mytime/blocs/timer/timer_state.dart';
 import 'package:mytime/data/repositories/active_timer_repository.dart';
+import 'package:mytime/data/services/timer_reminder_scheduler.dart';
 
 /// BLoC that manages the timer lifecycle.
 ///
@@ -10,11 +11,14 @@ import 'package:mytime/data/repositories/active_timer_repository.dart';
 /// that a running timer survives app kills and can be restored on next launch.
 class TimerBloc extends Bloc<TimerEvent, TimerState> {
   final ActiveTimerStore _activeTimerStore;
+  final ReminderScheduler _reminderScheduler;
   Timer? _ticker;
   Future<void> _storageQueue = Future<void>.value();
   int _sessionVersion = 0;
 
-  TimerBloc(this._activeTimerStore) : super(const TimerInitial()) {
+  TimerBloc(this._activeTimerStore, {ReminderScheduler? reminderScheduler})
+    : _reminderScheduler = reminderScheduler ?? const NoopReminderScheduler(),
+      super(const TimerInitial()) {
     on<TimerStarted>(_onStarted);
     on<TimerStopped>(_onStopped);
     on<TimerReset>(_onReset);
@@ -29,6 +33,7 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
     final start = DateTime.now();
     emit(TimerRunInProgress(start, Duration.zero));
     _startTicker(start);
+    _reminderScheduler.sync(start, DateTime.now());
     _enqueueStorage(
       () => _activeTimerStore.saveSession(
         PersistedTimerSession(startTime: start),
@@ -64,11 +69,13 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
     final elapsed = DateTime.now().difference(savedSession.startTime);
     emit(TimerRunInProgress(savedSession.startTime, elapsed));
     _startTicker(savedSession.startTime);
+    _reminderScheduler.sync(savedSession.startTime, DateTime.now());
   }
 
   void _onStopped(TimerStopped event, Emitter<TimerState> emit) {
     _sessionVersion++;
     _cancelTicker();
+    _reminderScheduler.cancel();
     if (state is TimerRunInProgress) {
       final progress = state as TimerRunInProgress;
       final stoppedAt = DateTime.now();
@@ -89,6 +96,7 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
   void _onReset(TimerReset event, Emitter<TimerState> emit) {
     _sessionVersion++;
     _cancelTicker();
+    _reminderScheduler.cancel();
     emit(const TimerInitial());
     _enqueueStorage(
       _activeTimerStore.clear,
@@ -99,6 +107,7 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
   void _onTicked(TimerTicked event, Emitter<TimerState> emit) {
     final current = state;
     if (current is TimerRunInProgress) {
+      _reminderScheduler.onTick(DateTime.now());
       emit(
         TimerRunInProgress(
           current.startTime,

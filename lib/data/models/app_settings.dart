@@ -12,6 +12,8 @@ class AppSettings extends Equatable {
   final String webDavEndpoint;
   final String webDavUsername;
   final String? webDavPassword;
+  final bool reminderEnabled;
+  final int reminderIntervalMinutes;
 
   const AppSettings({
     this.accentColor = '#6366F1',
@@ -22,6 +24,8 @@ class AppSettings extends Equatable {
     this.webDavEndpoint = '',
     this.webDavUsername = '',
     this.webDavPassword,
+    this.reminderEnabled = false,
+    this.reminderIntervalMinutes = 30,
   });
 
   /// Whether all fields required for an explicit WebDAV sync are present.
@@ -44,6 +48,8 @@ class AppSettings extends Equatable {
     String? webDavEndpoint,
     String? webDavUsername,
     Object? webDavPassword = _unset,
+    bool? reminderEnabled,
+    int? reminderIntervalMinutes,
   }) {
     return AppSettings(
       accentColor: accentColor ?? this.accentColor,
@@ -58,6 +64,9 @@ class AppSettings extends Equatable {
       webDavPassword: identical(webDavPassword, _unset)
           ? this.webDavPassword
           : webDavPassword as String?,
+      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      reminderIntervalMinutes:
+          reminderIntervalMinutes ?? this.reminderIntervalMinutes,
     );
   }
 
@@ -71,5 +80,7 @@ class AppSettings extends Equatable {
     webDavEndpoint,
     webDavUsername,
     webDavPassword,
+    reminderEnabled,
+    reminderIntervalMinutes,
   ];
 }

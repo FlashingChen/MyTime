@@ -68,3 +68,17 @@ class WebDavSettingsChanged extends SettingsEvent {
   @override
   List<Object?> get props => [endpoint, username, password];
 }
+
+/// Changes the timer reminder configuration.
+class ReminderSettingsChanged extends SettingsEvent {
+  const ReminderSettingsChanged({
+    required this.enabled,
+    required this.intervalMinutes,
+  });
+
+  final bool enabled;
+  final int intervalMinutes;
+
+  @override
+  List<Object?> get props => [enabled, intervalMinutes];
+}

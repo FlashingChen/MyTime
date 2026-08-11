@@ -9,13 +9,19 @@ import 'package:mytime/data/repositories/settings_repository.dart';
 /// BLoC for managing application settings.
 class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   final SettingsRepository _repository;
+  final void Function(AppSettings)? _onSettingsChanged;
 
-  SettingsBloc(this._repository) : super(const SettingsInitial()) {
+  SettingsBloc(
+    this._repository, {
+    void Function(AppSettings)? onSettingsChanged,
+  }) : _onSettingsChanged = onSettingsChanged,
+       super(const SettingsInitial()) {
     on<LoadSettings>(_onLoadSettings);
     on<ThemeModeChanged>(_onThemeModeChanged);
     on<AccentColorChanged>(_onAccentColorChanged);
     on<AiSettingsChanged>(_onAiSettingsChanged);
     on<WebDavSettingsChanged>(_onWebDavSettingsChanged);
+    on<ReminderSettingsChanged>(_onReminderSettingsChanged);
   }
 
   Future<void> _onLoadSettings(
@@ -26,6 +32,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     try {
       final settings = await _repository.load();
       emit(SettingsLoaded(settings));
+      _onSettingsChanged?.call(settings);
     } catch (_) {
       emit(const SettingsError('读取设置失败，请重试'));
     }
@@ -85,6 +92,19 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     await _save(updated, current, emit, event.completion);
   }
 
+  Future<void> _onReminderSettingsChanged(
+    ReminderSettingsChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    if (state is! SettingsLoaded) return;
+    final current = (state as SettingsLoaded).settings;
+    final updated = current.copyWith(
+      reminderEnabled: event.enabled,
+      reminderIntervalMinutes: event.intervalMinutes,
+    );
+    await _save(updated, current, emit);
+  }
+
   Future<void> _save(
     AppSettings settings,
     AppSettings previous,
@@ -94,6 +114,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     try {
       await _repository.save(settings);
       emit(SettingsLoaded(settings));
+      _onSettingsChanged?.call(settings);
       completion?.complete();
     } catch (_) {
       emit(SettingsLoaded(previous, saveErrorMessage: '保存设置失败，请重试'));
