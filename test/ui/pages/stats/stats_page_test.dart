@@ -18,9 +18,7 @@ void main() {
   late Box<HiveTimeRecord> box;
 
   setUpAll(() async {
-    hiveDirectory = await Directory.systemTemp.createTemp(
-      'mytime_stats_test_',
-    );
+    hiveDirectory = await Directory.systemTemp.createTemp('mytime_stats_test_');
     Hive.init(hiveDirectory.path);
     Hive.registerAdapter(HiveTimeRecordAdapter());
     box = await Hive.openBox<HiveTimeRecord>('test_stats');
@@ -103,10 +101,7 @@ void main() {
     await tester.tap(find.text('‹'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('${yesterday.month}月${yesterday.day}日'),
-      findsOneWidget,
-    );
+    expect(find.text('${yesterday.month}月${yesterday.day}日'), findsOneWidget);
     expect(find.text('当日总时长'), findsOneWidget);
     expect(find.text('前一日总时长'), findsOneWidget);
     expect(find.text('2h 0m'), findsOneWidget);

@@ -27,8 +27,9 @@ class WebDavConfiguration {
         password: password,
       );
     }
-    final normalized =
-        trimmed.endsWith('/') ? trimmed.substring(0, trimmed.length - 1) : trimmed;
+    final normalized = trimmed.endsWith('/')
+        ? trimmed.substring(0, trimmed.length - 1)
+        : trimmed;
     return WebDavConfiguration(
       endpoint: '$normalized$syncPath',
       username: username,
