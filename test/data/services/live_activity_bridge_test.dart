@@ -64,4 +64,46 @@ void main() {
     expect(await bridge.start(startTime: DateTime.now()), isFalse);
     expect(await bridge.end(), isFalse);
   });
+
+  test('native stopTimer invokes onStopRequested', () async {
+    final bridge = LiveActivityBridge();
+    var stopped = false;
+    bridge.onStopRequested = () => stopped = true;
+
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .handlePlatformMessage(
+          channel.name,
+          const StandardMethodCodec().encodeMethodCall(
+            const MethodCall('stopTimer'),
+          ),
+          (_) {},
+        );
+
+    expect(stopped, isTrue);
+  });
+
+  test('native stopTimer is dropped when no handler is attached', () async {
+    // Constructing the bridge registers the incoming-call handler; without
+    // `onStopRequested` the native message must be a harmless no-op.
+    LiveActivityBridge();
+
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .handlePlatformMessage(
+          channel.name,
+          const StandardMethodCodec().encodeMethodCall(
+            const MethodCall('stopTimer'),
+          ),
+          (_) {},
+        );
+
+    // Unknown native calls must also be answered, not crash.
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .handlePlatformMessage(
+          channel.name,
+          const StandardMethodCodec().encodeMethodCall(
+            const MethodCall('someOtherCall'),
+          ),
+          (_) {},
+        );
+  });
 }

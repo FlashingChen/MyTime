@@ -236,9 +236,7 @@ class _StatsPageState extends State<StatsPage> {
           : '本月总时长',
       value1: format(metrics.total),
       change1: changeStr,
-      label2: isDay
-          ? (isToday ? '昨日总时长' : '前一日总时长')
-          : '日均',
+      label2: isDay ? (isToday ? '昨日总时长' : '前一日总时长') : '日均',
       value2: format(isDay ? metrics.previousTotal : metrics.average),
       change2: changeStr,
       label3: isDay ? (isToday ? '较昨日变化' : '较前一日变化') : '较上一周期',

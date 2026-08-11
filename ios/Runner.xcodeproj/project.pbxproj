@@ -21,6 +21,8 @@
 		AB2000000000000000000001 /* MyTimeLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB1000000000000000000001 /* MyTimeLiveActivity.swift */; };
 		AB2000000000000000000002 /* MyTimeLiveActivity.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = AB1000000000000000000003 /* MyTimeLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AB2000000000000000000003 /* LiveActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB1000000000000000000005 /* LiveActivityPlugin.swift */; };
+		AB2000000000000000000004 /* StopTimerIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB1000000000000000000006 /* StopTimerIntent.swift */; };
+		AB2000000000000000000005 /* StopTimerIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB1000000000000000000006 /* StopTimerIntent.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -85,6 +87,7 @@
 		AB1000000000000000000003 /* MyTimeLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MyTimeLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		AB1000000000000000000004 /* MyTimeLiveActivity.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = MyTimeLiveActivity.xcconfig; sourceTree = "<group>"; };
 		AB1000000000000000000005 /* LiveActivityPlugin.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LiveActivityPlugin.swift; sourceTree = "<group>"; };
+		AB1000000000000000000006 /* StopTimerIntent.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StopTimerIntent.swift; sourceTree = "<group>"; };
 		C3C495B22223B5FC5C7F5777 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		D3D31F8F3DCF3CA7030B45AC /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		E59512428DE30EDF0B8C6FBF /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
@@ -165,6 +168,7 @@
 			isa = PBXGroup;
 			children = (
 				AB1000000000000000000001 /* MyTimeLiveActivity.swift */,
+				AB1000000000000000000006 /* StopTimerIntent.swift */,
 				AB1000000000000000000002 /* Info.plist */,
 				AB1000000000000000000004 /* MyTimeLiveActivity.xcconfig */,
 			);
@@ -461,6 +465,7 @@
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				AB2000000000000000000003 /* LiveActivityPlugin.swift in Sources */,
+				AB2000000000000000000005 /* StopTimerIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -469,6 +474,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AB2000000000000000000001 /* MyTimeLiveActivity.swift in Sources */,
+				AB2000000000000000000004 /* StopTimerIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -512,7 +518,7 @@
 				DEVELOPMENT_TEAM = "$(MYTIME_DEVELOPMENT_TEAM)";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MyTimeLiveActivity/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../../Frameworks",
@@ -536,7 +542,7 @@
 				DEVELOPMENT_TEAM = "$(MYTIME_DEVELOPMENT_TEAM)";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MyTimeLiveActivity/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../../Frameworks",
@@ -559,7 +565,7 @@
 				DEVELOPMENT_TEAM = "$(MYTIME_DEVELOPMENT_TEAM)";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MyTimeLiveActivity/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../../Frameworks",

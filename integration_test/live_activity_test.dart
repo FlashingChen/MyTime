@@ -27,7 +27,7 @@ void main() {
     expect(
       started,
       isTrue,
-      reason: 'ActivityKit should accept a timer activity on iOS 16.2+',
+      reason: 'ActivityKit should accept a timer activity on iOS 17.0+',
     );
 
     final ended = await bridge.end();

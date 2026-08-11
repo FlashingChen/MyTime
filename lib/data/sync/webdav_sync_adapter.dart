@@ -79,8 +79,7 @@ class WebDavSyncAdapter implements SyncPort {
     final eTag = response.headers['etag'];
     if (eTag != null) return eTag;
     final confirmation = await pull();
-    if (confirmation == null ||
-        confirmation.snapshot != snapshot) {
+    if (confirmation == null || confirmation.snapshot != snapshot) {
       throw const SyncPreconditionFailed();
     }
     return confirmation.eTag;

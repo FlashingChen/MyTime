@@ -190,6 +190,67 @@ void main() {
       await tester.pump();
     },
   );
+
+  testWidgets(
+    'native stop request on the live activity stops the running timer',
+    (tester) async {
+      const channel = MethodChannel(LiveActivityBridge.channelName);
+      final calls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null),
+      );
+
+      final timerBloc = TimerBloc(ActiveTimerRepository());
+      final recordsBloc = RecordsBloc(repo);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider.value(value: timerBloc),
+              BlocProvider.value(value: recordsBloc),
+            ],
+            child: const HomePage(),
+          ),
+        ),
+      );
+
+      timerBloc.add(TimerStarted());
+      await tester.pump();
+      expect(timerBloc.state, isA<TimerRunInProgress>());
+
+      // The native side reports the island's stop button was pressed.
+      await tester.runAsync(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .handlePlatformMessage(
+              channel.name,
+              const StandardMethodCodec().encodeMethodCall(
+                const MethodCall('stopTimer'),
+              ),
+              (_) {},
+            ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(timerBloc.state, isA<TimerRunComplete>());
+      expect(find.text('记录详情'), findsOneWidget);
+      // Stopping must remove the live activity like the in-app stop button.
+      expect(calls.where((call) => call.method == 'end'), hasLength(1));
+
+      await tester.tap(find.text('放弃记录'));
+      await tester.pumpAndSettle();
+      expect(timerBloc.state, isA<TimerInitial>());
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
 }
 
 class _MemoryRecordsRepository implements RecordsRepository {

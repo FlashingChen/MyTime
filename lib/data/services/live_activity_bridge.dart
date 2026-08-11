@@ -11,12 +11,25 @@ import 'package:flutter/services.dart';
 /// best-effort no-ops, so the timer itself never depends on this feature.
 class LiveActivityBridge {
   LiveActivityBridge({MethodChannel? channel})
-    : _channel = channel ?? const MethodChannel(channelName);
+    : _channel = channel ?? const MethodChannel(channelName) {
+    _channel.setMethodCallHandler(_handleNativeCall);
+  }
+
+  /// Invoked when the user presses "stop" on the Live Activity (Dynamic
+  /// Island / Lock Screen). The UI wires this to `TimerStopped`.
+  VoidCallback? onStopRequested;
 
   /// Native channel name, also used by tests to intercept calls.
   static const channelName = 'mytime/live_activity';
 
   final MethodChannel _channel;
+
+  Future<dynamic> _handleNativeCall(MethodCall call) async {
+    if (call.method == 'stopTimer') {
+      onStopRequested?.call();
+    }
+    return null;
+  }
 
   /// Shows the running timer in the Live Activity starting at [startTime].
   ///
