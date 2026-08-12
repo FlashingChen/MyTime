@@ -32,6 +32,47 @@ void main() {
     expect(remote.pushed, hasLength(1));
     expect(result.resolution, SyncResolution.merged);
   });
+
+  test('reuses the in-flight sync only for the same configuration', () async {
+    final local = _LocalStore(_snapshot());
+    final endpoints = <String>[];
+    final coordinator = WebDavSyncCoordinator(
+      local: local,
+      portFactory: (configuration) {
+        endpoints.add(configuration.endpoint);
+        return _RemoteStore();
+      },
+    );
+    const first = WebDavConfiguration(
+      endpoint: 'https://dav.example.com/mytime.json',
+      username: 'alice',
+      password: 'secret',
+    );
+    const same = WebDavConfiguration(
+      endpoint: 'https://dav.example.com/mytime.json',
+      username: 'alice',
+      password: 'other-password',
+    );
+    const changed = WebDavConfiguration(
+      endpoint: 'https://other.example.com/mytime.json',
+      username: 'alice',
+      password: 'secret',
+    );
+
+    final attempt = coordinator.synchronize(first);
+    // Same endpoint + username: share the in-flight attempt even with a
+    // different password.
+    expect(identical(coordinator.synchronize(same), attempt), isTrue);
+    // Changed endpoint: the stale in-flight attempt must not be returned.
+    final fresh = coordinator.synchronize(changed);
+    expect(identical(fresh, attempt), isFalse);
+
+    await Future.wait([attempt, fresh]);
+    expect(endpoints, [
+      'https://dav.example.com/mytime.json',
+      'https://other.example.com/mytime.json',
+    ]);
+  });
 }
 
 SyncSnapshot _snapshot() => SyncSnapshot(

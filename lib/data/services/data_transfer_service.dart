@@ -222,18 +222,24 @@ class DataTransferService {
     final start = source['startTime'];
     final end = source['endTime'];
     final note = source['note'];
+    final created = source['createdAt'];
     if (id is! String ||
         id.isEmpty ||
         start is! String ||
         end is! String ||
         (categoryId != null && categoryId is! String) ||
-        (note != null && note is! String)) {
+        (note != null && note is! String) ||
+        (created != null && created is! String)) {
       throw const FormatException('记录缺少有效字段。');
     }
     final startTime = DateTime.tryParse(start);
     final endTime = DateTime.tryParse(end);
+    final createdAt = created is String ? DateTime.tryParse(created) : null;
     if (startTime == null || endTime == null || !endTime.isAfter(startTime)) {
       throw const FormatException('记录时间范围无效。');
+    }
+    if (created is String && createdAt == null) {
+      throw const FormatException('记录创建时间无效。');
     }
     if (categoryId is String && !categoryIds.contains(categoryId)) {
       throw const FormatException('记录引用了不存在的分类。');
@@ -244,6 +250,9 @@ class DataTransferService {
       startTime: startTime,
       endTime: endTime,
       note: note as String?,
+      // Backups exported before createdAt existed carry no value; fall back to
+      // startTime so re-imports stay deterministic and sync dedupe is stable.
+      createdAt: createdAt ?? startTime,
     );
   }
 }

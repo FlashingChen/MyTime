@@ -9,6 +9,7 @@ import 'package:mytime/core/theme/app_theme_ext.dart';
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/services/data_transfer_service.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Bottom-sheet workflow for exporting and importing a validated JSON backup.
 class DataExchangeSheet extends StatefulWidget {
@@ -55,7 +56,7 @@ class _DataExchangeSheetState extends State<DataExchangeSheet> {
               child: ElevatedButton.icon(
                 onPressed: _exportBusy ? null : _exportJson,
                 icon: const Icon(Icons.download_outlined, size: 18),
-                label: Text(_exportBusy ? '导出中...' : '导出 JSON 到剪贴板'),
+                label: Text(_exportBusy ? '导出中...' : '导出 JSON 文件'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
@@ -112,15 +113,36 @@ class _DataExchangeSheetState extends State<DataExchangeSheet> {
         'records': records.map(_recordToJson).toList(),
       };
 
-      await Clipboard.setData(ClipboardData(text: _formatJson(payload)));
-      if (!mounted) return;
+      // Export as a file through the share sheet instead of the clipboard:
+      // the full dataset (including notes) must not linger in a system-wide,
+      // app-readable clipboard.
+      final result = await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile.fromData(
+              Uint8List.fromList(utf8.encode(_formatJson(payload))),
+              mimeType: 'application/json',
+              name: 'mytime-backup.json',
+            ),
+          ],
+          // XFile.fromData ignores `name` on iOS/Android; the override keeps
+          // the backup filename in the share sheet.
+          fileNameOverrides: const ['mytime-backup.json'],
+          subject: 'MyTime 数据备份',
+        ),
+      );
+      if (!mounted ||
+          result.status == ShareResultStatus.dismissed ||
+          result.status == ShareResultStatus.unavailable) {
+        return;
+      }
       _showResultDialog(
         '导出成功',
-        '已将数据以 JSON 格式复制到剪贴板，包含 ${records.length} 条记录、${categories.length} 个分类。',
+        '已生成包含 ${records.length} 条记录、${categories.length} 个分类的 JSON 备份文件。',
       );
     } catch (_) {
       if (mounted) {
-        _showResultDialog('导出失败', '无法写入剪贴板，请检查系统权限后重试。', isError: true);
+        _showResultDialog('导出失败', '无法生成备份文件，请稍后重试。', isError: true);
       }
     } finally {
       if (mounted) setState(() => _exportBusy = false);
@@ -195,6 +217,7 @@ class _DataExchangeSheetState extends State<DataExchangeSheet> {
     'startTime': record.startTime.toIso8601String(),
     'endTime': record.endTime.toIso8601String(),
     'note': record.note,
+    'createdAt': record.createdAt.toIso8601String(),
   };
 
   String _formatJson(Map<String, Object?> payload) =>

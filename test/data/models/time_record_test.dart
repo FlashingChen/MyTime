@@ -32,14 +32,33 @@ void main() {
         categoryId: 'work',
         startTime: now,
         endTime: now.add(const Duration(hours: 1)),
+        createdAt: now,
       );
       final r2 = TimeRecord(
         id: '1',
         categoryId: 'work',
         startTime: now,
         endTime: now.add(const Duration(hours: 1)),
+        createdAt: now,
       );
       expect(r1, equals(r2));
+    });
+
+    test('equality includes createdAt', () {
+      final now = DateTime(2026, 7, 9);
+      final r1 = TimeRecord(
+        id: '1',
+        startTime: now,
+        endTime: now.add(const Duration(hours: 1)),
+        createdAt: now,
+      );
+      final r2 = TimeRecord(
+        id: '1',
+        startTime: now,
+        endTime: now.add(const Duration(hours: 1)),
+        createdAt: now.add(const Duration(days: 1)),
+      );
+      expect(r1, isNot(equals(r2)));
     });
 
     test('copyWith creates new instance with updated fields', () {

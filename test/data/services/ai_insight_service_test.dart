@@ -90,4 +90,20 @@ void main() {
       );
     },
   );
+
+  test('allows plain http for loopback endpoints', () async {
+    final service = AiInsightService(
+      request: (uri, _, __) async {
+        expect(uri.toString(), 'http://localhost:11434/v1/chat/completions');
+        return const AiHttpResponse(200, '{}');
+      },
+    );
+    const local = AiConfiguration(
+      baseUrl: 'http://localhost:11434/v1',
+      apiKey: 'secret',
+      model: 'test-model',
+    );
+
+    await service.testConnection(local);
+  });
 }

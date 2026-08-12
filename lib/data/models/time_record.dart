@@ -43,5 +43,5 @@ class TimeRecord extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, categoryId, startTime, endTime, note];
+  List<Object?> get props => [id, categoryId, startTime, endTime, note, createdAt];
 }
