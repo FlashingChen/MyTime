@@ -16,7 +16,9 @@ class RecordsBloc extends Bloc<RecordsEvent, RecordsState> {
     on<RecordDeleted>(_onDeleted);
     on<RecordUpdated>(_onUpdated);
     on<LoadRecordsByDate>(_onLoadedByDate);
-    _changesSubscription = _repository.changes.listen((_) => add(LoadRecords()));
+    _changesSubscription = _repository.changes.listen(
+      (_) => add(LoadRecords()),
+    );
   }
 
   Future<void> _onUpdated(
