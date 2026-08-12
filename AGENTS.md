@@ -62,4 +62,5 @@ tag 需为 semver: `v1.2.3`、`v1.2.3+4`、`v1.2.3-rc.1`。非 semver 的 tag �
 
 - 构建产物路径有变时,同步更新 `scripts/build-release-apk.sh` 与 `scripts/package-release-apk.sh` 中的候选路径(`build/app/outputs/apk/release/` 与 `build/app/outputs/flutter-apk/` 两个历史位置)。
 - 签名解析逻辑(gradle kts / verify 脚本)改动后,需同时验证本地 Keychain 模式与 CI env 模式。
+- GitHub Actions 中 `secrets` 上下文**不能用于 `if:` 条件**,需先映射到 job 级 `env` 再判断(见 release.yml 的 `HAS_KEYSTORE` 写法)。
 - 验证发布构建:`ANDROID_KEYSTORE_*` 四变量 + 临时 jks,跑 `./scripts/package-release-apk.sh v1.2.3 2`;或直接本地跑(Keychain 已配好)。
