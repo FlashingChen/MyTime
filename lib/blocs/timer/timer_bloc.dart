@@ -16,6 +16,11 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
   Future<void> _storageQueue = Future<void>.value();
   int _sessionVersion = 0;
 
+  /// A backwards clock move within this bound is treated as jitter: the
+  /// elapsed duration is clamped to zero and the session continues. A larger
+  /// rollback makes the elapsed time meaningless, so the session is aborted.
+  static const _clockRollbackTolerance = Duration(minutes: 5);
+
   TimerBloc(this._activeTimerStore, {ReminderScheduler? reminderScheduler})
     : _reminderScheduler = reminderScheduler ?? const NoopReminderScheduler(),
       super(const TimerInitial()) {
@@ -57,17 +62,27 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
     }
     if (savedSession.isPendingConfirmation) {
       final stoppedAt = savedSession.stoppedAt!;
-      emit(
-        TimerRunComplete(
-          savedSession.startTime,
-          stoppedAt.difference(savedSession.startTime),
-          stoppedAt,
-        ),
-      );
+      final elapsed = stoppedAt.difference(savedSession.startTime);
+      if (elapsed.isNegative) {
+        // No valid record can represent this session (endTime must be after
+        // startTime), so discard it instead of dead-ending the confirm sheet.
+        _abortForClockRollback(emit);
+        return;
+      }
+      emit(TimerRunComplete(savedSession.startTime, elapsed, stoppedAt));
       return;
     }
     final elapsed = DateTime.now().difference(savedSession.startTime);
-    emit(TimerRunInProgress(savedSession.startTime, elapsed));
+    if (elapsed.isNegative && elapsed < -_clockRollbackTolerance) {
+      _abortForClockRollback(emit);
+      return;
+    }
+    emit(
+      TimerRunInProgress(
+        savedSession.startTime,
+        elapsed.isNegative ? Duration.zero : elapsed,
+      ),
+    );
     _startTicker(savedSession.startTime);
     _reminderScheduler.sync(savedSession.startTime, DateTime.now());
   }
@@ -80,6 +95,13 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
       final progress = state as TimerRunInProgress;
       final stoppedAt = DateTime.now();
       final elapsed = stoppedAt.difference(progress.startTime);
+      if (elapsed.isNegative) {
+        // The clock moved backwards past the session start: the timestamps
+        // can never form a valid record, so abort instead of clamping into a
+        // confirm sheet whose save would always be rejected.
+        _abortForClockRollback(emit);
+        return;
+      }
       emit(TimerRunComplete(progress.startTime, elapsed, stoppedAt));
       _enqueueStorage(
         () => _activeTimerStore.saveSession(
@@ -107,15 +129,34 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
   void _onTicked(TimerTicked event, Emitter<TimerState> emit) {
     final current = state;
     if (current is TimerRunInProgress) {
+      final elapsed = event.duration;
+      if (elapsed.isNegative && elapsed < -_clockRollbackTolerance) {
+        _abortForClockRollback(emit);
+        return;
+      }
       _reminderScheduler.onTick(DateTime.now());
       emit(
         TimerRunInProgress(
           current.startTime,
-          event.duration,
+          elapsed.isNegative ? Duration.zero : elapsed,
           error: current.persistenceError,
         ),
       );
     }
+  }
+
+  /// Discards a running session after the system clock moved backwards beyond
+  /// [_clockRollbackTolerance]: the elapsed time is no longer trustworthy, so
+  /// the timer is reset and the user is told why.
+  void _abortForClockRollback(Emitter<TimerState> emit) {
+    _sessionVersion++;
+    _cancelTicker();
+    _reminderScheduler.cancel();
+    emit(const TimerInitial(error: '检测到系统时间异常，本次计时已重置。'));
+    _enqueueStorage(
+      _activeTimerStore.clear,
+      failureMessage: '计时会话未能清除；下次启动可能需要再次确认。',
+    );
   }
 
   void _onPersistenceFailed(
@@ -125,7 +166,15 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
     final current = state;
     switch (current) {
       case TimerInitial():
-        emit(TimerInitial(error: event.message));
+        // Keep an existing explanation (e.g. clock-rollback abort) visible;
+        // the storage failure is appended rather than replacing it.
+        emit(
+          TimerInitial(
+            error: current.error == null
+                ? event.message
+                : '${current.error}\n${event.message}',
+          ),
+        );
       case TimerRunInProgress():
         emit(
           TimerRunInProgress(

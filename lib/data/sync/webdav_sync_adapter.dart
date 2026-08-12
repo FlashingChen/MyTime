@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:mytime/core/utils/http_body_reader.dart';
 import 'package:mytime/data/models/category.dart';
 import 'package:mytime/data/models/time_record.dart';
 import 'package:mytime/data/sync/sync_port.dart';
@@ -8,6 +9,9 @@ import 'package:mytime/data/sync/sync_metadata.dart';
 
 /// Content-Type for JSON payloads.
 const _jsonContentType = 'application/json';
+
+/// Budget for reading a response body after its headers have arrived.
+const _bodyReadTimeout = Duration(minutes: 2);
 
 /// Normalized response returned by an injectable WebDAV transport.
 class WebDavResponse {
@@ -158,7 +162,7 @@ class WebDavSyncAdapter implements SyncPort {
       );
       return WebDavResponse(
         response.statusCode,
-        await utf8.decoder.bind(response).join(),
+        await readHttpBody(response, _bodyReadTimeout),
         _responseHeaders(response.headers),
       );
     } finally {
