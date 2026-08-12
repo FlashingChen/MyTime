@@ -1,0 +1,51 @@
+# CNB (cnb.cool) 持续集成:推送 v* tag 时构建签名 release APK 并创建 CNB Release。
+# 签名材料通过 CNB 项目「变量」注入(加密变量):
+#   ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_PASSWORD / ANDROID_KEY_ALIAS
+# 详见 agent.md「CI/CD 发布流程」。
+
+"v*":
+  tag_push:
+    - name: build-apk
+      image: cirruslabs/flutter:stable
+      stages:
+        - name: install
+          script: |
+            flutter pub get
+
+        - name: build-and-package
+          script: |
+            set -euo pipefail
+            if [[ -n "${ANDROID_KEYSTORE_BASE64:-}" ]]; then
+              echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > /tmp/upload-keystore.jks
+              chmod 600 /tmp/upload-keystore.jks
+              export ANDROID_KEYSTORE_FILE=/tmp/upload-keystore.jks
+              export ANDROID_KEYSTORE_PASSWORD="${ANDROID_KEYSTORE_PASSWORD:-}"
+              export ANDROID_KEY_PASSWORD="${ANDROID_KEY_PASSWORD:-}"
+              export ANDROID_KEY_ALIAS="${ANDROID_KEY_ALIAS:-}"
+            fi
+            ./scripts/package-release-apk.sh "${CNB_BRANCH}" "${CNB_BUILD_ID:-}"
+
+        - name: changelog
+          script: |
+            set -euo pipefail
+            cat > RELEASE.md <<EOF
+            ## ${CNB_BRANCH}
+
+            Commit: ${CNB_COMMIT}
+            Build: ${CNB_BUILD_ID}
+
+            请在此补充本版本变更说明。
+            EOF
+
+        - name: upload-artifacts
+          image: cnbcool/attachments:latest
+          settings:
+            attachments:
+              - release/*
+
+        - name: create-release
+          type: git:release
+          options:
+            title: "${CNB_BRANCH}"
+            descriptionFromFile: RELEASE.md
+            latest: true

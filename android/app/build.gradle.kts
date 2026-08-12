@@ -25,6 +25,13 @@ if (keystorePropertiesFile.exists()) {
     keystorePropertiesFile.inputStream().use(keystoreProperties::load)
 }
 
+// CI (GitHub Actions / CNB) 通过环境变量注入签名材料;本地 macOS 回退 key.properties + Keychain。
+val env = System.getenv()
+val keystoreFileFromEnv = env["ANDROID_KEYSTORE_FILE"]?.takeIf { it.isNotBlank() }
+val keystorePasswordFromEnv = env["ANDROID_KEYSTORE_PASSWORD"]?.takeIf { it.isNotBlank() }
+val keyPasswordFromEnv = env["ANDROID_KEY_PASSWORD"]?.takeIf { it.isNotBlank() }
+val keyAliasFromEnv = env["ANDROID_KEY_ALIAS"]?.takeIf { it.isNotBlank() }
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -61,15 +68,15 @@ android {
     }
 
     signingConfigs {
-        if (keystorePropertiesFile.exists()) {
+        if (keystorePropertiesFile.exists() || keystoreFileFromEnv != null) {
             create("release") {
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keychainPassword(
-                    "com.mytime.mytime.android.release.key-password",
-                )
-                storeFile = file(keystoreProperties.getProperty("storeFile"))
-                storePassword = keychainPassword(
+                keyAlias = keyAliasFromEnv ?: keystoreProperties.getProperty("keyAlias")
+                storeFile = file(keystoreFileFromEnv ?: keystoreProperties.getProperty("storeFile"))
+                storePassword = keystorePasswordFromEnv ?: keychainPassword(
                     "com.mytime.mytime.android.release.store-password",
+                )
+                keyPassword = keyPasswordFromEnv ?: keychainPassword(
+                    "com.mytime.mytime.android.release.key-password",
                 )
             }
         }
