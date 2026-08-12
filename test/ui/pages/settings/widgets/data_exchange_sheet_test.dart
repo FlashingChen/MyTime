@@ -9,7 +9,7 @@ void main() {
     );
 
     expect(find.text('数据导入导出'), findsOneWidget);
-    expect(find.text('导出 JSON 到剪贴板'), findsOneWidget);
+    expect(find.text('导出 JSON 文件'), findsOneWidget);
     expect(find.text('从剪贴板导入 JSON'), findsOneWidget);
   });
 }

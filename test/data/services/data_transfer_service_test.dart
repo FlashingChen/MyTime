@@ -40,6 +40,31 @@ void main() {
     expect(recordStore.values.single.id, 'r1');
   });
 
+  test(
+    'round-trips createdAt and falls back to startTime for old backups',
+    () async {
+      await service.importJson('''
+      {"version":1,"categories":[{"id":"work","name":"工作","color":"#123456"}],"records":[
+        {"id":"r1","categoryId":"work","startTime":"2026-07-10T09:00:00.000","endTime":"2026-07-10T10:00:00.000","note":null,"createdAt":"2026-07-10T09:30:00.000"},
+        {"id":"r2","categoryId":"work","startTime":"2026-07-10T11:00:00.000","endTime":"2026-07-10T12:00:00.000","note":null}
+      ]}
+    ''');
+
+      final records = recordStore.values.toList();
+      expect(records[0].createdAt, DateTime.parse('2026-07-10T09:30:00.000'));
+      expect(records[1].createdAt, DateTime.parse('2026-07-10T11:00:00.000'));
+    },
+  );
+
+  test('rejects an unparseable createdAt', () async {
+    await expectLater(
+      service.importJson(
+        '{"version":1,"categories":[{"id":"work","name":"工作","color":"#123456"}],"records":[{"id":"r1","categoryId":"work","startTime":"2026-07-10T09:00:00.000","endTime":"2026-07-10T10:00:00.000","createdAt":"not-a-date"}]}',
+      ),
+      throwsFormatException,
+    );
+  });
+
   test('leaves existing data untouched when backup validation fails', () async {
     await categoryStore.put(
       'old',

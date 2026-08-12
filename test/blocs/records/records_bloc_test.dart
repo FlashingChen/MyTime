@@ -36,8 +36,10 @@ void main() {
     );
 
     blocTest<RecordsBloc, RecordsState>(
-      'emits RecordsLoaded with 1 record on RecordAdded',
-      build: () => RecordsBloc(repo),
+      'emits RecordsLoaded with 1 record on RecordAdded without a loading flash',
+      // main.dart always kicks off with LoadRecords; mutations then refresh
+      // silently and the repository-driven reload dedupes to a single state.
+      build: () => RecordsBloc(repo)..add(LoadRecords()),
       wait: const Duration(milliseconds: 100),
       act: (bloc) {
         bloc.add(
@@ -51,11 +53,42 @@ void main() {
           ),
         );
       },
-      expect: () => [isA<RecordsLoaded>()],
+      expect: () => [
+        const RecordsLoading(),
+        const RecordsLoaded([]),
+        isA<RecordsLoaded>(),
+      ],
       verify: (bloc) {
         final state = bloc.state as RecordsLoaded;
         expect(state.records.length, 1);
         expect(state.records.first.categoryId, 'work');
+      },
+    );
+    blocTest<RecordsBloc, RecordsState>(
+      'reloads when the repository changes outside the bloc',
+      build: () => RecordsBloc(repo)..add(LoadRecords()),
+      act: (bloc) async {
+        // Let the initial LoadRecords settle before writing outside the bloc.
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await repo.add(
+          TimeRecord(
+            id: 'external',
+            categoryId: 'work',
+            startTime: DateTime(2026, 7, 9, 8, 0),
+            endTime: DateTime(2026, 7, 9, 9, 0),
+          ),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      },
+      expect: () => [
+        const RecordsLoading(),
+        const RecordsLoaded([]),
+        isA<RecordsLoaded>(),
+      ],
+      verify: (bloc) {
+        final state = bloc.state as RecordsLoaded;
+        expect(state.records.length, 1);
+        expect(state.records.first.id, 'external');
       },
     );
   });

@@ -57,15 +57,24 @@ class WebDavSyncCoordinator {
   final SyncLocalStore _local;
   final WebDavPortFactory _portFactory;
   Future<SyncResult>? _inFlight;
+  String? _inFlightFingerprint;
 
   /// Synchronizes the current local snapshot with [configuration]'s document.
+  ///
+  /// A call made while a sync is active for the *same* [WebDavConfiguration]
+  /// shares that in-flight attempt. If the configuration changed (endpoint,
+  /// username or password), the old attempt no longer satisfies the new call:
+  /// a fresh attempt is started against the new target instead.
   Future<SyncResult> synchronize(
     WebDavConfiguration configuration, {
     bool applyMergedLocal = true,
     SyncConflictPolicy conflictPolicy = SyncConflictPolicy.preferLocal,
   }) {
+    final fingerprint = _fingerprint(configuration);
     final inFlight = _inFlight;
-    if (inFlight != null) return inFlight;
+    if (inFlight != null && _inFlightFingerprint == fingerprint) {
+      return inFlight;
+    }
 
     final attempt = SyncService(
       local: _local,
@@ -74,12 +83,16 @@ class WebDavSyncCoordinator {
       conflictPolicy: conflictPolicy,
     ).synchronize();
     _inFlight = attempt;
+    _inFlightFingerprint = fingerprint;
     attempt.then<void>(
       (_) => _clearInFlight(attempt),
       onError: (Object _, StackTrace __) => _clearInFlight(attempt),
     );
     return attempt;
   }
+
+  static String _fingerprint(WebDavConfiguration configuration) =>
+      '${configuration.endpoint}\n${configuration.username}\n${configuration.password}';
 
   static SyncPort _defaultPort(WebDavConfiguration configuration) {
     return WebDavSyncAdapter(
@@ -90,6 +103,9 @@ class WebDavSyncCoordinator {
   }
 
   void _clearInFlight(Future<SyncResult> completed) {
-    if (identical(_inFlight, completed)) _inFlight = null;
+    if (identical(_inFlight, completed)) {
+      _inFlight = null;
+      _inFlightFingerprint = null;
+    }
   }
 }
