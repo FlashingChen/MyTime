@@ -15,7 +15,9 @@ class TimerCircle extends StatelessWidget {
   });
 
   String _formatTime(Duration d) {
-    final totalSec = d.inSeconds;
+    // The BLoC clamps durations, but never render a negative reading if a
+    // defective value reaches the widget (e.g. system clock rollback).
+    final totalSec = d.isNegative ? 0 : d.inSeconds;
     final h = totalSec ~/ 3600;
     final m = (totalSec % 3600) ~/ 60;
     final s = totalSec % 60;

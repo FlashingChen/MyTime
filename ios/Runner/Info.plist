@@ -30,6 +30,11 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- 备份策略：MyTime 为纯本地应用。Android 已在 AndroidManifest.xml 禁用
+	     Google 云备份（allowBackup=false + dataExtractionRules，API 31+ 同时
+	     排除设备间传输，部分厂商设备仍可能迁移）；iOS 数据（Hive 数据库与
+	     偏好设置）明确随 iCloud 备份。凭据位于钥匙串：不随 iCloud 备份，
+	     但从加密的电脑备份恢复或设备迁移时可能随迁，建议恢复后核对。 -->
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

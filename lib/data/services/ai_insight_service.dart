@@ -2,7 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:mytime/core/utils/http_body_reader.dart';
 import 'package:mytime/ui/pages/stats/stats_metrics.dart';
+
+/// Budget for reading a response body after its headers have arrived.
+const _bodyReadTimeout = Duration(seconds: 30);
 
 /// Saved connection values for an OpenAI-compatible chat completion service.
 class AiConfiguration {
@@ -229,7 +233,7 @@ class AiInsightService {
       final response = await request.close().timeout(
         const Duration(seconds: 30),
       );
-      final responseBody = await utf8.decoder.bind(response).join();
+      final responseBody = await readHttpBody(response, _bodyReadTimeout);
       return AiHttpResponse(response.statusCode, responseBody);
     } finally {
       client.close(force: true);

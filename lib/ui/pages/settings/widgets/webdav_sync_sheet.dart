@@ -167,6 +167,9 @@ class _WebDavSyncSheetState extends State<WebDavSyncSheet> {
 
   String _messageFor(Object error) {
     debugPrint('[WebDAV] Sync error: $error');
+    if (error is TimeoutException) {
+      return '同步失败：WebDAV 服务响应超时，请检查网络后重试。';
+    }
     if (error is ArgumentError || error is FormatException) {
       return '同步失败：$error';
     }

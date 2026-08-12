@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MyTime 是纯本地应用：排除全部应用数据参与云备份与设备间传输。
+     android:allowBackup="false" 覆盖 API 23-30 的云备份；此规则在
+     API 31+ 上同时排除设备间传输（部分厂商设备上 allowBackup 无法
+     禁用 D2D，需在此显式 exclude）。 -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+    </device-transfer>
+</data-extraction-rules>

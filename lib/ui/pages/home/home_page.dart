@@ -50,7 +50,11 @@ class _HomePageState extends State<HomePage> {
           listenWhen: (previous, current) {
             final wasRunning = previous is TimerRunInProgress;
             final isRunning = current is TimerRunInProgress;
-            return isRunning != wasRunning;
+            if (isRunning != wasRunning) return true;
+            // A clock-rollback abort during restore stays TimerInitial ->
+            // TimerInitial; still end any stale Live Activity from a
+            // previous app run.
+            return current is TimerInitial && current.error != null;
           },
           listener: (context, state) {
             if (state is TimerRunInProgress) {

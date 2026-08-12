@@ -233,6 +233,201 @@ void main() {
       expect: () => [],
     );
 
+    test('clamps small clock rollbacks to zero while running', () async {
+      final bloc = TimerBloc(_ControlledActiveTimerRepository());
+      addTearDown(bloc.close);
+
+      bloc.add(TimerStarted());
+      await _settleEvents();
+      bloc.add(const TimerTicked(Duration(seconds: -1)));
+      await _settleEvents();
+
+      expect(
+        bloc.state,
+        isA<TimerRunInProgress>().having(
+          (state) => state.duration,
+          'duration',
+          Duration.zero,
+        ),
+      );
+
+      // The session keeps running after a bounded rollback.
+      bloc.add(const TimerTicked(Duration(seconds: 2)));
+      await _settleEvents();
+      expect(
+        bloc.state,
+        isA<TimerRunInProgress>().having(
+          (state) => state.duration,
+          'duration',
+          const Duration(seconds: 2),
+        ),
+      );
+    });
+
+    test(
+      'aborts the session when the clock rolls back beyond tolerance',
+      () async {
+        final scheduler = _SpyReminderScheduler();
+        final bloc = TimerBloc(
+          _ControlledActiveTimerRepository(),
+          reminderScheduler: scheduler,
+        );
+        addTearDown(bloc.close);
+
+        bloc.add(TimerStarted());
+        await _settleEvents();
+        bloc.add(const TimerTicked(Duration(minutes: -6)));
+        await _settleEvents();
+
+        expect(
+          bloc.state,
+          isA<TimerInitial>().having(
+            (state) => state.error,
+            'error',
+            '检测到系统时间异常，本次计时已重置。',
+          ),
+        );
+        expect(scheduler.cancelCount, 1);
+
+        // A late tick must not revive the aborted session.
+        bloc.add(const TimerTicked(Duration(seconds: 1)));
+        await _settleEvents();
+        expect(bloc.state, isA<TimerInitial>());
+      },
+    );
+
+    test(
+      'RestoreTimer aborts when the persisted start is far in the future',
+      () async {
+        final store = _ControlledActiveTimerRepository();
+        final bloc = TimerBloc(store);
+        addTearDown(bloc.close);
+
+        bloc.add(RestoreTimer());
+        await _settleEvents();
+        store.completePendingRead(
+          DateTime.now().add(const Duration(minutes: 10)),
+        );
+        await _settleEvents();
+
+        expect(
+          bloc.state,
+          isA<TimerInitial>().having(
+            (state) => state.error,
+            'error',
+            isNotNull,
+          ),
+        );
+      },
+    );
+
+    test('RestoreTimer clamps a small clock rollback to zero', () async {
+      final store = _ControlledActiveTimerRepository();
+      final bloc = TimerBloc(store);
+      addTearDown(bloc.close);
+
+      bloc.add(RestoreTimer());
+      await _settleEvents();
+      store.completePendingRead(DateTime.now().add(const Duration(seconds: 1)));
+      await _settleEvents();
+
+      expect(
+        bloc.state,
+        isA<TimerRunInProgress>().having(
+          (state) => state.duration,
+          'duration',
+          Duration.zero,
+        ),
+      );
+    });
+
+    blocTest<TimerBloc, TimerState>(
+      'aborts a rolled-back clock when stopped',
+      build: () => TimerBloc(activeTimerRepo),
+      seed: () => TimerRunInProgress(
+        DateTime.now().add(const Duration(seconds: 5)),
+        Duration.zero,
+      ),
+      setUp: () async {
+        await activeTimerRepo.saveSession(
+          PersistedTimerSession(
+            startTime: DateTime.now().add(const Duration(seconds: 5)),
+          ),
+        );
+      },
+      act: (bloc) => bloc.add(TimerStopped()),
+      expect: () => [
+        isA<TimerInitial>().having(
+          (state) => state.error,
+          'error',
+          '检测到系统时间异常，本次计时已重置。',
+        ),
+      ],
+      verify: (bloc) async {
+        // The unsaveable session must not survive into the next launch.
+        expect(await activeTimerRepo.getSession(), isNull);
+      },
+    );
+
+    blocTest<TimerBloc, TimerState>(
+      'RestoreTimer aborts a negative pending-confirmation session',
+      build: () => TimerBloc(activeTimerRepo),
+      setUp: () async {
+        await activeTimerRepo.saveSession(
+          PersistedTimerSession(
+            startTime: DateTime(2026, 7, 11, 10),
+            stoppedAt: DateTime(2026, 7, 11, 9, 55),
+          ),
+        );
+      },
+      act: (bloc) => bloc.add(RestoreTimer()),
+      wait: const Duration(milliseconds: 50),
+      expect: () => [
+        isA<TimerInitial>().having(
+          (state) => state.error,
+          'error',
+          '检测到系统时间异常，本次计时已重置。',
+        ),
+      ],
+    );
+
+    blocTest<TimerBloc, TimerState>(
+      'keeps the existing initial error when persistence fails again',
+      build: () => TimerBloc(activeTimerRepo),
+      seed: () => const TimerInitial(error: '检测到系统时间异常，本次计时已重置。'),
+      act: (bloc) =>
+          bloc.add(const TimerPersistenceFailed('计时会话未能清除；下次启动可能需要再次确认。')),
+      expect: () => [
+        const TimerInitial(
+          error:
+              '检测到系统时间异常，本次计时已重置。\n'
+              '计时会话未能清除；下次启动可能需要再次确认。',
+        ),
+      ],
+    );
+
+    blocTest<TimerBloc, TimerState>(
+      'RestoreTimer aborts a zero-duration pending-confirmation session',
+      build: () => TimerBloc(activeTimerRepo),
+      setUp: () async {
+        await activeTimerRepo.saveSession(
+          PersistedTimerSession(
+            startTime: DateTime(2026, 7, 11, 10),
+            stoppedAt: DateTime(2026, 7, 11, 10),
+          ),
+        );
+      },
+      act: (bloc) => bloc.add(RestoreTimer()),
+      wait: const Duration(milliseconds: 50),
+      expect: () => [
+        isA<TimerInitial>().having(
+          (state) => state.error,
+          'error',
+          '检测到系统时间异常，本次计时已重置。',
+        ),
+      ],
+    );
+
     group('reminder scheduling', () {
       test(
         'TimerStarted syncs the reminder scheduler with the new start',
