@@ -406,6 +406,28 @@ void main() {
       ],
     );
 
+    blocTest<TimerBloc, TimerState>(
+      'RestoreTimer aborts a zero-duration pending-confirmation session',
+      build: () => TimerBloc(activeTimerRepo),
+      setUp: () async {
+        await activeTimerRepo.saveSession(
+          PersistedTimerSession(
+            startTime: DateTime(2026, 7, 11, 10),
+            stoppedAt: DateTime(2026, 7, 11, 10),
+          ),
+        );
+      },
+      act: (bloc) => bloc.add(RestoreTimer()),
+      wait: const Duration(milliseconds: 50),
+      expect: () => [
+        isA<TimerInitial>().having(
+          (state) => state.error,
+          'error',
+          '检测到系统时间异常，本次计时已重置。',
+        ),
+      ],
+    );
+
     group('reminder scheduling', () {
       test(
         'TimerStarted syncs the reminder scheduler with the new start',

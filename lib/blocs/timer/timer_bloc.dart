@@ -63,7 +63,7 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
     if (savedSession.isPendingConfirmation) {
       final stoppedAt = savedSession.stoppedAt!;
       final elapsed = stoppedAt.difference(savedSession.startTime);
-      if (elapsed.isNegative) {
+      if (elapsed <= Duration.zero) {
         // No valid record can represent this session (endTime must be after
         // startTime), so discard it instead of dead-ending the confirm sheet.
         _abortForClockRollback(emit);
@@ -95,10 +95,10 @@ class TimerBloc extends Bloc<TimerEvent, TimerState> {
       final progress = state as TimerRunInProgress;
       final stoppedAt = DateTime.now();
       final elapsed = stoppedAt.difference(progress.startTime);
-      if (elapsed.isNegative) {
-        // The clock moved backwards past the session start: the timestamps
-        // can never form a valid record, so abort instead of clamping into a
-        // confirm sheet whose save would always be rejected.
+      if (elapsed <= Duration.zero) {
+        // The clock moved backwards to (or past) the session start: the
+        // timestamps can never form a valid record, so abort instead of
+        // clamping into a confirm sheet whose save would always be rejected.
         _abortForClockRollback(emit);
         return;
       }
