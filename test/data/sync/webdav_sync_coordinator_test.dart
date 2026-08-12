@@ -51,26 +51,36 @@ void main() {
     const same = WebDavConfiguration(
       endpoint: 'https://dav.example.com/mytime.json',
       username: 'alice',
-      password: 'other-password',
+      password: 'secret',
     );
-    const changed = WebDavConfiguration(
+    const passwordChanged = WebDavConfiguration(
+      endpoint: 'https://dav.example.com/mytime.json',
+      username: 'alice',
+      password: 'new-password',
+    );
+    const endpointChanged = WebDavConfiguration(
       endpoint: 'https://other.example.com/mytime.json',
       username: 'alice',
       password: 'secret',
     );
 
     final attempt = coordinator.synchronize(first);
-    // Same endpoint + username: share the in-flight attempt even with a
-    // different password.
+    // Identical configuration: share the in-flight attempt.
     expect(identical(coordinator.synchronize(same), attempt), isTrue);
-    // Changed endpoint: the stale in-flight attempt must not be returned.
-    final fresh = coordinator.synchronize(changed);
+    // Changed endpoint or password: the stale in-flight attempt must not be
+    // returned.
+    expect(
+      identical(coordinator.synchronize(endpointChanged), attempt),
+      isFalse,
+    );
+    final fresh = coordinator.synchronize(passwordChanged);
     expect(identical(fresh, attempt), isFalse);
 
     await Future.wait([attempt, fresh]);
     expect(endpoints, [
       'https://dav.example.com/mytime.json',
       'https://other.example.com/mytime.json',
+      'https://dav.example.com/mytime.json',
     ]);
   });
 }

@@ -62,8 +62,8 @@ class WebDavSyncCoordinator {
   /// Synchronizes the current local snapshot with [configuration]'s document.
   ///
   /// A call made while a sync is active for the *same* [WebDavConfiguration]
-  /// shares that in-flight attempt. If the configuration changed (different
-  /// endpoint or username), the old attempt no longer satisfies the new call:
+  /// shares that in-flight attempt. If the configuration changed (endpoint,
+  /// username or password), the old attempt no longer satisfies the new call:
   /// a fresh attempt is started against the new target instead.
   Future<SyncResult> synchronize(
     WebDavConfiguration configuration, {
@@ -92,7 +92,7 @@ class WebDavSyncCoordinator {
   }
 
   static String _fingerprint(WebDavConfiguration configuration) =>
-      '${configuration.endpoint}\n${configuration.username}';
+      '${configuration.endpoint}\n${configuration.username}\n${configuration.password}';
 
   static SyncPort _defaultPort(WebDavConfiguration configuration) {
     return WebDavSyncAdapter(
