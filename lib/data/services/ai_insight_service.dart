@@ -142,12 +142,31 @@ class AiInsightService {
     }
   }
 
-  static Uri? _endpoint(String baseUrl) {
+  /// Returns null when [baseUrl] is accepted, otherwise a user-displayable
+  /// reason. `https` is required; `http` is only allowed for loopback hosts
+  /// (e.g. a local Ollama instance) so credentials never travel in plaintext.
+  static String? baseUrlError(String baseUrl) {
     final normalized = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final uri = Uri.tryParse(normalized);
-    if (uri == null || !uri.hasAuthority || uri.scheme != 'https') {
-      return null;
+    if (uri == null || !uri.hasAuthority || uri.host.isEmpty) {
+      return '请输入有效的服务地址';
     }
+    if (uri.scheme == 'https') return null;
+    if (uri.scheme == 'http' && _isLoopbackHost(uri.host)) return null;
+    if (uri.scheme == 'http') {
+      return '出于隐私考虑，仅支持 https 地址或本机服务（http://localhost）';
+    }
+    return '服务地址需以 https:// 或 http:// 开头';
+  }
+
+  static bool _isLoopbackHost(String host) {
+    final lower = host.toLowerCase();
+    return lower == 'localhost' || lower == '127.0.0.1' || lower == '::1';
+  }
+
+  static Uri? _endpoint(String baseUrl) {
+    if (baseUrlError(baseUrl) != null) return null;
+    final normalized = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     return Uri.parse('$normalized/chat/completions');
   }
 

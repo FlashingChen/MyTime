@@ -28,22 +28,33 @@ class TimelineLayout {
     required double minCardHeight,
   }) {
     final intervals =
-        records
-            .map(
-              (record) => _VisualInterval(
-                record: record,
-                top: _minutesSinceMidnight(record.startTime) / 60 * hourHeight,
-                actualEnd:
-                    _minutesSinceMidnight(record.endTime) / 60 * hourHeight,
-                minCardHeight: minCardHeight,
-              ),
-            )
-            .toList()
-          ..sort((a, b) {
-            final startComparison = a.top.compareTo(b.top);
-            if (startComparison != 0) return startComparison;
-            return a.visualEnd.compareTo(b.visualEnd);
-          });
+        records.map((record) {
+          final dayStart = DateTime(
+            record.startTime.year,
+            record.startTime.month,
+            record.startTime.day,
+          );
+          final dayEnd = dayStart.add(const Duration(days: 1));
+          // Absolute seconds from midnight so second-precision starts keep
+          // their exact position. Records clipped to the selected day carry
+          // an endTime of the next-day 00:00 (or later) and visually span
+          // to the end of the day instead of collapsing to 0.
+          final startMinutes =
+              record.startTime.difference(dayStart).inSeconds / 60;
+          final endMinutes = record.endTime.isBefore(dayEnd)
+              ? record.endTime.difference(dayStart).inSeconds / 60
+              : _minutesPerDay;
+          return _VisualInterval(
+            record: record,
+            top: startMinutes / 60 * hourHeight,
+            actualEnd: endMinutes / 60 * hourHeight,
+            minCardHeight: minCardHeight,
+          );
+        }).toList()..sort((a, b) {
+          final startComparison = a.top.compareTo(b.top);
+          if (startComparison != 0) return startComparison;
+          return a.visualEnd.compareTo(b.visualEnd);
+        });
 
     final layouts = <TimelineCardLayout>[];
     var groupStart = 0;
@@ -92,8 +103,7 @@ class TimelineLayout {
     );
   }
 
-  static int _minutesSinceMidnight(DateTime value) =>
-      value.hour * 60 + value.minute;
+  static const double _minutesPerDay = 24 * 60;
 }
 
 class _VisualInterval {

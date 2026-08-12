@@ -11,7 +11,7 @@
 - 全天日时间线、日期导航、双指缩放、双击恢复默认缩放；跨午夜记录会在相邻两天分别裁剪显示。
 - 本日/本周/本月的占比、趋势和 AI 建议；无 AI 配置或请求失败时保留本地建议。
 - 记录管理、分类新增/编辑/删除、主题色与深浅色模式。
-- JSON 剪贴板导入/导出；导入会先验证版本、字段、ID、分类引用和时间范围，失败时恢复导入前的数据。
+- JSON 导出为文件（经系统分享面板保存），导入从剪贴板读取；导入会先验证版本、字段、ID、分类引用和时间范围，失败时恢复导入前的数据。
 - WebDAV 同步：HTTPS 服务器地址、用户名和密码可在设置中保存；服务器地址自动追加 `/sync.json`（以 `.json` 结尾时视为完整文档地址），密码使用系统安全存储。记录或分类变更会在网络可用时提交唯一后台同步任务，同一记录冲突时保留本机版本。
 
 ## 隐私与安全
@@ -36,7 +36,7 @@ RecordDataStore / CategoryDataStore / PreferencesStore
 Hive DTO + Hive Adapter / SharedPreferences
 ```
 
-WebDAV 通过 `SyncPort`、`WebDavSyncCoordinator`、Repository 变更追踪和 Android WorkManager 接入。每次本地变更在 Hive、版本/元数据和不可变快照全部发布后，持久化一个待同步 UTC revision；成功同步只能清除自己开始时捕获的相同 revision，故同步期间的新编辑不会被旧请求确认。失败与前后台交接均保留该责任并请求网络约束后台任务。远端以记录、分类和 90 天删除墓碑逐 ID 合并，同 ID 内容冲突时本机优先。前台会在打开 Hive 前激活 90 秒所有权心跳；WorkManager 在心跳有效时返回 retry，其他时间只以只读 SharedPreferences 快照合并上传，绝不初始化或访问 Hive，也绝不写入快照、ETag 或元数据。隔离的 Hive 访问和不可变后台快照消除了原生进程锁的需要。下一次前台同步会拉取并合并后台上传的文档。同步使用 ETag 条件写入，并在服务支持时使用短时 WebDAV 锁。详细说明见 [架构说明](docs/architecture.md)。
+- WebDAV 通过 `SyncPort`、`WebDavSyncCoordinator`、Repository 变更追踪接入；后台同步在 Android 走 WorkManager，在 iOS 13+ 走 BGProcessingTask（Info.plist 声明 `BGTaskSchedulerPermittedIdentifiers` 并在 AppDelegate 注册处理）。每次本地变更在 Hive、版本/元数据和不可变快照全部发布后，持久化一个待同步 UTC revision；成功同步只能清除自己开始时捕获的相同 revision，故同步期间的新编辑不会被旧请求确认。失败与前后台交接均保留该责任并请求网络约束后台任务。远端以记录、分类和 90 天删除墓碑逐 ID 合并，同 ID 内容冲突时本机优先。前台会在打开 Hive 前激活 90 秒所有权心跳；WorkManager 在心跳有效时返回 retry，其他时间只以只读 SharedPreferences 快照合并上传，绝不初始化或访问 Hive，也绝不写入快照、ETag 或元数据。隔离的 Hive 访问和不可变后台快照消除了原生进程锁的需要。下一次前台同步会拉取并合并后台上传的文档。同步使用 ETag 条件写入，并在服务支持时使用短时 WebDAV 锁。详细说明见 [架构说明](docs/architecture.md)。
 
 ## 开始开发
 

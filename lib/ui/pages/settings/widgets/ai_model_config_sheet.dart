@@ -57,15 +57,22 @@ class _AiModelConfigSheetState extends State<AiModelConfigSheet> {
   }
 
   bool get _valid {
-    final uri = Uri.tryParse(_baseUrl.text.trim());
-    return uri != null &&
-        uri.hasAuthority &&
-        (uri.scheme == 'http' || uri.scheme == 'https') &&
+    final baseUrl = _baseUrl.text.trim();
+    return baseUrl.isNotEmpty &&
+        AiInsightService.baseUrlError(baseUrl) == null &&
         _apiKey.text.trim().isNotEmpty &&
         _model.text.trim().isNotEmpty;
   }
 
   void _onChanged() => setState(() => _result = null);
+
+  /// Non-null while the base URL field holds an unsupported value; hidden for
+  /// an empty field so users are not scolded before typing anything.
+  String? get _baseUrlError {
+    final baseUrl = _baseUrl.text.trim();
+    if (baseUrl.isEmpty) return null;
+    return AiInsightService.baseUrlError(baseUrl);
+  }
 
   AiConfiguration get _configuration => AiConfiguration(
     baseUrl: _baseUrl.text.trim(),
@@ -139,6 +146,16 @@ class _AiModelConfigSheetState extends State<AiModelConfigSheet> {
               hint: 'https://api.example.com/v1',
               keyboardType: TextInputType.url,
             ),
+            if (_baseUrlError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _baseUrlError!,
+                style: TextStyle(
+                  color: context.colorScheme.error,
+                  fontSize: 12,
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             _field(
               controller: _apiKey,
